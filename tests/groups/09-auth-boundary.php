@@ -36,15 +36,15 @@ check('有效 admin 令牌可访问受保护接口，users.me 回显身份', fun
 
 check('公网来源的写接口被 40302 拒绝；显式开启后放行', function (): void {
     $k = adminKernel();
-    $public = new Request('POST', '/api/v1/comments', [], adminHeaders(), [], '{"post_slug":"x","body":"hi"}', '203.0.113.9');
+    $public = new Request('POST', '/api/v1/comments', [], adminHeaders(), [], '{"post_slug":"first-post","body":"hi"}', '203.0.113.9');
     $r = $k->handle($public);
     truthy((json_decode($r->body(), true)['code'] ?? null) === 40302, '公网写接口未拒绝');
 
     $open = adminKernel(['api' => ['expose_write' => true]]);
-    $r2 = $open->handle(new Request('POST', '/api/v1/comments', [], [], [], '{"post_slug":"x","body":"hi"}', '203.0.113.9'));
+    $r2 = $open->handle(new Request('POST', '/api/v1/comments', [], [], [], '{"post_slug":"first-post","body":"hi"}', '203.0.113.9'));
     truthy((json_decode($r2->body(), true)['code'] ?? null) === 0, '显式开启后应放行匿名写');
     $db = $open->container()->resolve(DatabaseInterface::class);
-    $db->exec('DELETE FROM ' . $db->prefix() . 'comments WHERE post_slug = :s', [':s' => 'x']);
+    $db->exec('DELETE FROM ' . $db->prefix() . "comments WHERE post_slug = :s AND body = 'hi'", [':s' => 'first-post']);
 });
 
 check('CSP 由配置注入，默认关闭不影响内联样式主题', function (): void {

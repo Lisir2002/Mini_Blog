@@ -1,4 +1,4 @@
-# Mini Blog 架构设计（v0.12）
+# Mini Blog 架构设计（v0.13）
 
 > 第一性原理：**高度自定义，万象皆接口**
 > 技术栈：**纯原生** PHP 8.1+ / MySQL 8.0+（PDO，实测 MariaDB 10.11）/ 原生 HTML + CSS + JavaScript
@@ -86,6 +86,7 @@ flowchart TB
     subgraph L1["L1 · 能力型系统层（只提供契约与操作）"]
         LOG["日志"]; USR["用户"]; SEC["安全"]; CMT["评论"]; DB["数据库"]
         CNT["内容（第 11 层）"]; API["API 接口"]; ST["状态（第 15 层）"]
+        ATT["附件（第 16 层）"]; EMJ["表情（第 17 层）"]
     end
     subgraph LM["LM · 元层（管理其余所有单元的生命周期）"]
         LC["装卸系统<br/>install / activate / upgrade / rollback / uninstall / verify / 验签"]
@@ -96,6 +97,7 @@ flowchart TB
     T --> TS; P --> PS; G --> GS
     TS --> K; PS --> K; GS --> K
     LOG --> K; USR --> K; SEC --> K; CMT --> K; DB --> K; CNT --> K; API --> K; ST --> K
+    ATT --> K; EMJ --> K
     LC -->|LifecycleManagerInterface| K
     LC -.->|"package.enabled 裁决装载权"| L2
     LC -.->|"登记 operation"| API
@@ -147,7 +149,7 @@ flowchart TB
 
 | 契约 | 默认实现 | 谁可覆盖 |
 | --- | --- | --- |
-| `SystemInterface` | 15 个系统层 | 未来任意新系统层 |
+| `SystemInterface` | 17 个系统层 | 未来任意新系统层 |
 | `PackageInterface` | 主题 / 插件 / 独立页包 | 任意包 |
 | `RendererInterface` | **仅主题包**（核心无实现） | 高 priority 主题 / 插件 |
 | `LoggerInterface` | 日志系统 → `FileLogger` | 任意系统层 / 插件 |
@@ -322,7 +324,7 @@ return [
 
 ### 10.1 清单是唯一事实源
 
-`api/registry.json` 定义 **56 个接口**：`API-CORE-001~004`、`API-LOG-001`、`API-LC-001~009`、`API-AUTH-001~004`、`API-USER-001`、`API-CONTENT-001~005`、`API-COMMENT-001~002`、`API-PERM-001~014`、`API-MEMBER-001~010`、`API-REL-001~005`、`API-STATE-001`。每条必须声明 `id / name / system / method / path / operation / auth / idempotent / side_effects / since / summary / scenario / params / response_fields / errors / example_request / example_response / notes / changelog / doc`。
+`api/registry.json` 定义 **67 个接口**：`API-CORE-001~004`、`API-LOG-001`、`API-LC-001~009`、`API-AUTH-001~004`、`API-USER-001`、`API-CONTENT-001~005`、`API-COMMENT-001~005`、`API-ATTACH-001~005`、`API-EMOJI-001~003`、`API-PERM-001~014`、`API-MEMBER-001~010`、`API-REL-001~005`、`API-STATE-001`。每条必须声明 `id / name / system / method / path / operation / auth / idempotent / side_effects / since / summary / scenario / params / response_fields / errors / example_request / example_response / notes / changelog / doc`。
 
 `ApiRegistry` 构造时强校验：ID 唯一、`method+path` 唯一、`operation` 唯一；`registerOperation` 拒绝重复执行者。
 
@@ -369,7 +371,7 @@ return [
 | --- | --- |
 | 1:1 | 清单每条接口 → 且仅 → 一份 `docs/api/<ID>.md`；任何 `API-*.md` 必须能对应清单条目 |
 | 8 节固定 | 接口标识 / 功能与适用场景 / 请求规范 / 响应规范 / 错误码 / 调用示例 / 幂等性与副作用 / 变更记录 |
-| 生成 | `php tools/gen-api-docs.php` 依据清单 + `docs/api/_TEMPLATE.md` 生成 55 份文档与索引 |
+| 生成 | `php tools/gen-api-docs.php` 依据清单 + `docs/api/_TEMPLATE.md` 生成 67 份文档与索引 |
 | 禁止手改 | 先改清单 → 重新生成 → 跑守卫测试；直接手写文档视为破坏单一事实源 |
 | 守卫 | `tests/run.php` 第 6、10 组逐条检查 1:1、章节、编号与路径一致、无孤儿、无重复、OpenAPI 与清单一致 |
 
@@ -415,7 +417,7 @@ return [
 │   ├── Kernel.php              生命周期 + renderStage + render.should_render
 │   ├── Container.php / HookBus.php / SystemRegistry.php / PackageLoader.php
 │   ├── Router.php / Config.php / AbstractSystem.php / bootstrap.php
-├── systems/                    15 个系统层，每目录 = 一个系统层 + system.json + permissions.json（可选）
+├── systems/                    17 个系统层，每目录 = 一个系统层 + system.json + permissions.json（可选）
 │   ├── Log/ User/ Security/ Comment/ Database/ Content/   （能力型）
 │   │   └── migrations/*.sql + lifecycle.php               （自己的表与清理钩子）
 │   ├── Theme/ Plugin/ Page/                              （承载型）
@@ -427,7 +429,7 @@ return [
 ├── plugins/Hello/                          插件包（只通过钩子改数据）
 ├── pages/Home/ Links/ Console/ Toolbox/ Install/   独立页包（后三者 standalone；Install 拆为 InstallPage / Installer / InstallerAccount / InstallerMigrate / InstallState / InstallProbe）
 ├── api/registry.json           接口清单（唯一事实源，55 条）
-├── docs/api/                   SPEC.md + 55 份 API-*.md + openapi.json + 模板 + 索引
+├── docs/api/                   SPEC.md + 67 份 API-*.md + openapi.json + 模板 + 索引
 ├── docs/CONVENTIONS.md         工程规矩 A–P
 ├── docs/responsibility-report.json   职责与协作审计报告（每次测试自动刷新）
 ├── docs/DEVELOPMENT.md         本机环境、SSH 接入与浏览器配置
@@ -547,23 +549,24 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | **v0.9** | **规矩 M 主体可扩展 + 凭据单一来源：用户组（角色来源扩展）、页面会话（HttpOnly Cookie，与 API 令牌同表同撤销）、可换权限缓存后端（file + epoch 跨请求共享）、字段级写校验（`content.update` 逐字段裁决）、契约覆盖默认安全（`require_grant=true` + 系统层自动登记）；新增 6 个接口 / 5 组守卫，`core/` 未新增文件** |
 | **v0.10** | **规矩 N 身份与授权解耦：第 13 系统层 `member`（站长自定义头衔 / 经验规则 / 等级门槛）、经验流水幂等 + 每日上限 + 事务、等级按门槛重解释且只升不降、头衔手动与等级自动两源且**零权限**；用户组补颜色 / 排序展示属性；`content.created` / `comment.created` / `user.lookup` / `user.profile.enrich` 四个装配点；新增 10 个接口 / 5 组 21 项守卫，`core/` 未新增文件** |
 | **v0.11** | **规矩 P 安装与版本可逆：标准化五步安装向导（`config/local.php` 覆盖层 + 一次性令牌 + `install.lock`）；第 14 系统层 `release`（迁移台账 + checksum 校验 + 安装基线 + 健康门禁 + 版本历史）；不重装升级与按版本快照回退（`keep_releases`）；新增 6 个接口 / 4 个守卫文件 11 项断言，`core/` 未新增文件** |
-| **v0.12（当前）** | **第 15 系统层 `state`：五态反馈（进行 / 完成 / 错误 / 等待 / 交互）、`held_by` 区分「等系统」与「等人」、文案键 + 主题覆写、长任务 `wx_state_tasks` 乐观锁与终态不可逆、`kernel.exception` 异常边界；新增 1 个接口 / 2 个守卫文件 19 项断言，`core/` 未新增文件** |
+| v0.12 | 第 15 系统层 `state`：五态反馈（进行 / 完成 / 错误 / 等待 / 交互）、`held_by` 区分「等系统」与「等人」、文案键 + 主题覆写、长任务 `wx_state_tasks` 乐观锁与终态不可逆、`kernel.exception` 异常边界；新增 1 个接口 / 2 个守卫文件 19 项断言，`core/` 未新增文件 |
+| **v0.13（当前）** | **第 16 / 17 系统层 `attachment` 与 `emoji`，并把 `comment` 从「两张表两个接口」补成评论树：邻接表 + 物化路径、深度上限、tombstone 软删、审核状态机、own/any 删除授权；附件元数据与字节分离、SHA-256 内容寻址、四道类型校验、二进制通道复用 RequestGuard、下载强制授权；表情只产出 token、图片只引用本站附件、删除不改写历史；新增 11 个接口 / 3 个守卫文件 26 项断言、1 个独立页 `pages/Post`、1 个主题布局 `post`，`core/` 未新增文件** |
 | v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略 |
 
 ---
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **215 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 / v0.10 / v0.11 未新增核心文件；v0.12 只在 `core/Kernel.php` 补上异常边界、在 `Response::send()` 加 CLI 保护，文件数不变。
-- `php tests/run.php` → **200 passed, 0 failed**（40 个守卫文件；v0.12 新增 `19a-state-model` 与 `19b-state-runtime`）。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；215 个文件共 13,283 有效代码行，最大单文件 187 行，56 个 operation 全部绑定执行者。
-- **15 个系统层**自动装配：`log → database → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → comment → page`；**13 个契约接口文件**（容器运行时绑定 13 个，含状态层 3 个内部契约）、**56 个接口 / 56 份文档**、OpenAPI 3.1（50 路径 / 56 操作）、**23 个承载单元**（15 系统层 + 2 主题 + 5 独立页 + 1 插件）、**31 个权限点**。
-- 真实 MariaDB 上建立 **22 张**系统层自建表（含 `schema_migrations` 与 `state_tasks`），验证文章 / 评论写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进；拔掉 DSN 后自动回退且首页仍有数据。
-- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=15, contracts=13, api_operations=56, core_version=0.12.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
+- `php -l` 全量 **245 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址，文件数不变。
+- `php tests/run.php` → **226 passed, 0 failed**（43 个守卫文件；v0.13 新增 `20a-comment-tree`、`20b-attachment`、`20c-emoji`）。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；245 个文件共 15,390 有效代码行，最大单文件 187 行，67 个 operation 全部绑定执行者。
+- **17 个系统层**自动装配：`log → database → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → page`；**13 个契约接口文件**（容器运行时绑定 18 个，含状态层 3 个、附件层 1 个、表情层 1 个内部契约）、**67 个接口 / 67 份文档**、OpenAPI 3.1（60 路径 / 67 操作）、**26 个承载单元**（17 系统层 + 2 主题 + 6 独立页 + 1 插件）、**44 个权限点**。
+- 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`），验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
+- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=18, api_operations=67, core_version=0.13.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
 - 装卸全链路与签名验签实测：安装 → 启用 → 升级（留备份）→ 回滚 → 停用 → 完整性校验 → 卸载；重复安装、版本未递增、反向依赖、路径穿越、源包越界、篡改签名、强制缺签名均被正确拒绝。
 - 所有验证均为**可重跑的文本证据**，未使用截图（规矩 A）。
 
-> 本仓库仍是**可运行的内核原型**，不是成品 CMS：控制台为只读 + 令牌查询原型，匿名评论尚需验证码与审核，演示凭据与明文配置仅用于本地原型。这些边界在第 17 节与 README 中明确标注，不假装完成。
+> 本仓库仍是**可运行的内核原型**，不是成品 CMS：控制台为只读 + 令牌查询原型，匿名评论已有审核状态机但仍需验证码与速率型风控，演示凭据与明文配置仅用于本地原型。这些边界在第 17 节与 README 中明确标注，不假装完成。
 
 ---
 
@@ -927,7 +930,7 @@ Bearer、`X-Api-Token`、`Cookie: wx_token=` 三种载体只是**取令牌的方
 
 - 新增 `PagePolicy` / `PageAccessGuard` / `ContractOverrideLedger` / `ContractOverrideOperations` 4 个单一职责协作者、`deny` 布局 2 个主题文件、1 份增量 migration、3 个页面权限点、2 个接口 + 2 份操作文档。
 - `14a`（6 项）/ `14b`（6 项）/ `14c`（8 项）/ `14d`（3 项）共 **23 项守卫**，覆盖存在性、一致性、运行时贯通、故障注入（撤销许可、未授权覆盖、拔 DSN、无效令牌、非本机来源）。
-- 职责审计 0 违规 / 0 孤儿协作；49 个 operation 全绑定执行者；`php tests/run.php` → **170 passed, 0 failed**（34 组）。
+- 职责审计 0 违规 / 0 孤儿协作；67 个 operation 全绑定执行者；`php tests/run.php` → **226 passed, 0 failed**（43 组）。
 
 过程中修掉一个真实缺陷：台账 upsert 里 `:now` 占位符出现两次，MySQL 原生 prepare 报 `HY093 Invalid parameter number`；拆成 `:created` / `:updated` 后修复。另有一次审计器把测试文件里的 `'Authorization'` / `'<html'` 字面量误判为职权域，按规矩 H **不放宽预算而是拆分**成 `14d`，而非给审计器开例外。
 
@@ -1315,6 +1318,30 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 ### 28.6 验证
 
 `19a-state-model` 覆盖五态组合、业务码约束、动作白名单、进度边界、不可变、文案覆写、异常 / 信封翻译；`19b-state-runtime` 覆盖长任务创建 / 推进 / 终态拒绝、CAS 冲突、TTL、安装页真实状态、无主题降级、主题片段可访问性、异常出口、停用降级与只读接口。`11` 组把 `kernel.exception` 纳入裁决型事件，缺消费者即报孤儿。
+
+---
+
+## 29. 内容互动三件套（v0.13）
+
+评论、附件、表情不是三个功能页，而是三组**生命周期不同**的数据，因此各立一层：
+
+| 系统层 | 拥有 | 生命周期 | 关键决策 |
+| --- | --- | --- | --- |
+| `comment`（v0.13 由平坦表重建） | 评论关系、审核状态、可见性 | 随文章 | 邻接表 + 物化路径；深度上限拒绝而非改挂；tombstone 软删保链；状态机白名单 |
+| `attachment`（第 16 层） | 元数据 + 字节 | 跨文章 / 跨系统 | 元数据入库、字节按 SHA-256 内容寻址；四道类型校验；二进制通道复用 RequestGuard |
+| `emoji`（第 17 层） | 短码 → 字形 / 图片 | 跨内容 | 只产出 token 不产出 HTML；自定义只引用本站附件；存原文、渲染时解析 |
+
+三条设计取舍值得单独记住：
+
+1. **树序由父子关系决定，不由 path 字符串决定**。路径段位数不等时字典序会错位，所以 `path` 只用于取子树与深度约束，同层排序恒按 `id`。
+2. **文件名不进入存储路径**。路径完全由哈希生成，路径穿越、双扩展名、同名覆盖、目录执行四类问题一并消失；展示名仍净化，但方式是取最后一段而非删斜杠。
+3. **表情是注解不是替代**。正文存原文，渲染时解析；删表情不会改写历史，未知短码保持字面量。
+
+三者通过契约协作，不互相认识实现：评论用 `ContentRepositoryInterface` 校验文章存在，表情用 `AttachmentRepositoryInterface` 校验图片，文章与评论都通过 `emoji.parse` 拿到同一套 token。
+
+`pages/Post` 是第一个同时消费三者的承载包：正文 + 评论树 + 评论表单，走「表单 → 同页 POST → 303」的 PRG 路径，无 JavaScript 也能完成评论与回复。主题侧只新增 `post` 布局与一个共享的 `comment.css`。
+
+细节与安全边界见 [`docs/CONTENT.md`](CONTENT.md)。
 
 ---
 

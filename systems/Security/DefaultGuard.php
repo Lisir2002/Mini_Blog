@@ -60,6 +60,9 @@ final class DefaultGuard implements SecurityGuardInterface
         if ($id === false) return false;
         $this->db->pdo()->prepare('UPDATE ' . $this->table() . ' SET used = 1 WHERE id = :id')
                  ->execute([':id' => (int) $id]);
+        // 一次性语义：校验通过即作废当前缓存，同一请求内再次 token() 会签发新令牌。
+        // 否则「提交失败后重新渲染表单」会把已用过的令牌再发一次，用户重试必然失败。
+        $this->token = null;
         return true;
     }
 

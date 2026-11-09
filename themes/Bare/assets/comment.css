@@ -1,0 +1,35 @@
+/* 评论树与表情 —— 跨布局共享。结构用嵌套列表，深度只影响左内边距，不重排 DOM。 */
+.wx-comments { margin: 2.4rem 0 0; }
+.wx-comments h2 { font-size: 1.1rem; letter-spacing: .02em; }
+.wx-comments__empty { color: #6b7280; }
+.wx-comments__list, .wx-comment__children { list-style: none; margin: 0; padding: 0; }
+.wx-comment__children { margin-left: 1.5rem; padding-left: .9rem; border-left: 2px solid #e5e7eb; }
+.wx-comment { padding: .85rem 0; border-bottom: 1px solid #f1f5f9; }
+.wx-comment:last-child { border-bottom: 0; }
+.wx-comment__head { display: flex; gap: .6rem; align-items: baseline; }
+.wx-comment__author { font-size: .95rem; }
+.wx-comment__time { font-size: .78rem; color: #9ca3af; }
+.wx-comment__body { margin: .4rem 0 .5rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+.wx-comment__body--deleted { color: #9ca3af; font-style: italic; }
+.wx-comment__actions { font-size: .85rem; }
+.wx-comment__reply summary { cursor: pointer; color: #1f6f54; }
+.wx-comment.is-deleted .wx-comment__author { color: #9ca3af; }
+
+.wx-emoji { font-style: normal; font-size: 1.05em; }
+.wx-emoji--img { display: inline-block; vertical-align: -.18em; margin: 0 .1em; }
+
+.wx-comments__compose { margin-top: 1.6rem; padding: 1rem 1.1rem; background: #f8faf9; border: 1px solid #e5e7eb; border-radius: 10px; }
+.wx-comments__compose summary { cursor: pointer; font-weight: 600; }
+.wx-form { display: grid; gap: .7rem; margin-top: .8rem; }
+.wx-form label { display: grid; gap: .3rem; font-size: .86rem; color: #374151; }
+.wx-form input, .wx-form textarea {
+  font: inherit; padding: .5rem .6rem; border: 1px solid #d1d5db; border-radius: 8px; background: #fff;
+}
+.wx-form textarea { resize: vertical; }
+.wx-form button {
+  justify-self: start; font: inherit; padding: .5rem 1.1rem; border: 0; border-radius: 8px;
+  background: #1f6f54; color: #fff; cursor: pointer;
+}
+.wx-form button:hover { background: #185843; }
+.wx-form__hint { margin: 0; font-size: .78rem; color: #6b7280; }
+.wx-form__hint code { background: #eef2f0; padding: .05rem .3rem; border-radius: 4px; }

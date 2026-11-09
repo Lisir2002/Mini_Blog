@@ -12,7 +12,7 @@ use Wx\Core\Kernel;
  */
 final class BareTheme implements PackageInterface
 {
-    private const LAYOUTS = ['site', 'admin', 'tool', 'install', 'deny'];
+    private const LAYOUTS = ['site', 'post', 'admin', 'tool', 'install', 'deny'];
 
     public function slug(): string { return 'bare'; }
 

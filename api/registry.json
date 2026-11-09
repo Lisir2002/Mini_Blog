@@ -99,7 +99,7 @@
             "idempotent": true,
             "side_effects": "none",
             "since": "0.4.0",
-            "summary": "按文章 slug 返回评论列表（过滤垃圾评论），数据来自 CommentStoreInterface 的 MySQL 或内存实现。",
+            "summary": "按文章 slug 返回评论树：扁平列表 + 嵌套结构 + 公开条数，按身份过滤不可见项。",
             "scenario": "文章详情页渲染评论区；Headless 客户端拉取评论。",
             "params": [
                 {
@@ -114,17 +114,22 @@
                 {
                     "name": "post_slug",
                     "type": "string",
-                    "desc": "所查文章 slug"
-                },
-                {
-                    "name": "items",
-                    "type": "object[]",
-                    "desc": "评论：id / post_slug / author / body / status / created_at"
+                    "desc": "文章 slug"
                 },
                 {
                     "name": "total",
                     "type": "int",
-                    "desc": "本次返回条数"
+                    "desc": "公开条数（不含待审 / 隐藏 / 垃圾）"
+                },
+                {
+                    "name": "items",
+                    "type": "array",
+                    "desc": "扁平评论数组，按 id 升序"
+                },
+                {
+                    "name": "tree",
+                    "type": "array",
+                    "desc": "嵌套评论树，每项含 children"
                 }
             ],
             "errors": [
@@ -148,7 +153,7 @@
                     "system": "comment"
                 }
             },
-            "notes": "评论区的 HTML / CSS / JS 全部由主题或独立页承载，系统层只返回结构化数据。",
+            "notes": "可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。",
             "changelog": [
                 "0.4.0 初次发布"
             ],
@@ -194,17 +199,27 @@
                 {
                     "name": "id",
                     "type": "int",
-                    "desc": "新评论 ID"
+                    "desc": "评论 id"
+                },
+                {
+                    "name": "parent_id",
+                    "type": "int",
+                    "desc": "父评论 id，根评论为 0"
+                },
+                {
+                    "name": "depth",
+                    "type": "int",
+                    "desc": "嵌套深度"
                 },
                 {
                     "name": "status",
                     "type": "string",
-                    "desc": "默认 pending（待审核）"
+                    "desc": "pending / published"
                 },
                 {
                     "name": "created",
                     "type": "bool",
-                    "desc": "固定为 true"
+                    "desc": "是否新建"
                 }
             ],
             "errors": [
@@ -638,13 +653,13 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.12.0",
+                    "core_version": "0.13.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
-                    "systems": 15,
-                    "contracts": 13,
-                    "api_operations": 56,
+                    "systems": 17,
+                    "contracts": 18,
+                    "api_operations": 67,
                     "database": "mysql",
                     "theme_active": null,
                     "headless": true
@@ -4478,6 +4493,865 @@
                 "0.12.0 初次发布"
             ],
             "doc": "docs/api/API-STATE-001.md"
+        },
+        {
+            "id": "API-COMMENT-003",
+            "name": "回复评论",
+            "system": "comment",
+            "method": "POST",
+            "path": "/api/v1/comments/reply",
+            "operation": "comments.reply",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.13.0",
+            "summary": "在指定评论下追加子回复：校验父评论与文章归属、限制嵌套深度，写入后返回深度与状态。",
+            "scenario": "读者在评论区点「回复」而不是另起一条；需要保证同一条讨论串不跨文章、嵌套不超过设定层数。",
+            "params": [
+                {
+                    "name": "post_slug",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "文章 slug，必须与父评论所属文章一致"
+                },
+                {
+                    "name": "parent_id",
+                    "in": "body",
+                    "required": true,
+                    "type": "int",
+                    "desc": "要回复的评论 id"
+                },
+                {
+                    "name": "body",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "回复正文，1–5000 字，最多 3 个链接"
+                },
+                {
+                    "name": "author",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "游客昵称；已登录时以身份为准"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "新评论 id"
+                },
+                {
+                    "name": "parent_id",
+                    "type": "int",
+                    "desc": "父评论 id"
+                },
+                {
+                    "name": "depth",
+                    "type": "int",
+                    "desc": "嵌套深度，根评论为 0"
+                },
+                {
+                    "name": "status",
+                    "type": "string",
+                    "desc": "pending / published"
+                },
+                {
+                    "name": "created",
+                    "type": "bool",
+                    "desc": "是否新建"
+                }
+            ],
+            "errors": [
+                40101,
+                40302,
+                40303,
+                40403,
+                42201
+            ],
+            "example_request": "POST /api/v1/comments/reply  {post_slug:first-post, parent_id:12, body:同意 :thumbsup:}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 13,
+                    "parent_id": 12,
+                    "depth": 1,
+                    "status": "published",
+                    "created": true
+                },
+                "request_id": "3f7c1d9a5b2e8046",
+                "meta": {
+                    "api": "API-COMMENT-003",
+                    "version": "v1",
+                    "system": "comment"
+                }
+            },
+            "notes": "父评论不存在返回 40403；父评论属于别的文章、已删除或超过 comment.max_depth 返回 42201。回复已删除评论被拒绝：占位节点不是有效对话对象。写入路径与 comments.add 完全共用。",
+            "changelog": [
+                "0.13.0 初次发布"
+            ],
+            "doc": "docs/api/API-COMMENT-003.md",
+            "public_write": true
+        },
+        {
+            "id": "API-COMMENT-004",
+            "name": "删除评论（软删）",
+            "system": "comment",
+            "method": "POST",
+            "path": "/api/v1/comments/delete",
+            "operation": "comments.delete",
+            "auth": "user",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.13.0",
+            "summary": "软删一条评论：清空正文与昵称、保留行与路径以维持回复链，重复删除幂等。",
+            "scenario": "作者撤回自己的评论，或版主清理攻击性内容；不能让「删了父评论导致整串回复消失」。",
+            "params": [
+                {
+                    "name": "id",
+                    "in": "body",
+                    "required": true,
+                    "type": "int",
+                    "desc": "评论 id"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "评论 id"
+                },
+                {
+                    "name": "deleted",
+                    "type": "bool",
+                    "desc": "本次是否真的删除了"
+                },
+                {
+                    "name": "already",
+                    "type": "bool",
+                    "desc": "是否此前已删除"
+                }
+            ],
+            "errors": [
+                40101,
+                40303,
+                40403,
+                42201
+            ],
+            "example_request": "POST /api/v1/comments/delete  {id:12}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 12,
+                    "deleted": true,
+                    "already": false
+                },
+                "request_id": "3f7c1d9a5b2e8046",
+                "meta": {
+                    "api": "API-COMMENT-004",
+                    "version": "v1",
+                    "system": "comment"
+                }
+            },
+            "notes": "授权顺序：先看 comment.delete.any，再看「本人 + comment.delete.own」。匿名评论没有主人，只能由前者删除。软删保留 path / parent_id / root_id，因此子回复仍能正常展示为「该评论已删除」下的对话。",
+            "changelog": [
+                "0.13.0 初次发布"
+            ],
+            "doc": "docs/api/API-COMMENT-004.md"
+        },
+        {
+            "id": "API-COMMENT-005",
+            "name": "审核评论",
+            "system": "comment",
+            "method": "POST",
+            "path": "/api/v1/comments/moderate",
+            "operation": "comments.moderate",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "write",
+            "since": "0.13.0",
+            "summary": "把评论迁移到 published / hidden / spam；迁移必须命中白名单，非法迁移返回 40901。",
+            "scenario": "站长在后台处理待审队列，或把误判的垃圾评论恢复；需要防止「已删除的评论被审核回来」。",
+            "params": [
+                {
+                    "name": "id",
+                    "in": "body",
+                    "required": true,
+                    "type": "int",
+                    "desc": "评论 id"
+                },
+                {
+                    "name": "status",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "目标状态：published / hidden / spam"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "评论 id"
+                },
+                {
+                    "name": "from",
+                    "type": "string",
+                    "desc": "迁移前状态"
+                },
+                {
+                    "name": "to",
+                    "type": "string",
+                    "desc": "迁移后状态"
+                }
+            ],
+            "errors": [
+                40101,
+                40301,
+                40303,
+                40403,
+                40901,
+                42201
+            ],
+            "example_request": "POST /api/v1/comments/moderate  {id:12, status:published}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 12,
+                    "from": "pending",
+                    "to": "published"
+                },
+                "request_id": "3f7c1d9a5b2e8046",
+                "meta": {
+                    "api": "API-COMMENT-005",
+                    "version": "v1",
+                    "system": "comment"
+                }
+            },
+            "notes": "deleted 是终态：既不能迁入也不能迁出。状态机白名单在 CommentPolicy 中集中声明，不接受「直接改库」之外的任何旁路。",
+            "changelog": [
+                "0.13.0 初次发布"
+            ],
+            "doc": "docs/api/API-COMMENT-005.md",
+            "permission": "comment.moderate"
+        },
+        {
+            "id": "API-ATTACH-001",
+            "name": "列出文章附件",
+            "system": "attachment",
+            "method": "GET",
+            "path": "/api/v1/attachments",
+            "operation": "attachments.list",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.13.0",
+            "summary": "按文章 slug 列出未删除的附件元数据；私有附件只对上传者与管理员可见。",
+            "scenario": "文章编辑页展示已上传的附件列表，读者页展示可下载的资料；需要过滤掉别人上传的私有文件。",
+            "params": [
+                {
+                    "name": "post_slug",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "文章 slug"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "post_slug",
+                    "type": "string",
+                    "desc": "文章 slug"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "可见附件数"
+                },
+                {
+                    "name": "items",
+                    "type": "array",
+                    "desc": "附件数组：id/name/mime/ext/bytes/sha256/visibility/url"
+                }
+            ],
+            "errors": [
+                42201
+            ],
+            "example_request": "GET /api/v1/attachments?post_slug=first-post",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "post_slug": "first-post",
+                    "total": 1,
+                    "items": [
+                        {
+                            "id": 3,
+                            "name": "cover.png",
+                            "mime": "image/png",
+                            "ext": "png",
+                            "bytes": 20480,
+                            "sha256": "9f2c…",
+                            "visibility": "public",
+                            "post_slug": "first-post",
+                            "created_at": "2026-11-09 18:30:00",
+                            "url": "/attach/download?id=3"
+                        }
+                    ]
+                },
+                "request_id": "3f7c1d9a5b2e8046",
+                "meta": {
+                    "api": "API-ATTACH-001",
+                    "version": "v1",
+                    "system": "attachment"
+                }
+            },
+            "notes": "只返回元数据，不返回字节；url 指向二进制通道，下载时仍会二次鉴权。",
+            "changelog": [
+                "0.13.0 初次发布"
+            ],
+            "doc": "docs/api/API-ATTACH-001.md"
+        },
+        {
+            "id": "API-ATTACH-002",
+            "name": "修改附件元数据",
+            "system": "attachment",
+            "method": "POST",
+            "path": "/api/v1/attachments/update",
+            "operation": "attachments.update",
+            "auth": "user",
+            "idempotent": false,
+            "side_effects": "write",
+            "since": "0.13.0",
+            "summary": "改展示名、可见性或挂载文章；三个字段都可选，至少给一个。",
+            "scenario": "上传后重命名、把公开附件改为私有、或把附件从草稿挂到正式文章上。",
+            "params": [
+                {
+                    "name": "id",
+                    "in": "body",
+                    "required": true,
+                    "type": "int",
+                    "desc": "附件 id"
+                },
+                {
+                    "name": "name",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "新的展示名，最长 120 字"
+                },
+                {
+                    "name": "visibility",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "public / private"
+                },
+                {
+                    "name": "post_slug",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "改挂到的文章 slug"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "附件 id"
+                },
+                {
+                    "name": "updated",
+                    "type": "array",
+                    "desc": "实际更新的字段名"
+                }
+            ],
+            "errors": [
+                40101,
+                40303,
+                40403,
+                42201
+            ],
+            "example_request": "POST /api/v1/attachments/update  {id:3, visibility:private}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 3,
+                    "updated": [
+                        "visibility"
+                    ]
+                },
+                "request_id": "3f7c1d9a5b2e8046",
+                "meta": {
+                    "api": "API-ATTACH-002",
+                    "version": "v1",
+                    "system": "attachment"
+                }
+            },
+            "notes": "只改元数据，不动字节与存储路径；因此改可见性不会产生副本，也不会让旧链接失效。",
+            "changelog": [
+                "0.13.0 初次发布"
+            ],
+            "doc": "docs/api/API-ATTACH-002.md"
+        },
+        {
+            "id": "API-ATTACH-003",
+            "name": "删除附件",
+            "system": "attachment",
+            "method": "POST",
+            "path": "/api/v1/attachments/delete",
+            "operation": "attachments.delete",
+            "auth": "user",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.13.0",
+            "summary": "软删附件元数据；字节按引用计数延迟回收，不在此处直接删除。",
+            "scenario": "文章改版后清理不再使用的附件；需要避免「删了这条记录，别的文章引用的同一文件也没了」。",
+            "params": [
+                {
+                    "name": "id",
+                    "in": "body",
+                    "required": true,
+                    "type": "int",
+                    "desc": "附件 id"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "附件 id"
+                },
+                {
+                    "name": "deleted",
+                    "type": "bool",
+                    "desc": "本次是否真的删除了"
+                },
+                {
+                    "name": "already",
+                    "type": "bool",
+                    "desc": "是否此前已删除"
+                }
+            ],
+            "errors": [
+                40101,
+                40303,
+                40403,
+                42201
+            ],
+            "example_request": "POST /api/v1/attachments/delete  {id:3}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 3,
+                    "deleted": true,
+                    "already": false
+                },
+                "request_id": "3f7c1d9a5b2e8046",
+                "meta": {
+                    "api": "API-ATTACH-003",
+                    "version": "v1",
+                    "system": "attachment"
+                }
+            },
+            "notes": "授权顺序：attachment.manage，或「上传者本人 + attachment.delete.own」。字节回收由 referenced(sha256)=0 的独立流程决定，不在请求内做文件系统删除。",
+            "changelog": [
+                "0.13.0 初次发布"
+            ],
+            "doc": "docs/api/API-ATTACH-003.md"
+        },
+        {
+            "id": "API-ATTACH-004",
+            "name": "上传附件（二进制）",
+            "system": "attachment",
+            "method": "POST",
+            "path": "/attach/upload",
+            "operation": "attachments.upload",
+            "auth": "user",
+            "idempotent": false,
+            "side_effects": "write",
+            "since": "0.13.0",
+            "summary": "请求体即文件字节：按扩展名白名单 + 魔数 + 大小校验后，以 SHA-256 内容寻址落盘，返回元数据。",
+            "scenario": "文章编辑器直接拖拽上传图片或 PDF；自动化脚本用 curl --data-binary 推送构建产物。",
+            "params": [
+                {
+                    "name": "name",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "原始文件名，决定扩展名与展示名"
+                },
+                {
+                    "name": "post_slug",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "挂载的文章 slug，可后补"
+                },
+                {
+                    "name": "visibility",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "public（默认）/ private"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "附件 id"
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "desc": "净化后的展示名"
+                },
+                {
+                    "name": "mime",
+                    "type": "string",
+                    "desc": "服务端推导的 MIME"
+                },
+                {
+                    "name": "bytes",
+                    "type": "int",
+                    "desc": "字节数"
+                },
+                {
+                    "name": "sha256",
+                    "type": "string",
+                    "desc": "内容哈希，也是存储路径"
+                },
+                {
+                    "name": "url",
+                    "type": "string",
+                    "desc": "下载地址"
+                }
+            ],
+            "errors": [
+                40101,
+                40301,
+                40303,
+                40302,
+                42201
+            ],
+            "example_request": "curl -X POST -H 'Authorization: Bearer <token>' --data-binary @cover.png 'http://127.0.0.1:8080/attach/upload?name=cover.png&post_slug=first-post'",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 3,
+                    "name": "cover.png",
+                    "mime": "image/png",
+                    "bytes": 20480,
+                    "sha256": "9f2c0f...",
+                    "url": "/attach/download?id=3"
+                },
+                "request_id": "3f7c1d9a5b2e8046",
+                "meta": {
+                    "api": "API-ATTACH-004",
+                    "version": "v1",
+                    "system": "attachment"
+                }
+            },
+            "notes": "这是唯一接收原始字节的写接口，不经 JSON 信封。客户端 Content-Type 只作提示，类型由扩展名白名单与文件头共同推导；SVG / HTML / JS / PHP 一律拒绝。同名不同内容不会覆盖：路径由哈希决定。",
+            "changelog": [
+                "0.13.0 初次发布"
+            ],
+            "doc": "docs/api/API-ATTACH-004.md",
+            "permission": "attachment.upload",
+            "binary": true
+        },
+        {
+            "id": "API-ATTACH-005",
+            "name": "下载附件（二进制）",
+            "system": "attachment",
+            "method": "GET",
+            "path": "/attach/download",
+            "operation": "attachments.download",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.13.0",
+            "summary": "按 id 返回文件字节；私有附件必须携带有效身份，响应强制 nosniff 与 attachment 处置。",
+            "scenario": "读者下载文章附件、页面内联展示图片；私有资料只对上传者与管理员开放。",
+            "params": [
+                {
+                    "name": "id",
+                    "in": "query",
+                    "required": true,
+                    "type": "int",
+                    "desc": "附件 id"
+                },
+                {
+                    "name": "disposition",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "attachment（默认）/ inline，仅图片允许 inline"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "bytes",
+                    "type": "binary",
+                    "desc": "文件字节流，长度由 Content-Length 给出"
+                }
+            ],
+            "errors": [
+                40101,
+                40303,
+                40403,
+                42201,
+                50001
+            ],
+            "example_request": "GET /attach/download?id=3",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "_binary": "PNG 字节流",
+                    "_headers": {
+                        "Content-Type": "image/png",
+                        "X-Content-Type-Options": "nosniff",
+                        "Content-Disposition": "attachment; filename=\"cover.png\""
+                    }
+                },
+                "request_id": "3f7c1d9a5b2e8046",
+                "meta": {
+                    "api": "API-ATTACH-005",
+                    "version": "v1",
+                    "system": "attachment"
+                }
+            },
+            "notes": "每次下载都过授权：不可猜的 id 不是访问控制。Content-Type 只从白名单取，绝不回显客户端声明；Content-Security-Policy: default-src 'none'; sandbox 保证即使内容被调包也无法在本域执行。",
+            "changelog": [
+                "0.13.0 初次发布"
+            ],
+            "doc": "docs/api/API-ATTACH-005.md",
+            "binary": true
+        },
+        {
+            "id": "API-EMOJI-001",
+            "name": "列出表情目录",
+            "system": "emoji",
+            "method": "GET",
+            "path": "/api/v1/emojis",
+            "operation": "emojis.list",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.13.0",
+            "summary": "返回内置 Unicode / 颜文字与自定义图片表情；可按 kind 过滤。",
+            "scenario": "评论区表情选择器、文章编辑器的插入面板；需要一次拿到全部可用短码。",
+            "params": [
+                {
+                    "name": "kind",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "unicode / kaomoji / image，留空返回全部"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "条目数"
+                },
+                {
+                    "name": "items",
+                    "type": "array",
+                    "desc": "code/kind/value/attachment_id/custom/url"
+                }
+            ],
+            "errors": [
+                42201
+            ],
+            "example_request": "GET /api/v1/emojis?kind=kaomoji",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "total": 1,
+                    "items": [
+                        {
+                            "code": "shrug",
+                            "kind": "kaomoji",
+                            "value": "¯\\_(ツ)_/¯",
+                            "attachment_id": 0,
+                            "custom": false,
+                            "url": ""
+                        }
+                    ]
+                },
+                "request_id": "3f7c1d9a5b2e8046",
+                "meta": {
+                    "api": "API-EMOJI-001",
+                    "version": "v1",
+                    "system": "emoji"
+                }
+            },
+            "notes": "内置条目 custom=false 且不可删除；图片表情的 url 指向本站附件通道，不返回任何外链。",
+            "changelog": [
+                "0.13.0 初次发布"
+            ],
+            "doc": "docs/api/API-EMOJI-001.md"
+        },
+        {
+            "id": "API-EMOJI-002",
+            "name": "登记自定义表情",
+            "system": "emoji",
+            "method": "POST",
+            "path": "/api/v1/emojis",
+            "operation": "emojis.register",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "write",
+            "since": "0.13.0",
+            "summary": "把一张已上传的图片附件登记为 :短码: 表情；短码不可与内置冲突。",
+            "scenario": "站点维护自己的表情包（例如项目吉祥物），供评论与文章共用。",
+            "params": [
+                {
+                    "name": "code",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "2–32 位小写字母、数字、下划线、加号或短横线"
+                },
+                {
+                    "name": "attachment_id",
+                    "in": "body",
+                    "required": true,
+                    "type": "int",
+                    "desc": "必须是本站已上传的图片附件 id"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "code",
+                    "type": "string",
+                    "desc": "短码"
+                },
+                {
+                    "name": "kind",
+                    "type": "string",
+                    "desc": "固定为 image"
+                },
+                {
+                    "name": "attachment_id",
+                    "type": "int",
+                    "desc": "引用的附件 id"
+                },
+                {
+                    "name": "created",
+                    "type": "bool",
+                    "desc": "是否新建"
+                }
+            ],
+            "errors": [
+                40101,
+                40301,
+                40303,
+                40403,
+                40901,
+                42201
+            ],
+            "example_request": "POST /api/v1/emojis  {code:shipit, attachment_id:3}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "code": "shipit",
+                    "kind": "image",
+                    "attachment_id": 3,
+                    "created": true
+                },
+                "request_id": "3f7c1d9a5b2e8046",
+                "meta": {
+                    "api": "API-EMOJI-002",
+                    "version": "v1",
+                    "system": "emoji"
+                }
+            },
+            "notes": "只接受附件 id，不接受 URL：外链表情会让每次浏览都向第三方发请求，也能被随时替换。短码被内置或已登记时返回 40901；引用的附件必须是 image/*。",
+            "changelog": [
+                "0.13.0 初次发布"
+            ],
+            "doc": "docs/api/API-EMOJI-002.md",
+            "permission": "emoji.manage"
+        },
+        {
+            "id": "API-EMOJI-003",
+            "name": "删除自定义表情",
+            "system": "emoji",
+            "method": "POST",
+            "path": "/api/v1/emojis/delete",
+            "operation": "emojis.delete",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "write",
+            "since": "0.13.0",
+            "summary": "删除一个自定义短码；内置短码不可删除。历史正文中的该短码会退回字面量，不会被改写。",
+            "scenario": "清理过期表情包；需要保证旧评论不因表情删除而变成空白。",
+            "params": [
+                {
+                    "name": "code",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "要删除的自定义短码"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "code",
+                    "type": "string",
+                    "desc": "短码"
+                },
+                {
+                    "name": "deleted",
+                    "type": "bool",
+                    "desc": "是否删除"
+                }
+            ],
+            "errors": [
+                40101,
+                40301,
+                40303,
+                40403,
+                40901,
+                42201
+            ],
+            "example_request": "POST /api/v1/emojis/delete  {code:shipit}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "code": "shipit",
+                    "deleted": true
+                },
+                "request_id": "3f7c1d9a5b2e8046",
+                "meta": {
+                    "api": "API-EMOJI-003",
+                    "version": "v1",
+                    "system": "emoji"
+                }
+            },
+            "notes": "解析发生在渲染时、内容存的是原文，所以删除表情不会重写历史：读者看到 :shipit: 字面量。这是「存原文、渲染时解析」相对「入库即替换」的关键收益。",
+            "changelog": [
+                "0.13.0 初次发布"
+            ],
+            "doc": "docs/api/API-EMOJI-003.md",
+            "permission": "emoji.manage"
         }
     ]
 }

@@ -133,7 +133,7 @@
             "get": {
                 "operationId": "comments.list",
                 "summary": "查询文章评论",
-                "description": "按文章 slug 返回评论列表（过滤垃圾评论），数据来自 CommentStoreInterface 的 MySQL 或内存实现。\n\n适用场景：文章详情页渲染评论区；Headless 客户端拉取评论。",
+                "description": "按文章 slug 返回评论树：扁平列表 + 嵌套结构 + 公开条数，按身份过滤不可见项。\n\n适用场景：文章详情页渲染评论区；Headless 客户端拉取评论。",
                 "tags": [
                     "comment"
                 ],
@@ -4759,6 +4759,938 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/comments/reply": {
+            "post": {
+                "operationId": "comments.reply",
+                "summary": "回复评论",
+                "description": "在指定评论下追加子回复：校验父评论与文章归属、限制嵌套深度，写入后返回深度与状态。\n\n适用场景：读者在评论区点「回复」而不是另起一条；需要保证同一条讨论串不跨文章、嵌套不超过设定层数。",
+                "tags": [
+                    "comment"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "post_slug",
+                                    "parent_id",
+                                    "body"
+                                ],
+                                "properties": {
+                                    "post_slug": {
+                                        "type": "string",
+                                        "description": "文章 slug，必须与父评论所属文章一致"
+                                    },
+                                    "parent_id": {
+                                        "type": "integer",
+                                        "description": "要回复的评论 id"
+                                    },
+                                    "body": {
+                                        "type": "string",
+                                        "description": "回复正文，1–5000 字，最多 3 个链接"
+                                    },
+                                    "author": {
+                                        "type": "string",
+                                        "description": "游客昵称；已登录时以身份为准"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/comments/delete": {
+            "post": {
+                "operationId": "comments.delete",
+                "summary": "删除评论（软删）",
+                "description": "软删一条评论：清空正文与昵称、保留行与路径以维持回复链，重复删除幂等。\n\n适用场景：作者撤回自己的评论，或版主清理攻击性内容；不能让「删了父评论导致整串回复消失」。",
+                "tags": [
+                    "comment"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "id"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "description": "评论 id"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/comments/moderate": {
+            "post": {
+                "operationId": "comments.moderate",
+                "summary": "审核评论",
+                "description": "把评论迁移到 published / hidden / spam；迁移必须命中白名单，非法迁移返回 40901。\n\n适用场景：站长在后台处理待审队列，或把误判的垃圾评论恢复；需要防止「已删除的评论被审核回来」。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "comment"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "id",
+                                    "status"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "description": "评论 id"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "description": "目标状态：published / hidden / spam"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/attachments": {
+            "get": {
+                "operationId": "attachments.list",
+                "summary": "列出文章附件",
+                "description": "按文章 slug 列出未删除的附件元数据；私有附件只对上传者与管理员可见。\n\n适用场景：文章编辑页展示已上传的附件列表，读者页展示可下载的资料；需要过滤掉别人上传的私有文件。",
+                "tags": [
+                    "attachment"
+                ],
+                "parameters": [
+                    {
+                        "name": "post_slug",
+                        "in": "query",
+                        "required": true,
+                        "description": "文章 slug",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/attachments/update": {
+            "post": {
+                "operationId": "attachments.update",
+                "summary": "修改附件元数据",
+                "description": "改展示名、可见性或挂载文章；三个字段都可选，至少给一个。\n\n适用场景：上传后重命名、把公开附件改为私有、或把附件从草稿挂到正式文章上。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "attachment"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "id"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "description": "附件 id"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "description": "新的展示名，最长 120 字"
+                                    },
+                                    "visibility": {
+                                        "type": "string",
+                                        "description": "public / private"
+                                    },
+                                    "post_slug": {
+                                        "type": "string",
+                                        "description": "改挂到的文章 slug"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/attachments/delete": {
+            "post": {
+                "operationId": "attachments.delete",
+                "summary": "删除附件",
+                "description": "软删附件元数据；字节按引用计数延迟回收，不在此处直接删除。\n\n适用场景：文章改版后清理不再使用的附件；需要避免「删了这条记录，别的文章引用的同一文件也没了」。",
+                "tags": [
+                    "attachment"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "id"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "description": "附件 id"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/attach/upload": {
+            "post": {
+                "operationId": "attachments.upload",
+                "summary": "上传附件（二进制）",
+                "description": "请求体即文件字节：按扩展名白名单 + 魔数 + 大小校验后，以 SHA-256 内容寻址落盘，返回元数据。\n\n适用场景：文章编辑器直接拖拽上传图片或 PDF；自动化脚本用 curl --data-binary 推送构建产物。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "attachment"
+                ],
+                "parameters": [
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "required": true,
+                        "description": "原始文件名，决定扩展名与展示名",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "post_slug",
+                        "in": "query",
+                        "required": false,
+                        "description": "挂载的文章 slug，可后补",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "visibility",
+                        "in": "query",
+                        "required": false,
+                        "description": "public（默认）/ private",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "写接口未开放公网访问",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/attach/download": {
+            "get": {
+                "operationId": "attachments.download",
+                "summary": "下载附件（二进制）",
+                "description": "按 id 返回文件字节；私有附件必须携带有效身份，响应强制 nosniff 与 attachment 处置。\n\n适用场景：读者下载文章附件、页面内联展示图片；私有资料只对上传者与管理员开放。",
+                "tags": [
+                    "attachment"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "required": true,
+                        "description": "附件 id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "disposition",
+                        "in": "query",
+                        "required": false,
+                        "description": "attachment（默认）/ inline，仅图片允许 inline",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/emojis": {
+            "get": {
+                "operationId": "emojis.list",
+                "summary": "列出表情目录",
+                "description": "返回内置 Unicode / 颜文字与自定义图片表情；可按 kind 过滤。\n\n适用场景：评论区表情选择器、文章编辑器的插入面板；需要一次拿到全部可用短码。",
+                "tags": [
+                    "emoji"
+                ],
+                "parameters": [
+                    {
+                        "name": "kind",
+                        "in": "query",
+                        "required": false,
+                        "description": "unicode / kaomoji / image，留空返回全部",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "emojis.register",
+                "summary": "登记自定义表情",
+                "description": "把一张已上传的图片附件登记为 :短码: 表情；短码不可与内置冲突。\n\n适用场景：站点维护自己的表情包（例如项目吉祥物），供评论与文章共用。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "emoji"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "code",
+                                    "attachment_id"
+                                ],
+                                "properties": {
+                                    "code": {
+                                        "type": "string",
+                                        "description": "2–32 位小写字母、数字、下划线、加号或短横线"
+                                    },
+                                    "attachment_id": {
+                                        "type": "integer",
+                                        "description": "必须是本站已上传的图片附件 id"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/emojis/delete": {
+            "post": {
+                "operationId": "emojis.delete",
+                "summary": "删除自定义表情",
+                "description": "删除一个自定义短码；内置短码不可删除。历史正文中的该短码会退回字面量，不会被改写。\n\n适用场景：清理过期表情包；需要保证旧评论不因表情删除而变成空白。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "emoji"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "code"
+                                ],
+                                "properties": {
+                                    "code": {
+                                        "type": "string",
+                                        "description": "要删除的自定义短码"
+                                    }
                                 }
                             }
                         }

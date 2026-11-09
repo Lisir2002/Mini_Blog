@@ -11,7 +11,7 @@ echo "\n=== 10. 幂等键 / 429 限流 / OpenAPI 3.1 ===\n";
 check('Idempotency-Key 重放同一结果，且不重复写入', function (): void {
     resetStorage('idempotency');
     $k = kernel(null);
-    $slug = 'idem-' . bin2hex(random_bytes(4));
+    $slug = 'first-post';
     $raw = json_encode(['post_slug' => $slug, 'author' => 'g', 'body' => '幂等测试']);
     $r1 = $k->handle(new Request('POST', '/api/v1/comments', [], ['Idempotency-Key' => 'guard-idem-1'], [], (string) $raw));
     $r2 = $k->handle(new Request('POST', '/api/v1/comments', [], ['Idempotency-Key' => 'guard-idem-1'], [], (string) $raw));
@@ -21,14 +21,14 @@ check('Idempotency-Key 重放同一结果，且不重复写入', function (): vo
     truthy(($b1['data']['id'] ?? null) === ($b2['data']['id'] ?? null), '重放未返回首次结果');
     truthy(($r2->headers()['Idempotency-Replayed'] ?? null) === 'true', '缺少重放标记');
     $db = $k->container()->resolve(DatabaseInterface::class);
-    $db->exec('DELETE FROM ' . $db->prefix() . 'comments WHERE post_slug = :s', [':s' => $slug]);
+    $db->exec('DELETE FROM ' . $db->prefix() . "comments WHERE post_slug = :s AND body = '幂等测试'", [':s' => $slug]);
 });
 
 check('同键不同参数返回 40902；校验失败不写入缓存', function (): void {
     resetStorage('idempotency');
     $k = kernel(null);
-    $a = '{"post_slug":"a","body":"one"}';
-    $b = '{"post_slug":"b","body":"two"}';
+    $a = '{"post_slug":"first-post","body":"one"}';
+    $b = '{"post_slug":"first-post","body":"two"}';
     $r1 = $k->handle(new Request('POST', '/api/v1/comments', [], ['Idempotency-Key' => 'guard-idem-2'], [], $a));
     truthy((json_decode($r1->body(), true)['code'] ?? null) === 0, '首次写入失败');
     $r2 = $k->handle(new Request('POST', '/api/v1/comments', [], ['Idempotency-Key' => 'guard-idem-2'], [], $b));
@@ -40,7 +40,7 @@ check('同键不同参数返回 40902；校验失败不写入缓存', function (
     $good = $k3->handle(new Request('POST', '/api/v1/comments', [], ['Idempotency-Key' => 'guard-idem-3'], [], $a));
     truthy((json_decode($good->body(), true)['code'] ?? null) === 0, '校验失败不应污染幂等缓存');
     $db = $k3->container()->resolve(DatabaseInterface::class);
-    $db->exec('DELETE FROM ' . $db->prefix() . 'comments WHERE post_slug IN (:a,:b)', [':a' => 'a', ':b' => 'b']);
+    $db->exec('DELETE FROM ' . $db->prefix() . "comments WHERE post_slug = 'first-post' AND body IN ('one','two')");
 });
 
 check('429 限流：超阈值返回 42901 且带 Retry-After / X-RateLimit 头', function (): void {

@@ -71,6 +71,9 @@ final class ContentSystem extends AbstractSystem
             ]);
             // 文章权限是可编程裁决点：内容层不认识权限层，只把列表交给钩子过滤
             $result['items'] = (array) $kernel->hooks()->apply('content.visible', $result['items'], $in, $kernel);
+            foreach ($result['items'] as $index => $item) {
+                $result['items'][$index] = self::present($item, $kernel);
+            }
             return $result;
         });
 
@@ -83,7 +86,7 @@ final class ContentSystem extends AbstractSystem
             if ($visible === []) {
                 throw new ApiOperationException('无权访问该文章', 40301);
             }
-            return $post;
+            return self::present((array) ($visible[0] ?? $post), $kernel);
         });
 
         $registry->registerOperation('content.create', static function (array $in) use ($repo, $kernel): array {
@@ -145,5 +148,20 @@ final class ContentSystem extends AbstractSystem
             $repo->update($slug, $changes);
             return ['slug' => $slug, 'updated' => array_keys($changes)];
         });
+    }
+
+    /**
+     * 正文原样返回，另附 emoji token。token 是数据不是 HTML：
+     * 主题把它渲染成文字或图片，模型也能直接读懂；没有表情系统时退化为单个 text token。
+     * @param array<string, mixed> $post
+     * @return array<string, mixed>
+     */
+    private static function present(array $post, Kernel $kernel): array
+    {
+        $body = (string) ($post['body'] ?? '');
+        $post['body_tokens'] = $kernel->hooks()->apply(
+            'emoji.parse', [['type' => 'text', 'value' => $body]], $body
+        );
+        return $post;
     }
 }

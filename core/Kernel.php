@@ -82,7 +82,9 @@ final class Kernel
         $shouldRender = (bool) $this->hooks->apply(
             'render.should_render', true, $response, $request, $this
         );
-        if ($shouldRender && $this->container->has(RendererInterface::class)) {
+        // 3xx 没有实体：重定向只需要状态行与 Location，不应被主题包成一张页面。
+        $isRedirect = $response->status() >= 300 && $response->status() < 400;
+        if ($shouldRender && !$isRedirect && $this->container->has(RendererInterface::class)) {
             /** @var RendererInterface $renderer */
             $renderer = $this->container->resolve(RendererInterface::class);
             // 渲染器可以合法地「不接这个布局」：不写 body 即为放弃呈现权。

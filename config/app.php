@@ -70,6 +70,14 @@ return [
         'contract_override' => ['require_grant' => true],
     ],
 
+    // 评论系统：审核与嵌套策略。生产建议把 auto_publish 置 false，先审后发。
+    'comment' => [
+        'auto_publish' => true,
+        'max_depth'    => 5,
+        'max_length'   => 5000,
+        'max_links'    => 3,
+    ],
+
     // 状态系统（第 15 个系统层）：长任务状态的保留时长，秒；过期由 sweep 清理
     'state' => [
         'task_ttl' => 86400,

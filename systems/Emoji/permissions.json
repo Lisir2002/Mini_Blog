@@ -1,0 +1,7 @@
+{
+  "system": "emoji",
+  "permissions": [
+    {"name": "emoji.read", "description": "读取表情目录（内置 + 自定义）"},
+    {"name": "emoji.manage", "description": "登记 / 删除自定义图片表情"}
+  ]
+}

@@ -20,11 +20,11 @@
 
 ## 2. 功能与适用场景
 
-按文章 slug 返回评论列表（过滤垃圾评论），数据来自 CommentStoreInterface 的 MySQL 或内存实现。
+按文章 slug 返回评论树：扁平列表 + 嵌套结构 + 公开条数，按身份过滤不可见项。
 
 **适用场景**：文章详情页渲染评论区；Headless 客户端拉取评论。
 
-**实现备注**：评论区的 HTML / CSS / JS 全部由主题或独立页承载，系统层只返回结构化数据。
+**实现备注**：可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。
 
 ## 3. 请求规范
 
@@ -64,9 +64,10 @@
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `post_slug` | `string` | 所查文章 slug |
-| `items` | `object[]` | 评论：id / post_slug / author / body / status / created_at |
-| `total` | `int` | 本次返回条数 |
+| `post_slug` | `string` | 文章 slug |
+| `total` | `int` | 公开条数（不含待审 / 隐藏 / 垃圾） |
+| `items` | `array` | 扁平评论数组，按 id 升序 |
+| `tree` | `array` | 嵌套评论树，每项含 children |
 
 ## 5. 错误码
 

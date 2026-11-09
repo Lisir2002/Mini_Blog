@@ -48,7 +48,7 @@
   <rect class="box" x="520" y="288" width="220" height="66" rx="10"/>
   <text class="t t-title" x="630" y="313" text-anchor="middle">Api Dispatcher</text>
   <text class="t t-sub" x="630" y="331" text-anchor="middle">鉴权 → 限流 → 幂等 → 执行</text>
-  <text class="t t-sub" x="630" y="346" text-anchor="middle">56 operation / 统一信封</text>
+  <text class="t t-sub" x="630" y="346" text-anchor="middle">67 operation / 统一信封</text>
 
   <rect class="box" x="20" y="288" width="110" height="66" rx="10"/>
   <text class="t t-title" x="75" y="313" text-anchor="middle">主题包</text>
@@ -59,10 +59,10 @@
   <path class="edge" d="M 270 354 L 270 384 L 450 384 L 450 402"/>
   <path class="edge" d="M 630 354 L 630 384 L 450 384"/>
 
-  <rect class="box-accent" x="110" y="406" width="680" height="72" rx="10"/>
-  <text class="t t-title" x="450" y="432" text-anchor="middle">系统层 ×15</text>
+  <rect class="box-accent" x="95" y="406" width="710" height="72" rx="10"/>
+  <text class="t t-title" x="450" y="432" text-anchor="middle">系统层 ×17</text>
   <text class="t t-sub" x="450" y="452" text-anchor="middle">log · database · security · lifecycle · user · permission · api · state · plugin</text>
-  <text class="t t-sub" x="450" y="468" text-anchor="middle">member · content · release · theme · comment · page</text>
+  <text class="t t-sub" x="450" y="468" text-anchor="middle">member · content · release · theme · attachment · emoji · comment · page</text>
 
   <line class="edge" x1="450" y1="478" x2="450" y2="504"/>
 

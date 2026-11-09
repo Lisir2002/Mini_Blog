@@ -1,0 +1,11 @@
+{
+  "system": "comment",
+  "permissions": [
+    {"name": "comment.read", "description": "读取评论（含待审核，受可见性策略约束）"},
+    {"name": "comment.create", "description": "在文章下发表评论"},
+    {"name": "comment.reply", "description": "回复已有评论"},
+    {"name": "comment.delete.own", "description": "删除自己发表的评论"},
+    {"name": "comment.delete.any", "description": "删除任意评论（管理员 / 版主）"},
+    {"name": "comment.moderate", "description": "审核评论：发布 / 隐藏 / 标记垃圾"}
+  ]
+}

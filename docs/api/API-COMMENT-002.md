@@ -66,9 +66,11 @@
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `id` | `int` | 新评论 ID |
-| `status` | `string` | 默认 pending（待审核） |
-| `created` | `bool` | 固定为 true |
+| `id` | `int` | 评论 id |
+| `parent_id` | `int` | 父评论 id，根评论为 0 |
+| `depth` | `int` | 嵌套深度 |
+| `status` | `string` | pending / published |
+| `created` | `bool` | 是否新建 |
 
 ## 5. 错误码
 

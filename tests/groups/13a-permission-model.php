@@ -26,7 +26,7 @@ function permKernel(): array
 
 check('权限点由各系统层自报，核心零权限名', function () use ($root): void {
     $reg = new PermissionRegistry($root);
-    truthy(count($reg->all()) === 31, '权限点数量异常：' . count($reg->all()));
+    truthy(count($reg->all()) === 44, '权限点数量异常：' . count($reg->all()));
     truthy(($reg->bySystem()['page'] ?? 0) === 3, '页面层权限点未自报 3 个');
     $by = $reg->bySystem();
     foreach (['content', 'lifecycle', 'permission', 'user', 'log'] as $system) {

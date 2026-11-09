@@ -52,8 +52,11 @@ final class ApiSystem extends AbstractSystem
             foreach ((array) ($result['headers'] ?? []) as $key => $value) {
                 $response->setHeader((string) $key, (string) $value);
             }
+            // 接口响应不是页面：声明一个主题不会认领的布局，避免被渲染器包成 HTML。
+            // 主题是否认识该布局由主题自己决定，核心不兜底。
             $response
                 ->setStatus($result['status'])
+                ->setLayout('api')
                 ->setHeader('Content-Type', 'application/json; charset=utf-8')
                 ->setBody(json_encode($result['body'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?: '{}');
         }, 5);

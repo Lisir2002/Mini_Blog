@@ -157,7 +157,7 @@ check('拔 DSN 回退：受保护接口 fail-closed，执行者优雅回退，�
         '拔库后公开首页被锁死');
 });
 
-check('协作对账：55 个 operation 全绑定，新增协作者零违规零孤儿', function () use ($root): void {
+check('协作对账：67 个 operation 全绑定，新增协作者零违规零孤儿', function () use ($root): void {
     $report = json_decode((string) file_get_contents($root . '/docs/responsibility-report.json'), true);
     $manifest = json_decode((string) file_get_contents($root . '/api/registry.json'), true);
     $count = count($manifest['endpoints']);
@@ -177,6 +177,6 @@ check('协作对账：55 个 operation 全绑定，新增协作者零违规零�
         truthy($hit, '审计器未收录新增协作者：' . $rel);
     }
     $perms = new PermissionRegistry($root);
-    truthy(count($perms->all()) === 31, '权限点总数异常');
+    truthy(count($perms->all()) === 44, '权限点总数异常');
     truthy(($perms->bySystem()['page'] ?? 0) === 3, 'v0.8 页面权限点应由 Page 层自报');
 });

@@ -1,0 +1,102 @@
+<?php
+declare(strict_types=1);
+namespace Wx\Systems\Comment;
+
+use InvalidArgumentException;
+use Wx\Contracts\CommentStoreInterface;
+use Wx\Contracts\ContentRepositoryInterface;
+use Wx\Core\Kernel;
+use Wx\Systems\Api\ApiOperationException;
+
+/**
+ * 评论写入协作者 —— 发评论与回评共用同一条落库路径，差别只在「有没有父节点」。
+ *
+ * 拆出来不是为了分层好看，而是因为写入要同时满足四件事：文章存在、父节点同属一篇、
+ * 深度不越界、正文合规。四件事任何一件缺了都会产生孤儿数据或渲染异常，
+ * 所以让它们只在一个地方发生，读路径无法绕过。
+ */
+final class CommentWriter
+{
+    public function __construct(
+        private CommentStoreInterface $store,
+        private CommentGuard $guard,
+        private Kernel $kernel
+    ) {}
+
+    /** @param array<string, mixed> $in @return array<string, mixed> */
+    public function create(array $in, ?int $parentId = null): array
+    {
+        $slug = trim((string) ($in['post_slug'] ?? $in['slug'] ?? ''));
+        if ($slug === '') throw new InvalidArgumentException('post_slug 必填');
+        $this->assertPostExists($slug);
+
+        $parent = null;
+        if ($parentId !== null) $parent = $this->resolveParent($parentId, $slug);
+
+        $depth = CommentTree::depthFor($parent);
+        $maxDepth = (int) $this->kernel->config()->get('comment.max_depth', 5);
+        if ($depth > $maxDepth) {
+            throw new InvalidArgumentException("嵌套已达 {$maxDepth} 层上限，请直接回复上层评论");
+        }
+
+        $body = $this->guard->inspect((string) ($in['body'] ?? ''));
+        $identity = $in['_identity'] ?? null;
+        $draft = (array) $this->kernel->hooks()->apply('comment.before_save', [
+            'post_slug' => $slug,
+            'parent_id' => $parent === null ? CommentTree::ROOT : (int) $parent['id'],
+            'depth'     => $depth,
+            'author'    => trim((string) ($in['author'] ?? '')),
+            'author_id' => (int) ($identity['user_id'] ?? 0),
+            'body'      => $body,
+            'ip_hash'   => self::ipHash($this->kernel, (string) ($in['_ip'] ?? '')),
+        ]);
+
+        $id = $this->store->add($draft);
+        // 路径依赖自增 id，只能落库后补写；root_id 决定「取整棵子树」只需一次前缀查询。
+        $this->store->update($id, [
+            'path'    => CommentTree::pathFor($parent, $id),
+            'root_id' => $parent === null ? $id : (int) ($parent['root_id'] ?? $parent['id']),
+        ]);
+
+        $row = $this->store->find($id) ?? $draft + ['id' => $id];
+        $this->kernel->hooks()->emit('comment.created', $id, $row, $identity);
+        return $row;
+    }
+
+    /** @return array<string, mixed> */
+    private function resolveParent(int $parentId, string $slug): array
+    {
+        $parent = $this->store->find($parentId);
+        if ($parent === null) throw new ApiOperationException('要回复的评论不存在', 40403);
+        if ((string) ($parent['post_slug'] ?? $parent['slug'] ?? '') !== $slug) {
+            throw new InvalidArgumentException('父评论不属于这篇文章');
+        }
+        // 已删除的评论保留占位以维持对话结构，但不再接受新回复：占位节点不是有效对话对象。
+        if (CommentPolicy::isDeleted($parent)) {
+            throw new InvalidArgumentException('该评论已删除，无法回复');
+        }
+        if ((string) ($parent['status'] ?? '') === CommentPolicy::SPAM) {
+            throw new ApiOperationException('要回复的评论不可见', 40403);
+        }
+        return $parent;
+    }
+
+    private function assertPostExists(string $slug): void
+    {
+        $container = $this->kernel->container();
+        if (!$container->has(ContentRepositoryInterface::class)) {
+            throw new ApiOperationException('内容系统不可用，评论被拒绝', 40303);
+        }
+        /** @var ContentRepositoryInterface $repo */
+        $repo = $container->resolve(ContentRepositoryInterface::class);
+        if ($repo->findBySlug($slug) === null) {
+            throw new ApiOperationException('文章不存在', 40403);
+        }
+    }
+
+    /** 只留不可逆指纹，既能做频率关联，也不把访客 IP 明文写进业务库。 */
+    private static function ipHash(Kernel $kernel, string $ip): string
+    {
+        return $ip === '' ? '' : substr(hash('sha256', $ip . '|' . $kernel->root()), 0, 32);
+    }
+}

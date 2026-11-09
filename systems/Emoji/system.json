@@ -1,0 +1,9 @@
+{
+  "name": "emoji",
+  "class": "Wx\\Systems\\Emoji\\EmojiSystem",
+  "version": "0.1.0",
+  "requires": ["log", "database", "security", "api", "attachment"],
+  "priority": 54,
+  "enabled": true,
+  "_note": "第 17 个系统层：内置 Unicode / 颜文字 + 自定义图片表情；只产出 token 不产出 HTML，图片只引用本站附件，禁止外链"
+}

@@ -8,7 +8,7 @@
 
 | 来源 | 借鉴点 | 本框架的取舍与落地 |
 | --- | --- | --- |
-| OpenAPI 3.1 / 3.1.1 [^oas] | `info` 元数据、稳定 `operationId`、参数必填性与示例、请求/响应 schema、统一错误 schema、operation 级安全声明 | 用自研 JSON 清单表达同一组字段；`tools/export-openapi.php` 直接导出 3.1 文档（43 条路径 / 49 个 operation），无第三方库 |
+| OpenAPI 3.1 / 3.1.1 [^oas] | `info` 元数据、稳定 `operationId`、参数必填性与示例、请求/响应 schema、统一错误 schema、operation 级安全声明 | 用自研 JSON 清单表达同一组字段；`tools/export-openapi.php` 直接导出 3.1 文档（60 条路径 / 67 个 operation），无第三方库 |
 | RFC 9457 Problem Details [^rfc9457] | 机器可读错误、稳定 type、字段级明细、扩展字段前向兼容 | 换成更轻的 `code / message / errors / request_id / meta` 信封，语义一一对应但字段更少 |
 | Microsoft Azure REST API Guidelines [^ms] | 复数名词资源、路径不放动词、层级要浅、GET/PUT/DELETE 幂等、状态码语义 | 路径统一 `/api/v1/<复数资源>`；装卸这类非 CRUD 操作用 `POST /lifecycle/install` 显式动作资源，并在清单里标注 `operation` |
 | Google AIP-190 / AIP-136 / AIP-158 [^aip] | 术语一致、自定义动作显式化、游标分页 | 内容列表采用 `limit + cursor`（base64 编码的 keyset 游标），避免 OFFSET 深翻页 |
@@ -32,6 +32,7 @@
 | 授权 | **v0.6 新增**：需要细粒度授权的接口声明 `permission`（权限点必须在各系统层 `permissions.json` 自报清单内，否则守卫拒绝），由 `AccessControlInterface` 在参数校验之前裁决；未放行返回 `40303`。所有带 `permission` 的接口必须在 `errors` 中列出 `40303` |
 | 页面访问（v0.8） | 页面不是 API，但复用同一套身份与授权契约：`page.json` 的 `access.auth` 使用同一组 `public` / `user` / `admin` 级别与同一个 `ApiAuthenticatorInterface`；`access.permission` 由同一个 `AccessControlInterface` 裁决。裁决在 `route.access` 询问点完成并短路，拒绝只产结构化数据 + `deny` 布局槽位（样式归主题），不输出 HTML。详见 `docs/ARCHITECTURE.md` 第 24 节 |
 | 写接口边界 | 所有非 GET/HEAD/OPTIONS 操作默认仅本机来源可调用（`config.api.expose_write=false`），公网来源返回 `40302` |
+| 二进制通道（v0.13） | `/attach/upload` 与 `/attach/download` **是唯一不经 JSON 信封的路径**：请求体即字节、响应体即字节。守卫与 JSON 接口同一套且顺序相同（限流 → 写边界 → 鉴权 → 权限 → 参数），下载每次请求都重新做授权判定，不得用「拿到过链接」代替授权。响应必须带 `X-Content-Type-Options: nosniff` + `Content-Security-Policy: default-src 'none'; sandbox`，下载用 RFC 5987 `Content-Disposition: attachment; filename*=UTF-8''…`，文件名永不参与落盘路径。失败时才回退 JSON 信封（`Content-Type: application/json`），并**不得**回显字节 |
 | 幂等 | 每个接口必须声明 `idempotent` 与 `side_effects`；写操作建议携带 `Idempotency-Key` |
 | 限流 | 每次 API 请求计数，响应回带 `X-RateLimit-*`；超阈值返回 `42901` + `Retry-After` |
 | 追踪 | 客户端可传 `X-Request-Id`，服务端回填 `request_id` |
@@ -88,10 +89,11 @@
 
 **仍需注意的边界**（不假装完成）：
 
-- 匿名评论 `POST /api/v1/comments` 为 public 写接口，仅靠限流与写边界保护，生产化还需验证码与内容审核。
+- 匿名评论 `POST /api/v1/comments` 仍是 public 写接口。v0.13 起不再只有限流与写边界兜底：`comment.auto_publish=false` 时新评论落 `pending`，由 `comments.moderate` 走白名单状态机放行（`pending/published/hidden/spam/deleted`，`deleted` 为终态）。但**频率型滥用仍未拦住**——验证码与敏感词/模型审核列入 v1.0。
 - 演示账号 `admin/admin123` 仅用于本地原型，投产前必须删除或改密；数据库口令与签名密钥应由环境注入。
 - 限流与幂等缓存当前基于文件存储，多实例部署需换成共享存储（可通过替换对应实现完成，不影响核心）。
-- 上传校验、契约版本协商、灰度发布列入 v1.0。
+- 附件已落地四道校验（字节上限 / 扩展名白名单 / 魔数比对 / 单作者配额）与内容寻址落盘，但**不含病毒扫描与图片二次编码**——`image/*` 仍可能携带畸形负载，生产化应在网关上补一层杀毒与重编码。
+- 契约版本协商、灰度发布列入 v1.0。
 
 ## 7. 分发执行顺序（安全口径）
 
@@ -100,6 +102,23 @@
 ```
 
 鉴权刻意排在参数校验之前：未认证者不应探知接口的参数要求。身份以 `_identity` 注入 `input`，业务执行者不解析请求头。`ApiOperationException` / `LifecycleException` 携带 5 位业务码，`InvalidArgumentException` 统一映射 `42201`。
+
+## 8. 二进制通道的例外契约（v0.13）
+
+正文接口全部走 JSON 信封。**只有附件上传与下载两条路径例外**，因为把字节塞进 JSON（base64）会让体积膨胀 33%、把流式读取变成全量驻留内存，且无法用 `Content-Disposition` 交回文件名。方向也不对称：上传的**请求体是字节、响应仍是 JSON 元数据**（要拿回 `id` 与 `url`）；下载的**响应体是字节**。例外被严格限界：
+
+| 维度 | 约定 | 反例（禁止） |
+| --- | --- | --- |
+| 路径 | 固定为 `/attach/upload`、`/attach/download`；由 `systems/Attachment/AttachmentRoute` 在 `route.resolve`（优先级 6）认领 | 在 `/api/v1/*` 下开二进制端点；为新需求再开第三条字节路径 |
+| 守卫 | 复用 `RequestGuard`：限流 → 写边界 → 鉴权 → 权限 → 参数，与 JSON 接口**同一套、同一顺序** | 为了「简单」绕过守卫直读 `$_FILES` |
+| 请求 | 上传：`multipart/form-data` 或原始字节体，元数据走查询参数 / 表单字段；下载：`?id=<n>`，图片类可加 `disposition=inline`。不要求 `Content-Type: application/json` | 用 GET 触发上传；允许客户端指定落盘名 |
+| 响应头 | `X-Content-Type-Options: nosniff`、`Content-Security-Policy: default-src 'none'; sandbox`、`Content-Disposition: attachment; filename*=UTF-8''<编码名>`（仅 `image/*` 且显式 `inline` 才给 `inline`）；缓存按可见性分流：公开 `public, max-age=3600`，私有 `private, no-store` | 省略 `nosniff`（浏览器可把 `text/plain` 嗅探成 HTML）；对非图片给 `inline` |
+| 布局 | 一律 `setLayout('binary')`，`render.should_render` 见 `binary` 即跳过渲染。**失败响应同样如此**，否则错误页会被主题包成整页 HTML | 成功走 binary、失败回 site |
+| 失败 | 才回退 JSON 信封（`code/message/errors`），`Content-Type: application/json`，**不回显任何字节** | 用 200 + HTML 错误页代替 4xx |
+| 授权 | 每次下载都重读元数据（软删即 `40403`）。公开附件直接给字节；**私有附件必须登录**（否则 `40101`），本人直通，他人需 `attachment.read`（否则 `40303`）。签名 URL 不在此版本引入 | 把「链接已发出」当作授权结果（私有附件会因此永久泄漏）；用不可猜的 id 冒充访问控制 |
+| 落盘 | 元数据入库，字节按 SHA-256 内容寻址存 `storage/attachments/<aa>/<bb>/<sha256>`；**文件名永不进路径** | 用原始文件名拼路径（`../../` 直接穿越） |
+
+一句话：**不给文件开第二条守卫路径**。二进制通道是同一套守卫的第二种载荷，不是第二套规则。
 
 ---
 

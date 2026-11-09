@@ -92,6 +92,9 @@ final class RequestGuard
             if (($identity['kind'] ?? '') === 'session' && !$acceptSession) $identity = null;
         }
         $input['_identity'] = $identity;
+        // 来源地址只以「请求上下文」注入，业务层自行决定是否落库、是否哈希；
+        // 评论系统用它做不可逆指纹，不把明文 IP 写进业务表。
+        $input['_ip'] = $request->clientIp() ?? '';
 
         // 细粒度授权：auth 只保证「你是谁」，permission 决定「你能不能做这件事」。
         // 权限层缺席 / 未声明 / abstain 一律拒绝（fail-closed），不探知参数细节。

@@ -1,0 +1,10 @@
+{
+  "system": "attachment",
+  "permissions": [
+    {"name": "attachment.read", "description": "下载私有附件"},
+    {"name": "attachment.upload", "description": "上传附件"},
+    {"name": "attachment.edit.own", "description": "修改自己上传附件的名称 / 可见性"},
+    {"name": "attachment.delete.own", "description": "删除自己上传的附件"},
+    {"name": "attachment.manage", "description": "管理任意附件（管理员 / 编辑）"}
+  ]
+}

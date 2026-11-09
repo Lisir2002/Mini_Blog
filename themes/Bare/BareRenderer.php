@@ -31,6 +31,10 @@ final class BareRenderer implements RendererInterface
         $items     = (array)  ($payload['items'] ?? []);
         $blocks    = (array)  ($payload['blocks'] ?? []);
         $state     = is_array($payload['state'] ?? null) ? $payload['state'] : null;
+        $post      = is_array($payload['post'] ?? null) ? $payload['post'] : null;
+        $comments  = is_array($payload['comments'] ?? null)
+            ? $payload['comments'] : ['total' => 0, 'items' => [], 'tree' => []];
+        $csrf      = (string) ($payload['csrf'] ?? '');
         $apiPrefix = (string) ($payload['api_prefix'] ?? '');
         $esc       = static fn(string $value): string => $guard->escape($value);
 

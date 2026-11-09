@@ -22,16 +22,18 @@ final class LayoutResolver
             : $this->dir . '/assets/' . $layout . '.css';
         $jsFile  = $this->dir . '/assets/' . $layout . '.js';
 
-        // 状态组件是跨布局共享的：任何布局都要能表达五态，样式与脚本只在这里拼一次。
-        $sharedCss = $this->dir . '/assets/state.css';
+        // 跨布局共享：状态五态、评论树与表情。它们不是某个页面的私产，
+        // 任何布局只要展示内容就需要，因此只在这里拼一次。
+        $sharedCss = [$this->dir . '/assets/state.css', $this->dir . '/assets/comment.css'];
         $sharedJs  = $this->dir . '/assets/state.js';
 
-        return [
-            'file' => $file,
-            'css'  => (is_file($cssFile) ? (string) file_get_contents($cssFile) : '')
-                . (is_file($sharedCss) ? "\n" . (string) file_get_contents($sharedCss) : ''),
-            'js'   => (is_file($jsFile) ? (string) file_get_contents($jsFile) : '')
-                . (is_file($sharedJs) ? "\n" . (string) file_get_contents($sharedJs) : ''),
-        ];
+        $css = is_file($cssFile) ? (string) file_get_contents($cssFile) : '';
+        foreach ($sharedCss as $shared) {
+            if (is_file($shared)) $css .= "\n" . (string) file_get_contents($shared);
+        }
+        $js = is_file($jsFile) ? (string) file_get_contents($jsFile) : '';
+        if (is_file($sharedJs)) $js .= "\n" . (string) file_get_contents($sharedJs);
+
+        return ['file' => $file, 'css' => $css, 'js' => $js];
     }
 }

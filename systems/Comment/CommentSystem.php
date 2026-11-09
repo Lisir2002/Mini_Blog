@@ -9,9 +9,10 @@ use Wx\Core\Kernel;
 use Wx\Systems\Database\Db;
 
 /**
- * 评论系统：只负责评论数据的存取与业务钩子。
- * 评论区的 HTML 结构、样式、交互全部由主题渲染 —— 系统层不输出一个标签。
- * 接上 MySQL 走 PdoCommentStore，拔掉库回退内存适配器。
+ * 评论系统：评论数据的存取、树形规则与业务钩子。
+ *
+ * 边界仍是「系统层不输出一个标签」：评论区的 HTML、样式、交互全部由主题渲染。
+ * 接上 MySQL 走 PdoCommentStore，拔掉库回退内存适配器 —— 删光数据库也能启动。
  */
 final class CommentSystem extends AbstractSystem
 {
@@ -23,47 +24,40 @@ final class CommentSystem extends AbstractSystem
             CommentStoreInterface::class,
             static function () use ($kernel): CommentStoreInterface {
                 $db = Db::optional($kernel);
-                return $db === null
-                    ? new MemoryCommentStore()
-                    : new PdoCommentStore($db);
+                return $db === null ? new MemoryCommentStore() : new PdoCommentStore($db);
             },
             'system:comment',
             10
         );
 
-        $kernel->hooks()->filter('comment.before_save', static function (array $comment): array {
+        // 默认值只在这里补一次：任何写入路径（接口、插件、导入脚本）都经过同一钩子，
+        // 不会出现「接口写的是 pending、导入脚本写的是 published」两套默认。
+        $autoPublish = (bool) $kernel->config()->get('comment.auto_publish', false);
+        $kernel->hooks()->filter('comment.before_save', static function (array $comment) use ($autoPublish): array {
             $comment['created_at'] = $comment['created_at'] ?? date('Y-m-d H:i:s');
-            $comment['status']     = $comment['status'] ?? 'pending';
+            $comment['status']     = $comment['status'] ?? ($autoPublish ? CommentPolicy::PUBLISHED : CommentPolicy::PENDING);
+            $comment['parent_id']  = (int) ($comment['parent_id'] ?? CommentTree::ROOT);
+            $comment['depth']      = (int) ($comment['depth'] ?? 0);
+            $comment['author_id']  = (int) ($comment['author_id'] ?? 0);
+            $comment['author']     = trim((string) ($comment['author'] ?? '')) ?: ($comment['author_id'] > 0 ? '成员' : '匿名访客');
             return $comment;
         }, 10);
     }
 
     public function boot(Kernel $kernel): void
     {
+        /** @var CommentStoreInterface $store */
         $store = $kernel->container()->resolve(CommentStoreInterface::class);
         if ($store instanceof PdoCommentStore) $store->ensureSchema();
         if (!$kernel->container()->has(ApiRegistryInterface::class)) return;
 
+        $guard = new CommentGuard(
+            (int) $kernel->config()->get('comment.max_length', 5000),
+            (int) $kernel->config()->get('comment.max_links', 3)
+        );
         /** @var ApiRegistryInterface $registry */
         $registry = $kernel->container()->resolve(ApiRegistryInterface::class);
-        $registry->registerOperation('comments.list', static function (array $in) use ($store): array {
-            $slug  = (string) ($in['post_slug'] ?? $in['slug'] ?? '');
-            $items = $store->forPost($slug);
-            return ['post_slug' => $slug, 'items' => $items, 'total' => count($items)];
-        });
-        $registry->registerOperation('comments.add', static function (array $in) use ($store, $kernel): array {
-            $comment = (array) $kernel->hooks()->apply('comment.before_save', [
-                'post_slug' => (string) ($in['post_slug'] ?? $in['slug'] ?? ''),
-                'author'    => (string) ($in['author'] ?? ''),
-                'body'      => (string) ($in['body'] ?? ''),
-            ]);
-            if (trim((string) $comment['body']) === '') {
-                throw new \InvalidArgumentException('评论内容不能为空');
-            }
-            $id = $store->add($comment);
-            // 与 content.created 同一模式：评论层广播事实，订阅者自行决定是否发经验 / 通知。
-            $kernel->hooks()->emit('comment.created', $id, $comment, $in['_identity'] ?? null);
-            return ['id' => $id, 'status' => (string) $comment['status'], 'created' => true];
-        });
+        (new CommentOperations($store, new CommentWriter($store, $guard, $kernel), $kernel))
+            ->register($registry);
     }
 }

@@ -1,9 +1,9 @@
 # Mini Blog _(Mini_Blog)_
 
-![version](https://img.shields.io/badge/version-0.12.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.13.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
-![tests](https://img.shields.io/badge/tests-200%20passing-2ea44f)
+![tests](https://img.shields.io/badge/tests-226%20passing-2ea44f)
 ![dependencies](https://img.shields.io/badge/dependencies-0-2ea44f)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)
@@ -63,7 +63,7 @@ Mini Blog 的出发点是相反的：**内核只保留「装配 + 调度」两�
 | 呈现不是框架的一部分 | 零主题时输出纯 JSON；HTML/CSS/JS 只允许存在于 `themes/` |
 | 扩展不是改代码 | 新建目录 + `system.json`，内核零改动；接口在清单登记后自动生成文档 |
 | 升级不是重装 | 迁移台账 + checksum 校验 + 版本快照 + 健康门禁，可升级也可回退 |
-| 质量不是口头承诺 | 200 项自动化守卫 + 单文件职责审计，违规即失败 |
+| 质量不是口头承诺 | 226 项自动化守卫 + 单文件职责审计，违规即失败 |
 
 **它不做什么**：不内置页面构建器，不绑定某个前端框架，不提供多站点与云托管，不在核心里写 SQL。
 
@@ -186,7 +186,7 @@ TOKEN=$(curl -s -X POST -H 'Content-Type: application/json' \
 curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/lifecycle/units
 ```
 
-统一信封 `code / message / data / request_id / meta`，错误额外带 `errors`。**56 个接口 = 56 份文档 = 56 个 operation**，全部由 `api/registry.json` 单向生成，不手写。
+统一信封 `code / message / data / request_id / meta`，错误额外带 `errors`。**67 个接口 = 67 份文档 = 67 个 operation**，全部由 `api/registry.json` 单向生成，不手写。
 
 ### 状态与反馈
 
@@ -203,6 +203,25 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/lifecycle
 每个状态都带三件套：**说明**（`title / message / hint`）、**出路**（`actions`，最多 4 个真实链接或表单）、**证据**（`code / trace_id / retryable`）。页面级与动作级状态随响应返回；安装、迁移、发布这类长任务落 `wx_state_tasks`，用 `revision` 做乐观锁，终态不可回退。未捕获异常由 `kernel.exception` 接住，走同一套状态与主题渲染；状态系统被停用时，核心只输出纯文本 500。
 
 文案是「键 + 默认中文」，主题可经 `state.copy` 钩子覆写；可访问性由主题负责（错误 `role="alert"`、其余 `role="status"`、进行态 `aria-busy`）。细节见 [`docs/STATE.md`](docs/STATE.md)。
+
+### 评论、附件、表情
+
+三者的共同点是「都会挂到内容上」，但它们的**生命周期完全不同**，所以各立一层：
+
+| 系统层 | 拥有 | 关键设计 |
+| --- | --- | --- |
+| `comment` | 评论关系、审核状态、可见性 | 邻接表 + 物化路径；深度上限**拒绝**而非静默改挂；软删保留占位与子回复；审核状态机白名单 |
+| `attachment` | 元数据 + 字节 | 元数据入库、字节按 SHA-256 内容寻址；文件名不进路径；四道校验；下载每次授权 |
+| `emoji` | 短码 → 字形 / 图片 | 只产出 token 不产出 HTML；自定义只引用本站附件；存原文、渲染时解析 |
+
+几个具体取舍：
+
+- **评论树序由父子关系决定，不由 `path` 字符串排序**。路径段位数不等时字典序会把 `10` 排到 `2` 前面，所以 `path` 只用于取子树，同层恒按 `id` 升序。
+- **文件名不进入存储路径**。`../../etc/cover.png` 落盘时路径是 `storage/attachments/aa/bb/<sha256>`，展示名另存；路径穿越、双扩展名、同名覆盖、目录执行四类问题一并消失。
+- **上传下载复用同一套守卫**。二进制通道不是「第二套接口」，而是 registry 里的两个 operation，限流 / 写边界 / 鉴权 / 权限 / 参数校验与 JSON 接口完全一致。
+- **表情删了不改写历史**。正文存 `:shipit:` 原文，删除表情后读者看到字面量，而不是空白；未知短码永远原样显示。
+
+`pages/Post` 是第一个同时消费三者的页面：正文 + 评论树 + 评论表单，走「表单 → 同页 POST → 303」的 PRG 路径，**无 JavaScript 也能评论与回复**。细节见 [`docs/CONTENT.md`](docs/CONTENT.md)。
 
 ### 两个扩展动作
 
@@ -223,7 +242,7 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/lifecycle
 | 层 | 内容 | 约束 |
 | --- | --- | --- |
 | **L0 系统核心** | `Kernel / Container / HookBus / SystemRegistry / PackageLoader / Router / Config` | 24 个 PHP，已达上限；0 个 CSS/JS、0 条 SQL |
-| **L1 系统层** | 日志、数据库、安全、装卸、用户、权限、接口、状态、插件、成员、内容、版本、主题、评论、页面 | 每层自带 `system.json`，按 `priority` 装配 |
+| **L1 系统层** | 日志、数据库、安全、装卸、用户、权限、接口、状态、插件、成员、内容、版本、主题、附件、表情、评论、页面 | 每层自带 `system.json`，按 `priority` 与 `requires` 装配 |
 | **L2 承载包** | 主题包、插件包、独立页包 | 全部资源（CSS/JS/模板）只允许出现在这里 |
 | **L3 数据与呈现** | MySQL 表、主题布局、主题资源 | 表归各系统层自持；呈现归主题 |
 
@@ -260,23 +279,24 @@ log → database → security → lifecycle → user → permission → api → 
 | v0.10 | 170 | +26 | 头衔 / 经验 / 等级，身份与授权解耦 |
 | v0.11 | 181 | +11 | 五步安装向导、不重装升级与回退 |
 | v0.12 | 200 | +19 | 五态状态系统、长任务与异常边界 |
+| v0.13 | 226 | +26 | 评论树、附件内容寻址、表情 token |
 
 | 指标 | 当前值 | 验证方式 |
 | --- | ---: | --- |
-| 守卫 / 分组 | **200 / 40** | `php tests/run.php` |
-| PHP 文件 / 有效行 | **215 / 13,283** | `php tools/audit-responsibility.php` |
+| 守卫 / 分组 | **226 / 43** | `php tests/run.php` |
+| PHP 文件 / 有效行 | **245 / 15,390** | `php tools/audit-responsibility.php` |
 | 最大单文件 | **187 行** | 同上（预算 190，超限即失败） |
 | 职责违规 / 孤儿协作 | **0 / 0** | 同上，非 0 退出 |
-| 系统层 | **15** | 装配顺序断言 |
-| 接口 / 文档 / operation | **56 / 56 / 56** | 清单四方 1:1 比对 |
-| 数据表 | **22** | 各系统层 migrations |
-| 权限点 | **31** | 各层 `permissions.json` 自报 |
+| 系统层 | **17** | 装配顺序断言 |
+| 接口 / 文档 / operation | **67 / 67 / 67** | 清单四方 1:1 比对 |
+| 数据表 | **24** | 各系统层 migrations |
+| 权限点 | **44** | 各层 `permissions.json` 自报 |
 | 运行时依赖 | **0** | 无 composer / vendor |
 
 ```bash
-php tests/run.php                    # 200 项守卫，40 个文件
+php tests/run.php                    # 226 项守卫，43 个文件
 php tools/audit-responsibility.php   # 单文件职责审计
-php tools/gen-api-docs.php           # 重新生成 56 份接口文档
+php tools/gen-api-docs.php           # 重新生成 67 份接口文档
 php tools/export-openapi.php         # 导出 OpenAPI 3.1
 php tools/sign-package.php <目录> <密钥>   # 源包签名
 ```
@@ -287,7 +307,7 @@ php tools/sign-package.php <目录> <密钥>   # 源包签名
 
 ## 工程规矩
 
-16 条规矩全部配有可执行守卫，完整文本见 [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)。核心几条：
+18 条规矩全部配有可执行守卫，完整文本见 [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)。核心几条：
 
 | 规矩 | 内容 |
 | --- | --- |
@@ -323,7 +343,7 @@ php tools/sign-package.php <目录> <密钥>   # 源包签名
 Mini_Blog/
 ├── public/index.php          唯一入口：引导 + run()
 ├── core/                     系统核心 24 个 PHP：Kernel / Container / HookBus / Router / 13 个契约
-├── systems/                  15 个系统层，每层自带 system.json + migrations + lifecycle
+├── systems/                  17 个系统层，每层自带 system.json + migrations + lifecycle
 │   ├── Log/ Database/ Security/ User/ Permission/     （能力）
 │   ├── Content/ Comment/ Member/ Release/             （业务与版本）
 │   ├── Theme/ Plugin/ Page/                           （承载）
@@ -334,7 +354,7 @@ Mini_Blog/
 ├── pages/                    Home · Links · Console · Toolbox · Install
 ├── api/registry.json         接口清单（唯一事实源，55 条）
 ├── config/app.php            装配清单
-├── docs/                     架构 / 规矩 / 环境 / 55 份接口文档 / OpenAPI
+├── docs/                     架构 / 规矩 / 环境 / 67 份接口文档 / OpenAPI
 ├── tests/                    run.php + 夹具 + 38 个守卫文件
 ├── tools/                    文档生成 / OpenAPI 导出 / 签名 / 职责审计
 └── storage/                  运行时产物（仅骨架入库）
@@ -355,20 +375,23 @@ Mini_Blog/
 
 | 文档 | 内容 |
 | --- | --- |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 27 章架构设计与每个版本的决策记录 |
-| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | 工程规矩 A–P 全文与运行记录 |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 29 章架构设计与每个版本的决策记录 |
+| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | 工程规矩 A–R 全文与运行记录 |
 | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | 本机环境、SSH 接入、浏览器配置 |
-| [`docs/api/SPEC.md`](docs/api/SPEC.md) | 接口规范：信封、错误码、鉴权、分页、幂等 |
+| [`docs/api/SPEC.md`](docs/api/SPEC.md) | 接口规范：信封、错误码、鉴权、分页、幂等、二进制通道例外 |
 | [`docs/STATE.md`](docs/STATE.md) | 状态系统：五态、文案、长任务与可访问性 |
-| [`docs/api/README.md`](docs/api/README.md) | 56 个接口索引 |
-| [`docs/api/openapi.json`](docs/api/openapi.json) | OpenAPI 3.1（50 路径 / 56 操作） |
+| [`docs/CONTENT.md`](docs/CONTENT.md) | 评论树、附件内容寻址、表情 token 的边界与安全取舍 |
+| [`docs/api/README.md`](docs/api/README.md) | 67 个接口索引 |
+| [`docs/api/openapi.json`](docs/api/openapi.json) | OpenAPI 3.1（60 路径 / 67 操作） |
 | [`docs/architecture.html`](docs/architecture.html) | 可视化架构总览 |
 
 ---
 
 ## 路线图
 
-**v0.12 已完成**：第 15 系统层 `state`——五态反馈（进行 / 完成 / 错误 / 等待 / 交互）、文案键与主题覆写、长任务乐观锁、未捕获异常边界。
+**v0.13 已完成**：第 16 / 17 系统层 `attachment` 与 `emoji`，评论升级为评论树（回评 / 软删 / 审核），附件按 SHA-256 内容寻址，表情只产出 token。
+
+**v0.12**：第 15 系统层 `state`——五态反馈（进行 / 完成 / 错误 / 等待 / 交互）、文案键与主题覆写、长任务乐观锁、未捕获异常边界。
 
 **v0.11**：五步安装向导、迁移台账、checksum 校验、安装基线、健康门禁、按版本快照回退。
 
@@ -376,7 +399,7 @@ Mini_Blog/
 
 - [ ] 在线源包下载与包仓库协议（当前 `source` 必须是已就位目录）
 - [ ] 升级并发锁与灰度 / 分批发布
-- [ ] 匿名评论验证码与内容审核
+- [ ] 匿名评论验证码、跨实例反垃圾、附件字节回收任务
 - [ ] 多实例共享的限流与幂等存储（当前为文件实现）
 - [ ] 控制台从只读升级为完整写操作（走受保护 API）
 - [ ] 经验流水归档、排行榜游标翻页、等级变更通知

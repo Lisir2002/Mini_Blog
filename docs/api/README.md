@@ -61,5 +61,16 @@
 | `API-REL-005` | `POST` | `/api/v1/release/rollback` | `release` | `admin` | 是 | [API-REL-005](API-REL-005.md) |
 | `API-LC-009` | `GET` | `/api/v1/lifecycle/releases` | `lifecycle` | `admin` | 是 | [API-LC-009](API-LC-009.md) |
 | `API-STATE-001` | `GET` | `/api/v1/state/task` | `state` | `admin` | 是 | [API-STATE-001](API-STATE-001.md) |
+| `API-COMMENT-003` | `POST` | `/api/v1/comments/reply` | `comment` | `public` | 是 | [API-COMMENT-003](API-COMMENT-003.md) |
+| `API-COMMENT-004` | `POST` | `/api/v1/comments/delete` | `comment` | `user` | 是 | [API-COMMENT-004](API-COMMENT-004.md) |
+| `API-COMMENT-005` | `POST` | `/api/v1/comments/moderate` | `comment` | `admin` | 否 | [API-COMMENT-005](API-COMMENT-005.md) |
+| `API-ATTACH-001` | `GET` | `/api/v1/attachments` | `attachment` | `public` | 是 | [API-ATTACH-001](API-ATTACH-001.md) |
+| `API-ATTACH-002` | `POST` | `/api/v1/attachments/update` | `attachment` | `user` | 否 | [API-ATTACH-002](API-ATTACH-002.md) |
+| `API-ATTACH-003` | `POST` | `/api/v1/attachments/delete` | `attachment` | `user` | 是 | [API-ATTACH-003](API-ATTACH-003.md) |
+| `API-ATTACH-004` | `POST` | `/attach/upload` | `attachment` | `user` | 否 | [API-ATTACH-004](API-ATTACH-004.md) |
+| `API-ATTACH-005` | `GET` | `/attach/download` | `attachment` | `public` | 是 | [API-ATTACH-005](API-ATTACH-005.md) |
+| `API-EMOJI-001` | `GET` | `/api/v1/emojis` | `emoji` | `public` | 是 | [API-EMOJI-001](API-EMOJI-001.md) |
+| `API-EMOJI-002` | `POST` | `/api/v1/emojis` | `emoji` | `admin` | 否 | [API-EMOJI-002](API-EMOJI-002.md) |
+| `API-EMOJI-003` | `POST` | `/api/v1/emojis/delete` | `emoji` | `admin` | 否 | [API-EMOJI-003](API-EMOJI-003.md) |
 
-共 56 个接口，接口版本 `v1`。
+共 67 个接口，接口版本 `v1`。

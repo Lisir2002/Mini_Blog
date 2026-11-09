@@ -198,20 +198,9 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/lifecycle
 
 ## 架构
 
-```mermaid
-flowchart TB
-    REQ[HTTP 请求] --> R[Router]
-    R --> ACC{访问裁决<br/>Authentication + AccessControl}
-    ACC -->|页面| PG[独立页包<br/>只产数据 + 声明 layout]
-    ACC -->|接口| API[Api Dispatcher<br/>鉴权 → 限流 → 幂等 → 执行]
-    PG --> SYS[系统层 ×14]
-    API --> SYS
-    SYS --> CT[契约 ×13<br/>Container 绑定实现]
-    CT --> DATA[(MySQL / 内存回退)]
-    SYS -.事件.-> BUS[HookBus]
-    THEME[主题包<br/>HTML + CSS + JS] --> PG
-    BUS -.装配期订阅.-> SYS
-```
+![Mini Blog 请求处理架构](docs/assets/architecture.svg)
+
+主题包只提供 HTML/CSS/JS，独立页只产数据并声明 layout 槽位；无主题时页面分支直接返回 JSON，框架不兜底任何标签。
 
 ### 四层模型
 

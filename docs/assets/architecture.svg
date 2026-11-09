@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640" role="img" aria-label="Mini Blog 请求处理架构">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7d9187"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f6f54"/>
+    </marker>
+    <style>
+      .box { fill: #ffffff; stroke: #c9d3ce; stroke-width: 1.4; }
+      .box-accent { fill: #eef5f1; stroke: #1f6f54; stroke-width: 1.6; }
+      .box-dark { fill: #1f6f54; stroke: #1f6f54; stroke-width: 1.4; }
+      .t { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif; fill: #243029; }
+      .t-title { font-size: 15px; font-weight: 600; }
+      .t-sub { font-size: 12px; fill: #6b7a72; }
+      .t-light { font-size: 15px; font-weight: 600; fill: #ffffff; }
+      .t-light-sub { font-size: 12px; fill: #d7e8df; }
+      .edge { stroke: #7d9187; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+      .edge-green { stroke: #1f6f54; stroke-width: 1.6; fill: none; marker-end: url(#arrow-green); }
+      .edge-dash { stroke: #8aa79a; stroke-width: 1.4; fill: none; stroke-dasharray: 5 4; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="960" height="640" fill="#ffffff"/>
+
+  <rect class="box-dark" x="350" y="18" width="200" height="52" rx="10"/>
+  <text class="t t-light" x="450" y="42" text-anchor="middle">HTTP 请求</text>
+  <text class="t t-light-sub" x="450" y="59" text-anchor="middle">JSON / HTML / 静态资源</text>
+  <line class="edge" x1="450" y1="70" x2="450" y2="96"/>
+
+  <rect class="box" x="350" y="98" width="200" height="52" rx="10"/>
+  <text class="t t-title" x="450" y="122" text-anchor="middle">Router</text>
+  <text class="t t-sub" x="450" y="139" text-anchor="middle">路由 + 安全头 + 日志</text>
+  <line class="edge" x1="450" y1="150" x2="450" y2="176"/>
+
+  <rect class="box-accent" x="320" y="178" width="260" height="56" rx="10"/>
+  <text class="t t-title" x="450" y="202" text-anchor="middle">访问裁决</text>
+  <text class="t t-sub" x="450" y="220" text-anchor="middle">Authentication + AccessControl</text>
+
+  <path class="edge" d="M 450 234 L 450 252 L 270 252 L 270 286"/>
+  <path class="edge" d="M 450 234 L 450 252 L 630 252 L 630 286"/>
+
+  <rect class="box" x="160" y="288" width="220" height="66" rx="10"/>
+  <text class="t t-title" x="270" y="313" text-anchor="middle">独立页包</text>
+  <text class="t t-sub" x="270" y="331" text-anchor="middle">只产数据 + 声明 layout 槽位</text>
+  <text class="t t-sub" x="270" y="346" text-anchor="middle">零 HTML 模板 / 零 CSS</text>
+
+  <rect class="box" x="520" y="288" width="220" height="66" rx="10"/>
+  <text class="t t-title" x="630" y="313" text-anchor="middle">Api Dispatcher</text>
+  <text class="t t-sub" x="630" y="331" text-anchor="middle">鉴权 → 限流 → 幂等 → 执行</text>
+  <text class="t t-sub" x="630" y="346" text-anchor="middle">55 operation / 统一信封</text>
+
+  <rect class="box" x="20" y="288" width="110" height="66" rx="10"/>
+  <text class="t t-title" x="75" y="313" text-anchor="middle">主题包</text>
+  <text class="t t-sub" x="75" y="330" text-anchor="middle">HTML</text>
+  <text class="t t-sub" x="75" y="345" text-anchor="middle">CSS / JS</text>
+  <line class="edge-green" x1="130" y1="321" x2="156" y2="321"/>
+
+  <path class="edge" d="M 270 354 L 270 384 L 450 384 L 450 402"/>
+  <path class="edge" d="M 630 354 L 630 384 L 450 384"/>
+
+  <rect class="box-accent" x="110" y="406" width="680" height="72" rx="10"/>
+  <text class="t t-title" x="450" y="432" text-anchor="middle">系统层 ×14</text>
+  <text class="t t-sub" x="450" y="452" text-anchor="middle">log · database · security · lifecycle · user · permission · api · plugin</text>
+  <text class="t t-sub" x="450" y="468" text-anchor="middle">member · content · release · theme · comment · page</text>
+
+  <line class="edge" x1="450" y1="478" x2="450" y2="504"/>
+
+  <rect class="box" x="230" y="506" width="440" height="46" rx="10"/>
+  <text class="t t-title" x="450" y="526" text-anchor="middle">契约 ×13 · Container 绑定实现</text>
+  <text class="t t-sub" x="450" y="542" text-anchor="middle">系统层之间唯一可见的类型边界</text>
+
+  <line class="edge" x1="450" y1="552" x2="450" y2="572"/>
+
+  <rect class="box" x="340" y="574" width="220" height="48" rx="10"/>
+  <text class="t t-title" x="450" y="596" text-anchor="middle">数据面</text>
+  <text class="t t-sub" x="450" y="613" text-anchor="middle">MySQL · 无 DSN 回退内存</text>
+
+  <rect class="box" x="815" y="406" width="125" height="72" rx="10"/>
+  <text class="t t-title" x="877" y="432" text-anchor="middle">HookBus</text>
+  <text class="t t-sub" x="877" y="450" text-anchor="middle">优先级 / 可中断</text>
+  <text class="t t-sub" x="877" y="466" text-anchor="middle">插件只改数据</text>
+  <line class="edge-dash" x1="815" y1="442" x2="794" y2="442"/>
+</svg>

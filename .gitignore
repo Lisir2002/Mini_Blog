@@ -32,3 +32,6 @@ storage/**
 storage/install.token
 storage/install.lock
 config/local.php
+
+# 审计报告含 generated_at，每次跑测试都会变；由 tools/audit-responsibility.php 本地生成
+docs/responsibility-report.json

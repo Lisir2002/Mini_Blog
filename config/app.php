@@ -16,7 +16,8 @@ return [
     ],
 
     // 默认「无主题」：全站零样式、零 HTML，框架退化为纯数据服务
-    // 填 'bare' 用带样式的主题；填 'bare-html' 用零 CSS 的裸 HTML 主题
+    // 'bare' 示例主题 · 'bare-html' 零 CSS 裸 HTML · 'glass' 半透明磨砂玻璃后台主题
+    // 主题可只声明部分布局槽位；未声明的槽位退化为纯数据，核心绝不兜底（规矩 J）
     'theme' => [
         'active' => null,
     ],

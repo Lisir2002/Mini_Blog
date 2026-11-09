@@ -78,7 +78,7 @@ final class InstallPage implements PackageInterface
         }
 
         $response->setPayload([
-            'title'     => '安装向导 · 万象',
+            'title'     => '安装向导 · Mini Blog',
             'page'      => 'install',
             'installed' => false,
             'steps'     => $state->steps($facts),

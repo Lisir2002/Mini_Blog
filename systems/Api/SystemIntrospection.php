@@ -24,7 +24,7 @@ final class SystemIntrospection
         $k = $this->kernel;
         $v = json_decode((string) @file_get_contents($k->root() . '/core/version.json'), true);
         return [
-            'framework'      => '万象 · 博客框架',
+            'framework'      => 'Mini Blog',
             'core_version'   => (string) ($v['version'] ?? 'unknown'),
             'php'            => PHP_VERSION,
             'requires_php'   => (string) ($v['requires_php'] ?? '>=8.1'),

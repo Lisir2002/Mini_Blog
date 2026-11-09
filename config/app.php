@@ -7,7 +7,7 @@ declare(strict_types=1);
  */
 return [
     'site' => [
-        'name' => '万象 · 原型站点',
+        'name' => 'Mini Blog',
     ],
 
     // 停用某个系统层：把名字写进这里即可，无需删代码

@@ -97,7 +97,7 @@ GET /api/v1/system/info
     "code": 0,
     "message": "ok",
     "data": {
-        "framework": "万象 · 博客框架",
+        "framework": "Mini Blog",
         "core_version": "0.11.0",
         "php": "8.3.6",
         "requires_php": ">=8.1",

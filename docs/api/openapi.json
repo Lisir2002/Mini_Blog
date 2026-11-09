@@ -1,7 +1,7 @@
 {
     "openapi": "3.1.0",
     "info": {
-        "title": "万象 · 博客框架 API",
+        "title": "Mini Blog API",
         "version": "v1",
         "description": "由 api/registry.json 生成。统一信封、稳定 operationId、operation 级安全声明、机器可读错误码。"
     },
@@ -4463,17 +4463,7 @@
                         }
                     },
                     "409": {
-                        "description": "状态冲突",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "错误",
+                        "description": "迁移校验和冲突，拒绝升级",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4484,6 +4474,16 @@
                     },
                     "422": {
                         "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "升级后健康检查未通过",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4550,17 +4550,7 @@
                         }
                     },
                     "409": {
-                        "description": "状态冲突",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "错误",
+                        "description": "迁移不可逆，拒绝回退",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4571,6 +4561,16 @@
                     },
                     "422": {
                         "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "数据库不可用",
                         "content": {
                             "application/json": {
                                 "schema": {

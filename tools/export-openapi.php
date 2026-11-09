@@ -39,7 +39,7 @@ $envelopeSchema = [
 $doc = [
     'openapi' => '3.1.0',
     'info'    => [
-        'title'       => '万象 · 博客框架 API',
+        'title'       => 'Mini Blog API',
         'version'     => $version,
         'description' => '由 api/registry.json 生成。统一信封、稳定 operationId、operation 级安全声明、机器可读错误码。',
     ],

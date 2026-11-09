@@ -15,7 +15,7 @@ final class HelloPlugin implements PackageInterface
     {
         $kernel->hooks()->filter('kernel.response.filter', static function (Response $response): Response {
             $payload = (array) $response->payload();
-            $payload['title'] = $payload['title'] ?? '万象 · 原型站点';
+            $payload['title'] = $payload['title'] ?? 'Mini Blog';
             $payload['items'] = array_merge(
                 (array) ($payload['items'] ?? []),
                 ['这一行由插件系统通过钩子注入']

@@ -1,0 +1,11 @@
+{
+  "system": "permission",
+  "permissions": [
+    {"name": "permission.read", "description": "查看权限清单与角色授权"},
+    {"name": "permission.manage", "description": "授予 / 撤销角色许可、设置资源 ACL"},
+    {"name": "permission.audit.read", "description": "查看权限决策留痕"},
+    {"name": "system.contract.override", "description": "以更高 priority 覆盖已有契约实现"},
+    {"name": "system.config.read", "description": "读取系统配置"},
+    {"name": "system.config.write", "description": "修改系统配置"}
+  ]
+}

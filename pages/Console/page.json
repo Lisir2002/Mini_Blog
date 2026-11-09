@@ -1,0 +1,18 @@
+{
+    "slug": "console",
+    "class": "Wx\\Pages\\Console\\ConsolePage",
+    "version": "0.2.0",
+    "priority": 30,
+    "enabled": true,
+    "layout": "admin",
+    "routes": [
+        "/console"
+    ],
+    "_note": "后台只声明 admin 布局槽位并产出数据；布局模板与全部 CSS/JS 由主题包提供，主题未提供 admin 布局时退化为纯数据；v0.8 起访问策略由 access 段声明，裁决统一走权限契约",
+    "access": {
+        "auth": "user",
+        "permission": "page.console.read",
+        "deny_layout": "deny",
+        "_note": "后台：需登录且具备控制台读权限；拒绝时交主题 deny 布局呈现"
+    }
+}

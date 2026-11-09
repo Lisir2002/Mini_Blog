@@ -1,0 +1,12 @@
+/* install 布局样式 —— 归属主题包 */
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.6 system-ui, sans-serif; background: #f7f9fb; color: #1f2b38; }
+.wx-shell { max-width: 860px; margin: 2.5rem auto; padding: 0 1.25rem 3rem; }
+.blk { background: #fff; border: 1px solid #e1e7ee; border-radius: 10px; padding: 1rem 1.25rem; margin-top: 1rem; }
+.blk h2 { margin: 0 0 .65rem; font-size: .98rem; }
+table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid #eceff3; vertical-align: top; }
+th { width: 22%; white-space: nowrap; }
+td.ok { color: #137a45; font-weight: 600; }
+td.warn { color: #b25a09; font-weight: 600; }
+.hint { font-size: .82rem; opacity: .68; }

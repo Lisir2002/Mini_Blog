@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>万象 · 博客框架架构总览（v0.11）</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #fff; --ink: #1b1b1f; --muted: #6b6a73;
+    --line: #e2dfd8; --accent: #7c4dff; --accent-soft: #f0ebff;
+    --ok: #0f8a5f; --ok-soft: #e8f7f0; --warn: #b45309; --warn-soft: #fff5e6;
+    --code: #201f2a; --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 3rem 1.25rem 5rem; background: var(--bg); color: var(--ink);
+    font: 15px/1.75 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  header { margin-bottom: 2.5rem; }
+  .eyebrow { font-size: .78rem; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  h1 { font-size: clamp(1.9rem, 4vw, 2.8rem); margin: .4rem 0 .6rem; letter-spacing: -.02em; }
+  .lede { color: var(--muted); max-width: 60ch; font-size: 1.05rem; }
+  .principle { display: inline-block; margin-top: 1rem; padding: .5rem 1rem; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+  section { margin: 2.75rem 0; }
+  h2 { font-size: 1.25rem; margin: 0 0 .35rem; display: flex; align-items: center; gap: .6rem; }
+  h2::before { content: ""; width: 4px; height: 1.1rem; background: var(--accent); border-radius: 2px; }
+  .sub { color: var(--muted); margin: 0 0 1.25rem; font-size: .92rem; }
+  .grid { display: grid; gap: 1rem; }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .g5 { grid-template-columns: repeat(5, 1fr); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.15rem 1.25rem; }
+  .card h3 { margin: 0 0 .45rem; font-size: 1rem; }
+  .card p { margin: 0; color: var(--muted); font-size: .9rem; }
+  .tag { font: 700 .72rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent);
+    background: var(--accent-soft); padding: .28rem .5rem; border-radius: 6px; display: inline-block; margin-bottom: .6rem; }
+  .tag.ok { color: var(--ok); background: var(--ok-soft); }
+  .layers { display: grid; gap: .55rem; }
+  .layer { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+    padding: 1rem 1.25rem; display: grid; grid-template-columns: 92px 1fr; gap: 1rem; align-items: center; }
+  .layer .lv { font: 800 1.05rem/1 ui-monospace, monospace; color: var(--accent); }
+  .layer .lv small { display: block; font: 400 .72rem/1.5 system-ui, sans-serif; color: var(--muted); margin-top: .3rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: .45rem; }
+  .chip { border: 1px solid var(--line); background: #fbfaf8; border-radius: 8px;
+    padding: .35rem .7rem; font-size: .85rem; white-space: nowrap; }
+  .chip.core { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  .chip.carrier { background: var(--ok-soft); border-color: #c9e9d9; color: #0b6d4c; }
+  .layer-note { grid-column: 1 / -1; color: var(--muted); font-size: .82rem; border-top: 1px dashed var(--line); padding-top: .6rem; }
+  .flow { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .flow .case { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+  .case .top { padding: .85rem 1.15rem; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  .case.a .top { background: var(--ok-soft); color: var(--ok); }
+  .case.b .top { background: var(--accent-soft); color: var(--accent); }
+  .case .top span { font: 600 .74rem/1 ui-monospace, monospace; opacity: .8; }
+  pre { margin: 0; padding: 1rem 1.15rem; background: var(--code); color: #e9e7f5;
+    font: .78rem/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-x: auto; white-space: pre-wrap; }
+  pre .k { color: #b9a4ff; } pre .s { color: #9ce6b6; } pre .c { color: #8b8998; }
+  table { width: 100%; border-collapse: collapse; background: var(--card);
+    border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; font-size: .88rem; }
+  th, td { text-align: left; padding: .7rem 1rem; border-bottom: 1px solid var(--line); }
+  th { background: #fbfaf8; font-size: .8rem; color: var(--muted); }
+  tr:last-child td { border-bottom: none; }
+  code { font: .84em ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); }
+  .callout { border-left: 4px solid var(--warn); background: var(--warn-soft); color: #7c4a08;
+    padding: 1rem 1.25rem; border-radius: 0 var(--radius) var(--radius) 0; }
+  .callout.ok { border-left-color: var(--ok); background: var(--ok-soft); color: #0b6d4c; }
+  .passed { display: inline-flex; gap: .5rem; align-items: center; font-weight: 700; color: var(--ok); }
+  footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; }
+  @media (max-width: 820px) {
+    .g2, .g3, .g4, .g5, .flow { grid-template-columns: 1fr; }
+    .layer { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Architecture Overview · v0.11</div>
+  <h1>万象 · 博客框架</h1>
+  <p class="lede">核心只做装配与调度；一切能力是系统层，一切呈现是承载包，一切交互是接口，一切单元的装卸由元层管辖。删光所有系统层与包，框架仍能启动——只是什么都不做，且一个字节的样式都不会输出。</p>
+  <div class="principle">第一性原理：高度自定义，万象皆接口</div>
+  <div class="principle" style="background:var(--ok-soft);color:var(--ok);margin-left:.6rem">纯原生 PHP · 无模板引擎 · 无第三方框架</div>
+  <div class="principle" style="background:#fff5e6;color:#b45309;margin-left:.6rem">建议全数采纳 · 14 系统层 · 55 接口</div>
+</header>
+
+<section>
+  <h2>五条可验证的硬约束</h2>
+  <p class="sub">口号会退化成「加个配置项吧」，所以这里把它拆成有测试守卫的约束；另有规矩 F / G 同样带守卫。</p>
+  <div class="grid g5">
+    <div class="card"><div class="tag">H1</div><h3>零呈现</h3><p>核心永不产出 HTML / CSS / JS。未接入主题 → 全站零样式。静态扫描 + 运行时断言双重守卫。</p></div>
+    <div class="card"><div class="tag">H2</div><h3>零业务</h3><p>不写 SQL、不建表、不内置任何路由与默认页面。首页本身也是独立页包。核心文件数钉在 24 以内。</p></div>
+    <div class="card"><div class="tag">H3</div><h3>一切可换</h3><p>能力通过契约绑定，实现可被显式替换并留痕；同级冲突直接报错，不搞静默覆盖。</p></div>
+    <div class="card"><div class="tag">H4</div><h3>纯原生栈</h3><p>禁 Twig / Blade / Smarty、composer / vendor、任何 PHP 框架与 ORM；模板就是原生 .php。</p></div>
+    <div class="card"><div class="tag">H5</div><h3>操作皆接口</h3><p>每项操作规范化为接口，一个接口对应一份规范化文档，清单驱动、守卫阻断漂移。</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>五层模型（元层 + 第 13 层 member）</h2>
+  <p class="sub">层间只允许通过接口通信，不允许跨层直接 <code>new</code> 具体类。核心甚至不知道「文章」「升级」这两个词的存在。</p>
+  <div class="layers">
+    <div class="layer">
+      <div class="lv">L3<small>表现与内容</small></div>
+      <div class="chips">
+        <span class="chip">主题包 themes/*（Bare 带样式 / BareHtml 零 CSS）</span>
+        <span class="chip">插件包 plugins/*</span>
+        <span class="chip">独立页包 pages/*（可 standalone 自带 CSS/JS）</span>
+      </div>
+      <div class="layer-note">三者共用同一身份：<code>PackageInterface</code>。后台 UI 是 <code>pages/Console</code> 可卸载包；是否套用站点主题由独立页清单的 <code>standalone</code> 决定。</div>
+    </div>
+    <div class="layer">
+      <div class="lv">L2<small>承载型系统层</small></div>
+      <div class="chips">
+        <span class="chip carrier">主题系统 → RendererInterface</span>
+        <span class="chip carrier">插件系统</span>
+        <span class="chip carrier">独立页系统 → render.should_render 裁决</span>
+      </div>
+      <div class="layer-note">只负责「装载包」，自身不产出任何内容、不渲染一个标签。</div>
+    </div>
+    <div class="layer">
+      <div class="lv">L1<small>能力型系统层</small></div>
+      <div class="chips">
+        <span class="chip">日志</span><span class="chip">用户</span><span class="chip">安全</span>
+        <span class="chip">评论</span><span class="chip">数据库</span><span class="chip">权限（第 12 层）</span>
+        <span class="chip carrier">内容（第 11 层）</span><span class="chip carrier">成员（第 13 层）</span><span class="chip">API 接口</span><span class="chip">…未来任意新系统</span>
+      </div>
+      <div class="layer-note">全部实现 <code>SystemInterface</code>，与官方系统完全对等；新增 = 丢目录 + 写 <code>system.json</code>，内核零改动。实测 13 层顺序：log → database → security → lifecycle → user → permission → api → plugin → member → content → theme → comment → page。</div>
+    </div>
+    <div class="layer">
+      <div class="lv">LM<small>元层 · 装卸系统</small></div>
+      <div class="chips">
+        <span class="chip carrier">install / activate / deactivate</span>
+        <span class="chip carrier">upgrade / rollback / uninstall / verify</span>
+        <span class="chip carrier">HMAC-SHA256 签名验签</span>
+      </div>
+      <div class="layer-note">管理五类单元（core · system · theme · plugin · page）的生命周期；对外只暴露 <code>LifecycleManagerInterface</code>。状态机 + 暂存区 + 升级备份 + 失败自动回滚 + 版本对账。</div>
+    </div>
+    <div class="layer">
+      <div class="lv">L0<small>系统核心</small></div>
+      <div class="chips">
+        <span class="chip core">Kernel</span><span class="chip core">Container</span>
+        <span class="chip core">HookBus</span><span class="chip core">SystemRegistry</span>
+        <span class="chip core">PackageLoader</span><span class="chip core">Router</span>
+      </div>
+      <div class="layer-note">24 个 PHP 文件，其中 13 个契约接口（已达上限）；0 个 CSS/JS、0 条 SQL。黑名单：任何 HTML/CSS/JS、表、路由、模板、后台 UI、模板引擎与第三方框架。</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>「万象皆接口」= 五张接口网</h2>
+  <div class="grid g5">
+    <div class="card"><div class="tag">契约面</div><h3>Container</h3><p>13 个契约，实现可替换；接上 MySQL 走 PDO，拔掉库自动回退内存适配器。</p></div>
+    <div class="card"><div class="tag">事件面</div><h3>HookBus</h3><p>流程可拦截：action 广播、filter 链式改值，priority 升序。</p></div>
+    <div class="card"><div class="tag">装配面</div><h3>*.json 清单</h3><p>单元可插拔：系统层、主题、插件、独立页统一清单驱动。</p></div>
+    <div class="card"><div class="tag">数据面</div><h3>DatabaseInterface</h3><p>21 张表与 SQL 归各系统层自持；无主题时整站即 JSON API。</p></div>
+    <div class="card"><div class="tag">接口面</div><h3>registry.json</h3><p>55 个接口，一个 operation 一个执行者，一个接口一份文档 + OpenAPI 3.1。</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>无主题零样式：结构性保证，而非口头约定</h2>
+  <p class="sub"><code>Kernel::renderStage()</code> 是全站唯一表现层入口，且它自己不渲染：<code>RendererInterface</code> 在核心里只有接口、没有任何实现，也没有兜底模板。</p>
+  <div class="flow">
+    <div class="case a">
+      <div class="top">无主题 <span>theme.active = null</span></div>
+<pre>HTTP/1.1 200 OK
+Content-Type: <span class="s">application/json</span>
+X-Content-Type-Options: nosniff
+X-RateLimit-Limit: 120
+
+{
+  <span class="k">"title"</span>: <span class="s">"站点首页"</span>,
+  <span class="k">"page"</span>:  <span class="s">"home"</span>
+}
+<span class="c">// 退化为纯数据服务：零 HTML、零 CSS、零 JS</span></pre>
+    </div>
+    <div class="case b">
+      <div class="top">接入主题 <span>theme.active = 'bare'</span></div>
+<pre>&lt;!doctype html&gt;
+&lt;html lang="zh-CN"&gt;
+&lt;head&gt;
+  &lt;style&gt;
+    <span class="c">/* 内容逐字来自 themes/Bare/style.css */</span>
+    :root { --accent: #8b5cf6; }
+  &lt;/style&gt;
+&lt;/head&gt;
+...
+<span class="c">&lt;!-- 样式 100% 属于主题包，core/ 无任何 CSS 文件 --&gt;</span></pre>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:1rem"><strong>关键推论：</strong>「无主题」不等于「无样式的 HTML」。若核心保留一份裸模板，它仍拥有 markup、仍然越权。想用裸 HTML，正确做法是装 <code>bare-html</code> 主题包（v0.4 已提供，零 CSS 文件）。标题数据来自 <code>ContentRepositoryInterface</code>，首页包不持有正文。</p>
+</section>
+
+<section>
+  <h2>装卸系统（元层）</h2>
+  <p class="sub">管理 <code>core / system / theme / plugin / page</code> 五类单元；身份取自清单的 <code>slug</code> / <code>name</code>，目录名只是物理路径。</p>
+  <div class="flow">
+    <div class="case a">
+      <div class="top">状态机 <span>非法转换 → 40901</span></div>
+<pre>absent ──install──▶ installed ──activate──▶ active
+                        ▲                     │
+                        └────deactivate───────┘
+installed/active ──upgrade──▶ 版本提升（状态保持）
+installed ──uninstall──▶ absent
+installed/active ──rollback──▶ 回退到备份版本
+
+<span class="c">// 停用不清数据；只有 uninstall 才彻底清理</span>
+<span class="c">// 磁盘清单版本与状态不一致时自动对账</span></pre>
+    </div>
+    <div class="case b">
+      <div class="top">事务性 <span>暂存 → 替换 → 备份 → 回滚</span></div>
+<pre>install   校验 → staging → 目标写入 → on_install
+upgrade   备份当前 → staging → 替换
+          → on_upgrade(from, to) → 记录 backup
+失败      自动从备份恢复，绝不留在半状态
+
+<span class="c">// 路径穿越 / 源包越界 / 反向依赖 / 版本未递增</span>
+<span class="c">// 篡改签名 / 强制缺签名 → 全部拒绝</span></pre>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:1rem">包可自带原生 PHP <code>lifecycle.php</code> 返回 <code>on_install / on_upgrade / on_uninstall</code> 闭包——无 DSL、无注解、无模板引擎。8 个装卸操作全部登记为规范化接口；签名用纯原生 <code>hash_hmac</code> 验签。</p>
+</section>
+
+<section>
+  <h2>API 接口系统 · 一个接口一份文档</h2>
+  <div class="grid g3">
+    <div class="card"><div class="tag">唯一事实源</div><h3>api/registry.json</h3><p>55 个接口，逐条声明路径 / 方法 / 参数 / 错误码 / 幂等性 / 副作用 / 文档路径；ID、路由、operation 三者全局唯一。</p></div>
+    <div class="card"><div class="tag">统一信封</div><h3>code · data · meta</h3><p><code>code/message/data/request_id/meta</code>；14 个错误码前两位对齐 HTTP 状态；禁止「200 里塞错误」。</p></div>
+    <div class="card"><div class="tag">1:1 文档</div><h3>39 份 API-*.md</h3><p>清单 + 模板 → <code>tools/gen-api-docs.php</code>；另有 <code>export-openapi.php</code> 导出 3.1；守卫阻断漂移，禁止手写。</p></div>
+  </div>
+  <p class="sub" style="margin-top:1rem"><strong>分发顺序</strong>：匹配接口 → 429 限流 → 写接口公网边界 → <strong>鉴权执行</strong> → 参数校验 → 幂等去重 → 唯一 operation → 统一信封。鉴权刻意排在参数校验之前；身份以 <code>_identity</code> 注入业务执行者。规范借鉴 OpenAPI 3.1 / RFC 9457 / Azure REST / Google AIP / Zalando / Stripe，全部自研实现。</p>
+</section>
+
+<section>
+  <h2>v0.4 → v0.11：落地清单</h2>
+  <div class="grid g2">
+    <div class="card"><div class="tag ok">内容</div><h3>第 11 个系统层 <code>content</code></h3><p>契约 + MySQL 实现 + 自有 migrations + 生命周期钩子 + 4 个接口；keyset 游标分页；内核零改动，是对可扩展性的真实检验。</p></div>
+    <div class="card"><div class="tag ok">数据</div><h3>MySQL 全量实现</h3><p>用户 / 评论 / 内容从内存占位换成 PDO 实现，真实建立 5 张表并读写；拔掉 DSN 自动回退，框架仍可启动。</p></div>
+    <div class="card"><div class="tag ok">安全</div><h3>鉴权从声明变执行</h3><p>令牌落库只存 SHA-256 摘要、带过期与撤销；40101 / 40102 / 40301 / 40302；CSRF 落库一次性；CSP 可配置。</p></div>
+    <div class="card"><div class="tag ok">接口</div><h3>幂等 · 限流 · 分页 · OpenAPI</h3><p><code>Idempotency-Key</code> 服务端去重、429 + Retry-After、游标分页、由清单导出标准 OpenAPI 3.1 文档。</p></div>
+    <div class="card"><div class="tag ok">承载包</div><h3>后台与独立页</h3><p>可卸载控制台、工具页、只读安装向导、零 CSS 的 bare-html 主题；<strong>v0.6 起全部改由主题提供布局</strong>，独立页不再持有任何 CSS/JS。</p></div>
+    <div class="card"><div class="tag ok">定案</div><h3>命名 / 版本 / 冲突策略</h3><p>「万象」<code>Wx\</code>、v0.10.0、PHP ≥ 8.1；保留显式 priority + fail-fast + 留痕；包签名验签（HMAC-SHA256）落地。</p></div>
+    <div class="card"><div class="tag ok">规矩 H</div><h3>单文件职责预算</h3><p>行数 / 责任主体 / 扇出 / 职权跨度四指标分层预算，<code>audit-responsibility.php</code> 静态审计。上帝类 563 行 → 188 行编排者 + 7 个协作者。</p></div>
+    <div class="card"><div class="tag ok">规矩 I</div><h3>协作全方位验证</h3><p>8 类协作矩阵 C1–C8 + 存在性 / 一致性 / 运行时贯通 / 故障注入四维；C9 断言每一类都有实际跑过的守卫。</p></div>
+    <div class="card"><div class="tag ok">规矩 J · v0.6</div><h3>呈现权完全归主题</h3><p>后台布局同样过主题系统。独立页只产数据 + 声明 <code>layout</code> 槽位，主题包持有 site / admin / tool / install 全部模板与 CSS/JS；主题缺某布局 → 该页退化为纯 JSON，框架绝不兜底。<code>standalone</code> 绕过主题的后门已拆除。</p></div>
+    <div class="card"><div class="tag ok">规矩 K · v0.6</div><h3>权限系统（第 12 层）</h3><p>用户权限 RBAC / 文章权限资源 ACL / 系统权限各层自报；决策三态 <code>allow·deny·abstain</code>、fail-closed、策略钩子只能收紧不能提权、每次决策留痕。28 个权限点、14 个权限接口（<code>API-PERM-001~014</code>）、9 张权限表（全站 20 张）。</p></div>
+    <div class="card"><div class="tag ok">v0.7 深化</div><h3>继承 / 缓存 / 字段级</h3><p>角色继承用 <code>permission_role_parents</code> 边表 + 决策时展开，自环 / 成环 / 深度超限写入即拒；决策缓存只缓存基础读取、绝不缓存最终决策，授权变更显式失效；ACL 新增 <code>field</code> 维度，精确拒绝某字段而不剔除整篇。<code>core/</code> 仍 24 个 PHP。</p></div>
+    <div class="card"><div class="tag ok">v0.8 规矩 L</div><h3>页面权限 / 覆盖鉴权</h3><p>5 个页面在 <code>page.json</code> 声明分级 <code>access</code>，<code>route.access</code> 统一裁决并短路；与 API 共用认证器与权限决策器，策略钩子只能收紧，拒绝页样式归主题 <code>deny</code> 布局。契约覆盖新增授权台账：<code>require_grant</code> 开启后未授权覆盖 fail-closed，授权必须经运行时身份。<code>core/</code> 未新增文件。</p></div>
+    <div class="card"><div class="tag ok">v0.9 规矩 M</div><h3>主体可扩展 / 凭据单一来源</h3><p>用户组只作「角色来源」，主体角色集合 = 自身角色 ∪ 组绑定角色，决策骨架与 deny 优先级一字未改；页面会话与 API 令牌<strong>同表同过期同撤销</strong>，只换 HttpOnly + SameSite=Lax 载体，且会话令牌不得当 Bearer 调普通 API；权限缓存新增可换后端（进程内 / 文件），以 epoch 换代失效；<code>content.update</code> 逐字段裁决、任一被拒整次拒绝，绝不部分写入；契约覆盖默认 <code>require_grant=true</code>，仅已注册系统层自动登记，<code>plugin: / theme: / page:</code> 必须运行时授权。<code>core/</code> 仍 24 个 PHP。</p></div>
+    <div class="card"><div class="tag ok">v0.10 规矩 N</div><h3>身份与授权解耦</h3><p>第 13 系统层 <code>member</code>：站长自定义头衔（标识 / 颜色 / 权重 / 自动门槛）、经验规则（单次值 / 每日上限 / 启停）、等级门槛（任意级数与区间）。经验流水 append-only、<code>event_key</code> 幂等、上限截断、写流水与加余额同事务；等级是「经验 + 门槛」的解释结果，可重算、只升不降；头衔手动授予 ∪ 等级自动，<strong>零权限</strong>。用户组补颜色与排序，仍只是角色来源。<code>core/</code> 仍 24 个 PHP。</p></div>
+    <div class="card"><div class="tag ok">v0.11 规矩 P</div><h3>标准化安装 · 不重装迭代</h3><p>五步安装向导（环境 / 数据库 / 管理员 / 迁移基线 / 加锁）只写 <code>config/local.php</code> 与 <code>install.lock</code>，写动作须带 0600 一次性令牌且仅本机来源，装完页面整体 404。第 14 系统层 <code>release</code> 用迁移台账 + checksum 校验 + 健康门禁把「升级 → 失败回退」做成一次可回滚事务；快照按版本归档、<code>keep_releases</code> 只裁最旧，可回退到任意装过的版本，回退前还给当前版本留一份。<code>core/</code> 仍 24 个 PHP。</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>工程规矩（立规矩）</h2>
+  <table>
+    <tr><th>规矩</th><th>执行口径</th></tr>
+    <tr><td><strong>A · 验证性截图不存活三轮对话</strong></td><td>截图 / 预览快照自产生起最多 3 轮有效；第 4 轮起视为过期，<strong>不得再引用、不得据此判断、不得用于新旧对比</strong>。复核请重新截取或改用可重跑的文本证据（测试断言、HTTP 响应体、<code>php -l</code>、文件 diff）。截图不入库、不写进文档。</td></tr>
+    <tr><td><strong>B · 纯原生栈</strong></td><td>禁 Twig / Blade / Smarty、<code>composer.json</code> / <code>vendor/</code>、任何 PHP 框架与 ORM；模板是原生 <code>.php</code>，转义走 <code>SecurityGuardInterface::escape()</code>。</td></tr>
+    <tr><td><strong>C · 一接口一文档</strong></td><td>清单驱动生成，禁止手写；新增接口必须改清单 → 重新生成 → 跑守卫。</td></tr>
+    <tr><td><strong>D / E</strong></td><td>核心 PHP ≤ 24（当前 24，已达上限）；每条规矩必须配可执行守卫与全绿运行记录。</td></tr>
+    <tr><td><strong>F · 写接口必须鉴权</strong></td><td>鉴权先于参数校验；写接口默认仅本机来源可调用，公网来源 <code>40302</code>。</td></tr>
+    <tr><td><strong>G · 样式脚本归属（v0.6 由 J 收紧）</strong></td><td>只允许存在于 <code>themes/</code>；<code>core/</code> <code>systems/</code> <code>pages/</code> <code>plugins/</code> 出现任一 <code>.css</code> / <code>.js</code> 即视为越权。后台 UI 仍是可卸载独立页，但不再自带样式。</td></tr>
+    <tr><td><strong>H · 单文件不允许职责职权过重</strong></td><td>四指标分层预算：<code>core/</code> 120 行 / 扇出 5，<code>systems/</code> 190 / 8，承载包 150 / 6，<code>tests/</code> 240 / 12。跨度 ≥ 4 或「跨度 3 + 体积超预算 80%」即违规；审计器非 0 退出。</td></tr>
+    <tr><td><strong>I · 相互协作必须全方位验证</strong></td><td>8 类矩阵（契约 / 装配 / 事件 / 接口 / 装卸 / 呈现 / 数据 / 编排）逐项运行时验证 + 故障注入；C9 校验矩阵覆盖、报告自洽与扫描完整性。</td></tr>
+    <tr><td><strong>J · 呈现权完全归主题系统</strong></td><td>后台不例外：独立页只产数据 + 声明 <code>layout</code> 槽位，主题包持有全部布局模板与 CSS/JS；主题缺该布局 → 纯数据，框架绝不兜底输出标签。</td></tr>
+    <tr><td><strong>K · 权限三层模型</strong></td><td>用户 RBAC / 文章资源 ACL / 系统权限自报；三态决策 <code>allow·deny·abstain</code>、fail-closed、策略钩子只能收紧不能提权、每次决策留痕；显式 deny 对匿名也生效。</td></tr>
+    <tr><td><strong>L · 页面访问策略清单化</strong></td><td><code>page.json.access</code> 声明 <code>auth</code> / <code>permission</code> / <code>local_only</code>，<code>route.access</code> 统一下发并短路；页面与 API 共用认证器与决策器，拒绝页走主题 <code>deny</code> 槽位，缺布局即纯 JSON。</td></tr>
+    <tr><td><strong>M · 主体可扩展 · 凭据单一来源</strong></td><td>组只是角色来源，不新增权限名、不复制授权表；页面会话与 API 令牌同表、只换 HttpOnly 载体且不得互为通用凭据；缓存可换后端但绝不缓存最终决策；字段级写与读同构，被拒即整次拒绝；契约覆盖默认需授权，只有已注册系统层自动登记。</td></tr>
+    <tr><td><strong>N · 身份与授权解耦</strong></td><td>头衔 / 等级 / 经验只描述「是谁」，不参与 <code>decide()</code>；经验流水 append-only + <code>event_key</code> 幂等 + 每日上限 + 事务；等级是「经验 + 门槛」的解释结果，可重算、只升不降；头衔自动授予不写表、手动授予须显式撤销；系统层内部契约不注册进容器。</td></tr>
+    <tr><td><strong>O · 验证脚本不入项目</strong></td><td>调试 / 冒烟 / 探针脚本只写 <code>/tmp</code>；项目内只留 <code>tests/</code> 守卫与 <code>tools/</code> 正式工具。后缀黑名单、根目录与 <code>tools/</code> 白名单、守卫命名 <code>NN[x]-kebab-case.php</code> 由 17 组强制执行；<code>.log</code> 仅限 <code>storage/logs/</code>、<code>.sql</code> 仅限 <code>systems/*/migrations/</code>。</td></tr>
+    <tr><td><strong>P · 安装与版本必须可逆</strong></td><td>安装只走五步（环境 → 数据库 → 管理员 → 迁移 → 加锁），只写 <code>config/local.php</code> 与 <code>install.lock</code>，写动作须带 0600 一次性令牌且仅本机；版本变更必留快照、必可回退——checksum 冲突拒绝升级 <code>40904</code>，缺 down 脚本拒绝回退 <code>40903</code>，健康门禁失败自动逆向回退，<code>keep_releases</code> 只裁最旧。</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>契约清单</h2>
+  <table>
+    <tr><th>契约</th><th>默认实现</th><th>谁可覆盖</th></tr>
+    <tr><td><code>RendererInterface</code></td><td>仅主题包（核心无实现）</td><td>主题 / 高优先级插件</td></tr>
+    <tr><td><code>LoggerInterface</code></td><td>日志系统 → FileLogger</td><td>任意系统层 / 插件</td></tr>
+    <tr><td><code>UserProviderInterface</code></td><td>用户系统 → PdoUserProvider（无库回退会话版）</td><td>任意系统层 / 插件</td></tr>
+    <tr><td><code>SecurityGuardInterface</code></td><td>安全系统 → DefaultGuard（CSRF 落库 + 过期）</td><td>任意系统层 / 插件</td></tr>
+    <tr><td><code>CommentStoreInterface</code></td><td>评论系统 → PdoCommentStore（无库回退内存版）</td><td>换实现只改一行绑定</td></tr>
+    <tr><td><code>ContentRepositoryInterface</code></td><td>内容系统 → PdoContentRepository（无库回退内存版）</td><td>任意系统层 / 插件</td></tr>
+    <tr><td><code>DatabaseInterface</code></td><td>数据库系统 → PdoDatabase</td><td>可换其它 PDO 数据源</td></tr>
+    <tr><td><code>ApiAuthenticatorInterface</code></td><td>安全系统 → DbApiAuthenticator（令牌落库 + 角色）</td><td>可换 OAuth / 签名 / SSO</td></tr>
+    <tr><td><code>LifecycleManagerInterface</code></td><td>装卸系统 → LifecycleManager</td><td>可换成带远程仓库的实现</td></tr>
+    <tr><td><code>ApiRegistryInterface</code></td><td>API 系统 → ApiRegistry</td><td>可换成带额外策略的注册表</td></tr>
+    <tr><td><code>SystemInterface</code> · <code>PackageInterface</code></td><td>14 个系统层 / 全部承载包</td><td>未来任意新单元</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>验证结果</h2>
+  <p class="passed">✓ 181 passed, 0 failed（38 组） · 职责审计 0 违规 / 0 孤儿协作</p>
+  <p class="sub" style="margin-top:.6rem"><code>php -l</code> 全量 <strong>201</strong> 个 PHP 文件通过（<code>core/</code> 仅 24 个、0 个 CSS/JS）；最大单文件 185 行；14 个系统层自动装配、13 个契约（其中 10 个在容器中绑定实现，<code>RendererInterface</code> 只由主题实现、<code>SystemInterface</code> / <code>PackageInterface</code> 由单元自身实现）、55 个接口对应 55 份文档、OpenAPI 3.1（49 路径 / 55 操作）。真实 MariaDB 10.11 上建立 21 张表并验证文章 / 评论写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页；拔掉 DSN 自动回退。HTTP 端到端：<code>GET /</code> 纯 JSON 零 HTML，无令牌访问受保护接口 HTTP 401 + <code>40101</code>，用 <code>admin/admin123</code> 换令牌后返回 <code>code=0</code>，<code>/console</code> / <code>/install</code> / <code>/toolbox</code> 无主题时返回纯 JSON，启用主题后由主题布局输出 HTML。所有结论均为<strong>可重跑的文本证据</strong>，未使用截图（规矩 A）。</p>
+  <div class="callout ok" style="margin-top:1.25rem">
+    <strong>9 项决策已全部执行：</strong>内容系统、MySQL 全量实现、接口鉴权执行、写接口公网边界、可卸载后台、standalone 独立页、bare-html 主题、幂等/限流/分页/OpenAPI、包签名验签，以及 PHP 8.1+ / 「万象 <code>Wx\</code>」/ 冲突策略定案。逐项兑现记录见 <code>docs/ARCHITECTURE.md</code> 第 16 节。
+  </div>
+  <div class="callout ok" style="margin-top:.8rem">
+    <strong>v0.5 新增：</strong>规矩 H 把「职权过重」变成四指标分层预算，5 个超重文件真实拆分（<code>LifecycleManager</code> 563 → 188 行 + 7 协作者、<code>ApiDispatcher</code> → 编排者 + <code>RequestGuard</code>、<code>ApiSystem</code> → <code>SystemIntrospection</code>、<code>InstallPage</code> → <code>InstallProbe</code>、聚合测试脚本 → 引导 + 15 分组）。规矩 I 把 8 类协作面做成运行时守卫，并做故障注入：替换实现、停用被依赖层、缺执行者、拔 DSN、篡改签名均被明确发现或规范化处理。审计引擎由 CLI 与测试共用，报告每次运行自动刷新。详见 <code>docs/ARCHITECTURE.md</code> 第 20 节。
+  </div>
+  <div class="callout ok" style="margin-top:.8rem">
+    <strong>v0.6 新增：</strong>规矩 J 把「布局」从「页面」剥离——后台不再自带样式，全站只有一条呈现链，换主题即换后台外观；无主题时连后台也零标签零样式。规矩 K 新增 <code>permission</code> 第 12 系统层：单一决策契约 <code>AccessControlInterface</code>、三层权限、显式 deny 优先、<code>*</code> 可撤销、public 接口可选携带身份、契约覆盖裁决点留痕。过程中修掉一个真实缺陷：显式 deny 原本对匿名主体失效。详见 <code>docs/ARCHITECTURE.md</code> 第 21、22 节。
+  </div>
+  <div class="callout ok" style="margin-top:.8rem">
+    <strong>v0.7 新增：</strong>权限层三处深化。<code>RoleGraph</code> 把角色继承做成许可并集，写入前拒绝自环 / 成环 / 深度超限（<code>40901</code>）；<code>PermissionCache</code> 只缓存基础数据读取并显式失效，绝不缓存最终决策，以免绕过请求级收紧策略；<code>AclMatcher</code> 增加 <code>field</code> 维度，字段级 deny 不误伤整篇资源。新增 2 个接口（<code>API-PERM-009/010</code>）、2 组共 15 项守卫，v0.7 时权限点仍 20 个、核心一行未加。详见 <code>docs/ARCHITECTURE.md</code> 第 23 节。
+  </div>
+  <div class="callout ok" style="margin-top:.8rem">
+    <strong>v0.8 新增：</strong>规矩 L 把「页面谁能访问」从代码搬进清单。<code>Router</code> 增加 <code>route.access</code> 可编程裁决点并在拒绝时短路，<code>PagePolicy</code> 构建分级策略（缺省 fail-closed），<code>PageAccessGuard</code> 复用 API 的认证器与 <code>AccessControlInterface</code> 做两级裁决；Bearer / <code>X-Api-Token</code> / Cookie 三种载体同源，策略钩子只能收紧不能提权。拒绝页只产数据 + <code>deny</code> 槽位，主题缺布局即退化为纯 JSON。契约覆盖引入 <code>permission_contract_overrides</code> 台账与 <code>API-PERM-011/012</code> 两个规范化接口，授权必须经运行时身份，未授权覆盖拒绝。新增 4 组共 23 项守卫、3 个页面权限点，<code>core/</code> 仍 24 个 PHP。详见 <code>docs/ARCHITECTURE.md</code> 第 24 节。
+  </div>
+  <div class="callout ok" style="margin-top:.8rem">
+    <strong>v0.9 新增：</strong>规矩 M 把「主体」与「凭据」两件事收口，不新增权限层。<strong>用户组</strong>只作角色来源（<code>permission_groups</code> / <code>permission_group_subjects</code> / <code>permission_group_roles</code> 三表，主体角色集合 = 自身角色 ∪ 组角色并集），决策骨架、显式 deny 优先、<code>tighten()</code> 一字未改。<strong>页面会话</strong>与 API 令牌同表（<code>kind</code> 区分）同过期同撤销，只把令牌换成 <code>HttpOnly; SameSite=Lax</code> Cookie，仅用于页面 <code>GET/HEAD</code>；反向也做了封堵——会话令牌不得作 Bearer 调普通 API（<code>40102</code>），仅清单声明 <code>accept_session: true</code> 的会话自身端点放行。<strong>缓存</strong>抽出 <code>CacheBackend</code>（进程内 / 文件两种实现），<code>flush()</code> 写新 epoch 让旧条目自然过期，避免删写竞态与跨进程广播，且绝不缓存最终决策。<strong>字段级写</strong>让 <code>content.update</code> 对 <code>title/body/status</code> 逐个 <code>decide(..., ['field' =&gt; ...])</code>，任一非 <code>allow</code> 整次 <code>40303</code> 拒绝、绝不部分写入。<strong>契约覆盖</strong>改为默认安全：<code>require_grant=true</code>，<code>AssemblyGrantRegistrar</code> 只自动登记 <code>system:&lt;已注册层&gt;</code>，第三方前缀必须运行时授权。过程中修掉四个真实缺陷：会话令牌可当万能 Bearer、<code>dropSchema()</code> 漏清覆盖台账、认证端点被公网写边界挡住（改为清单声明 <code>public_write</code>）、读写两端资源标识不一致（写路径用数字 id 导致按 slug 登记的字段级 deny 拦不住写，已统一为 slug）。新增 5 组共 20 项守卫、6 个接口、3 张表，<code>core/</code> 仍 24 个 PHP。详见 <code>docs/ARCHITECTURE.md</code> 第 25 节。
+  </div>
+  <div class="callout ok" style="margin-top:.8rem">
+    <strong>v0.10 新增：</strong>规矩 N 把「身份」与「授权」彻底分开，第 13 系统层 <code>member</code> 负责前者，权限系统独占后者。<strong>头衔</strong>由站长定义标识 / 名称 / 颜色 / 权重 / 展示 / 自动门槛，两种来源（手动授予写表、等级达标实时并集）都<strong>不产生任何权限</strong>——守卫用同一身份在授予前后各裁决一次，断言结果逐项相同。<strong>经验</strong>是 append-only 流水：<code>event_key</code> 唯一索引兜底幂等、每日上限按动作截断、写流水与加余额同一事务；内容与评论层只广播 <code>content.created</code> / <code>comment.created</code>，是否发经验由成员层决定，发放失败只留痕不拖垮主流程。<strong>等级</strong>不是状态而是解释结果：改门槛即时生效、删等级自动回落、<code>level</code> 只升不降。用户组补上颜色与排序，但仍是「角色来源」，展示属性不进入 <code>decide()</code>。过程中修掉四个真实缺陷：<code>ON DUPLICATE KEY</code> 在唯一键冲突时改错行、<code>user.lookup</code> 钩子参数不匹配导致 500、内部契约误注册污染 <code>contracts</code> 语义、测试内核继承生产限流造成跨文件 429 串扰。新增 10 个接口、6 张表、5 个权限点、5 组 21 项守卫；另补 17 组项目树纪律（验证脚本 / 临时文件 / 转储不入项目），<code>core/</code> 仍 24 个 PHP。详见 <code>docs/ARCHITECTURE.md</code> 第 26 节。
+  </div>
+  <div class="callout ok" style="margin-top:.8rem">
+    <strong>v0.11 新增：</strong>规矩 P 让「装得进、改得对、退得回」变成可复核的约束。<strong>安装器</strong>从只读探测页升级为五个文件各管一件事：<code>InstallPage</code> 只渲染与分发、<code>Installer</code> 只编排列、<code>InstallerAccount</code> / <code>InstallerMigrate</code> 各做一步、<code>InstallState</code> 只持有 <code>install.lock</code> 与 0600 令牌；配置只写覆盖层 <code>config/local.php</code>，删掉即回默认，带注释的主配置一字不动。<strong>版本系统</strong>成为第 14 系统层：迁移只认台账不认版本号、已执行脚本 checksum 变了直接 <code>40904</code>、全新站点只做基线登记不重跑、升级顺序固定为「迁移 → 单元 → core → 健康门禁」、失败按逆序退回并写历史。回退预检缺 down 即 <code>40903</code> 且不动任何文件；down 脚本在扫描时读入内存，避免「代码退了库没退」。快照从单 <code>backup</code> 字段改为按版本归档（<code>keep_releases</code>），名字带微秒时序戳，否则同一秒内两次快照的「保留最近 N 份」会变成随机结果。过程中修掉四个真实缺陷：领域错误码没穿透到 HTTP（全部表现成 <code>50001</code>）、快照同秒排序不确定、回退时 down 文件已随单元消失、安装步骤进度恒为假。新增 6 个接口、1 个系统层、1 张表、3 个权限点、4 个守卫文件 11 项断言。详见 <code>docs/ARCHITECTURE.md</code> 第 27 节。
+  </div>
+  <div class="callout" style="margin-top:.8rem">
+    <strong>仍需注意的边界：</strong>控制台为只读 + 令牌查询原型；匿名评论尚需验证码与内容审核；演示账号 <code>admin/admin123</code> 与配置中的明文口令 / 空签名密钥仅用于本地原型，投产前必须删除、改密并由环境注入；限流与幂等缓存基于文件存储，多实例部署需换共享存储。权限系统剩余边界：用户组不支持嵌套（等价能力已由角色继承提供）、缓存跨主机共享未做（换 Redis 只改后端实现）、会话无多设备管理界面、字段级写目前只作用于 <code>content.update</code>。<code>require_grant</code> 已默认开启，迁移存量站点前须先对账登记合法覆盖。成员系统剩余边界：经验流水无归档、排行榜为 <code>limit/offset</code>、等级变更不回溯通知、成员层零页面零样式（展示权归主题）、头衔不参与权限是刻意设计。<code>core/</code> 已达 24 个 PHP 上限。包仓库协议、多站点、契约版本协商列入 v1.0。</div>
+</section>
+
+<footer>
+  本页是架构说明文档，样式内联于此 HTML；框架里 <code>core/</code> <code>systems/</code> <code>pages/</code> <code>plugins/</code> 均不存在任何 CSS/JS 文件——样式与脚本只存在于 <code>themes/</code>（规矩 J）。代码全数自研：借鉴 WordPress 的 Hook 模型与包生命周期、Typecho 的轻量思路、Halo 的动态装卸，以及 OpenAPI 3.1 / RFC 9457 / Azure REST / Google AIP / Stripe 的接口规范，但全部用原生 PHP 实现，未引入任何模板引擎或第三方框架。
+</footer>
+
+</div>
+</body>
+</html>

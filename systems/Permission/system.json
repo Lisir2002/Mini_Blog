@@ -1,0 +1,9 @@
+{
+  "name": "permission",
+  "class": "Wx\\Systems\\Permission\\PermissionSystem",
+  "version": "0.4.0",
+  "requires": ["log", "database", "security", "user"],
+  "priority": 32,
+  "enabled": true,
+  "_note": "第 12 个系统层：用户权限(RBAC) / 文章权限(资源ACL+状态) / 系统权限(操作→许可)。fail-closed，策略钩子只能收紧，决策留痕；v0.7 增加角色继承 / 决策缓存 / 字段级权限；v0.8 契约覆盖引入运行时身份授权台账；v0.9 用户组 / 可换缓存后端 / 页面会话 / 字段级写"
+}

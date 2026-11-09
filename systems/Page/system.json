@@ -1,0 +1,8 @@
+{
+  "name": "page",
+  "class": "Wx\\Systems\\Page\\PageSystem",
+  "version": "0.1.0",
+  "requires": ["log", "theme", "plugin"],
+  "priority": 70,
+  "enabled": true
+}

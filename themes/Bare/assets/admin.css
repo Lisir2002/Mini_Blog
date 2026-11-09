@@ -1,0 +1,23 @@
+/* admin 布局样式 —— 归属主题包，独立页不持有任何 CSS */
+:root { color-scheme: light dark; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; background: #f6f7f9; color: #1c2430; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem 1.25rem; background: #1c2430; color: #fff; }
+.bar strong { font-size: 1.05rem; }
+.hint { font-size: .82rem; opacity: .68; }
+main { max-width: 980px; margin: 1.5rem auto; padding: 0 1.25rem 3rem; display: grid; gap: 1rem; }
+.blk { background: #fff; border: 1px solid #e3e7ed; border-radius: 10px; padding: 1rem 1.25rem; }
+.blk h2 { margin: 0 0 .65rem; font-size: .98rem; }
+pre { margin: 0; padding: .75rem; background: #f4f6f8; border-radius: 6px; white-space: pre-wrap; word-break: break-all; font-size: .82rem; }
+ul { margin: 0; padding-left: 1.25rem; }
+table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid #eceff3; vertical-align: top; }
+th { width: 22%; white-space: nowrap; }
+td.ok { color: #137a45; font-weight: 600; }
+td.warn { color: #b25a09; font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; gap: .5rem; }
+input, textarea, button { font: inherit; padding: .45rem .7rem; border: 1px solid #cfd6df; border-radius: 6px; background: #fff; color: inherit; }
+textarea { width: 100%; min-height: 110px; resize: vertical; }
+button { cursor: pointer; background: #1c2430; color: #fff; border-color: #1c2430; }
+button:hover { opacity: .88; }
+code { background: #eef1f5; padding: .1rem .3rem; border-radius: 4px; }

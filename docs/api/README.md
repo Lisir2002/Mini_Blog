@@ -1,0 +1,64 @@
+# 接口操作文档索引
+
+> 由 `php tools/gen-api-docs.php` 生成。接口清单：`api/registry.json`；设计规范：`docs/api/SPEC.md`。
+> 规矩：**一个接口对应一份文档**，编号即文件名，缺一份或未更新都会被 `tests/run.php` 拦下。
+
+| 编号 | 方法 | 路径 | 所属系统层 | 鉴权 | 幂等 | 文档 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `API-AUTH-001` | `POST` | `/api/v1/auth/token` | `user` | `public` | 否 | [API-AUTH-001](API-AUTH-001.md) |
+| `API-COMMENT-001` | `GET` | `/api/v1/comments` | `comment` | `public` | 是 | [API-COMMENT-001](API-COMMENT-001.md) |
+| `API-COMMENT-002` | `POST` | `/api/v1/comments` | `comment` | `public` | 否 | [API-COMMENT-002](API-COMMENT-002.md) |
+| `API-CONTENT-001` | `GET` | `/api/v1/content/posts` | `content` | `public` | 是 | [API-CONTENT-001](API-CONTENT-001.md) |
+| `API-CONTENT-002` | `GET` | `/api/v1/content/post` | `content` | `public` | 是 | [API-CONTENT-002](API-CONTENT-002.md) |
+| `API-CONTENT-003` | `POST` | `/api/v1/content/posts` | `content` | `admin` | 否 | [API-CONTENT-003](API-CONTENT-003.md) |
+| `API-CONTENT-004` | `GET` | `/api/v1/content/stats` | `content` | `public` | 是 | [API-CONTENT-004](API-CONTENT-004.md) |
+| `API-CORE-001` | `GET` | `/api/v1/system/info` | `core` | `public` | 是 | [API-CORE-001](API-CORE-001.md) |
+| `API-CORE-002` | `GET` | `/api/v1/system/contracts` | `core` | `public` | 是 | [API-CORE-002](API-CORE-002.md) |
+| `API-CORE-003` | `GET` | `/api/v1/system/layers` | `core` | `public` | 是 | [API-CORE-003](API-CORE-003.md) |
+| `API-CORE-004` | `GET` | `/api/v1/system/health` | `core` | `public` | 是 | [API-CORE-004](API-CORE-004.md) |
+| `API-LC-001` | `GET` | `/api/v1/lifecycle/units` | `lifecycle` | `admin` | 是 | [API-LC-001](API-LC-001.md) |
+| `API-LC-002` | `POST` | `/api/v1/lifecycle/install` | `lifecycle` | `admin` | 否 | [API-LC-002](API-LC-002.md) |
+| `API-LC-003` | `POST` | `/api/v1/lifecycle/activate` | `lifecycle` | `admin` | 是 | [API-LC-003](API-LC-003.md) |
+| `API-LC-004` | `POST` | `/api/v1/lifecycle/deactivate` | `lifecycle` | `admin` | 是 | [API-LC-004](API-LC-004.md) |
+| `API-LC-005` | `POST` | `/api/v1/lifecycle/upgrade` | `lifecycle` | `admin` | 否 | [API-LC-005](API-LC-005.md) |
+| `API-LC-006` | `DELETE` | `/api/v1/lifecycle/uninstall` | `lifecycle` | `admin` | 是 | [API-LC-006](API-LC-006.md) |
+| `API-LC-007` | `POST` | `/api/v1/lifecycle/rollback` | `lifecycle` | `admin` | 是 | [API-LC-007](API-LC-007.md) |
+| `API-LC-008` | `GET` | `/api/v1/lifecycle/verify` | `lifecycle` | `admin` | 是 | [API-LC-008](API-LC-008.md) |
+| `API-LOG-001` | `GET` | `/api/v1/logs/query` | `log` | `admin` | 是 | [API-LOG-001](API-LOG-001.md) |
+| `API-USER-001` | `GET` | `/api/v1/users/me` | `user` | `user` | 是 | [API-USER-001](API-USER-001.md) |
+| `API-PERM-001` | `GET` | `/api/v1/permission/catalog` | `permission` | `public` | 是 | [API-PERM-001](API-PERM-001.md) |
+| `API-PERM-002` | `GET` | `/api/v1/permission/check` | `permission` | `public` | 是 | [API-PERM-002](API-PERM-002.md) |
+| `API-PERM-003` | `GET` | `/api/v1/permission/roles` | `permission` | `admin` | 是 | [API-PERM-003](API-PERM-003.md) |
+| `API-PERM-004` | `POST` | `/api/v1/permission/grants` | `permission` | `admin` | 否 | [API-PERM-004](API-PERM-004.md) |
+| `API-PERM-005` | `DELETE` | `/api/v1/permission/grants` | `permission` | `admin` | 否 | [API-PERM-005](API-PERM-005.md) |
+| `API-PERM-006` | `POST` | `/api/v1/permission/acl` | `permission` | `admin` | 否 | [API-PERM-006](API-PERM-006.md) |
+| `API-PERM-007` | `GET` | `/api/v1/permission/acl` | `permission` | `admin` | 是 | [API-PERM-007](API-PERM-007.md) |
+| `API-PERM-008` | `GET` | `/api/v1/permission/decisions` | `permission` | `admin` | 是 | [API-PERM-008](API-PERM-008.md) |
+| `API-PERM-009` | `GET` | `/api/v1/permission/role/tree` | `permission` | `admin` | 是 | [API-PERM-009](API-PERM-009.md) |
+| `API-PERM-010` | `POST` | `/api/v1/permission/role/parent` | `permission` | `admin` | 否 | [API-PERM-010](API-PERM-010.md) |
+| `API-PERM-011` | `GET` | `/api/v1/permission/overrides` | `permission` | `admin` | 是 | [API-PERM-011](API-PERM-011.md) |
+| `API-PERM-012` | `POST` | `/api/v1/permission/override/grant` | `permission` | `admin` | 否 | [API-PERM-012](API-PERM-012.md) |
+| `API-AUTH-002` | `POST` | `/api/v1/auth/session` | `security` | `public` | 否 | [API-AUTH-002](API-AUTH-002.md) |
+| `API-AUTH-003` | `GET` | `/api/v1/auth/session` | `security` | `user` | 是 | [API-AUTH-003](API-AUTH-003.md) |
+| `API-AUTH-004` | `DELETE` | `/api/v1/auth/session` | `security` | `user` | 否 | [API-AUTH-004](API-AUTH-004.md) |
+| `API-PERM-013` | `GET` | `/api/v1/permission/groups` | `permission` | `admin` | 是 | [API-PERM-013](API-PERM-013.md) |
+| `API-PERM-014` | `POST` | `/api/v1/permission/group` | `permission` | `admin` | 否 | [API-PERM-014](API-PERM-014.md) |
+| `API-CONTENT-005` | `POST` | `/api/v1/content/post/update` | `content` | `user` | 否 | [API-CONTENT-005](API-CONTENT-005.md) |
+| `API-MEMBER-001` | `GET` | `/api/v1/member/profile` | `member` | `public` | 是 | [API-MEMBER-001](API-MEMBER-001.md) |
+| `API-MEMBER-002` | `GET` | `/api/v1/member/leaderboard` | `member` | `public` | 是 | [API-MEMBER-002](API-MEMBER-002.md) |
+| `API-MEMBER-003` | `POST` | `/api/v1/member/xp/award` | `member` | `admin` | 是 | [API-MEMBER-003](API-MEMBER-003.md) |
+| `API-MEMBER-004` | `GET` | `/api/v1/member/xp/rules` | `member` | `admin` | 是 | [API-MEMBER-004](API-MEMBER-004.md) |
+| `API-MEMBER-005` | `POST` | `/api/v1/member/xp/rule` | `member` | `admin` | 否 | [API-MEMBER-005](API-MEMBER-005.md) |
+| `API-MEMBER-006` | `GET` | `/api/v1/member/titles` | `member` | `public` | 是 | [API-MEMBER-006](API-MEMBER-006.md) |
+| `API-MEMBER-007` | `POST` | `/api/v1/member/title` | `member` | `admin` | 否 | [API-MEMBER-007](API-MEMBER-007.md) |
+| `API-MEMBER-008` | `POST` | `/api/v1/member/title/grant` | `member` | `admin` | 是 | [API-MEMBER-008](API-MEMBER-008.md) |
+| `API-MEMBER-009` | `GET` | `/api/v1/member/levels` | `member` | `public` | 是 | [API-MEMBER-009](API-MEMBER-009.md) |
+| `API-MEMBER-010` | `POST` | `/api/v1/member/level` | `member` | `admin` | 否 | [API-MEMBER-010](API-MEMBER-010.md) |
+| `API-REL-001` | `GET` | `/api/v1/release/status` | `release` | `admin` | 否 | [API-REL-001](API-REL-001.md) |
+| `API-REL-002` | `GET` | `/api/v1/release/history` | `release` | `admin` | 否 | [API-REL-002](API-REL-002.md) |
+| `API-REL-003` | `POST` | `/api/v1/release/plan` | `release` | `admin` | 否 | [API-REL-003](API-REL-003.md) |
+| `API-REL-004` | `POST` | `/api/v1/release/upgrade` | `release` | `admin` | 否 | [API-REL-004](API-REL-004.md) |
+| `API-REL-005` | `POST` | `/api/v1/release/rollback` | `release` | `admin` | 是 | [API-REL-005](API-REL-005.md) |
+| `API-LC-009` | `GET` | `/api/v1/lifecycle/releases` | `lifecycle` | `admin` | 是 | [API-LC-009](API-LC-009.md) |
+
+共 55 个接口，接口版本 `v1`。

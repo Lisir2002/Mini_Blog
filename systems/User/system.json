@@ -1,0 +1,8 @@
+{
+  "name": "user",
+  "class": "Wx\\Systems\\User\\UserSystem",
+  "version": "0.1.0",
+  "requires": ["log", "security"],
+  "priority": 30,
+  "enabled": true
+}

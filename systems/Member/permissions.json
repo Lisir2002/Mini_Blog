@@ -1,0 +1,10 @@
+{
+  "system": "member",
+  "permissions": [
+    {"name": "member.xp.award", "description": "为用户发放经验（含手动调整）"},
+    {"name": "member.xp.rule.manage", "description": "定义经验规则与每日上限"},
+    {"name": "member.title.manage", "description": "定义 / 删除头衔"},
+    {"name": "member.title.grant", "description": "授予 / 撤销用户头衔"},
+    {"name": "member.level.manage", "description": "定义等级名称与经验门槛"}
+  ]
+}

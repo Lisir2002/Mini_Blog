@@ -1,0 +1,7 @@
+{
+  "slug": "hello",
+  "class": "Wx\\Plugins\\Hello\\HelloPlugin",
+  "version": "0.1.0",
+  "priority": 10,
+  "enabled": true
+}

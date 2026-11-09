@@ -1,0 +1,7 @@
+{
+  "system": "user",
+  "permissions": [
+    {"name": "user.read", "description": "查看用户与自身身份"},
+    {"name": "user.manage", "description": "管理用户账号与角色"}
+  ]
+}

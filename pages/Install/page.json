@@ -1,0 +1,18 @@
+{
+    "slug": "install",
+    "class": "Wx\\Pages\\Install\\InstallPage",
+    "version": "0.3.0",
+    "priority": 50,
+    "enabled": true,
+    "layout": "install",
+    "routes": [
+        "/install"
+    ],
+    "_note": "安装向导声明 install 布局槽位；五步标准化流程，只写 config/local.php 与 install.lock，可被卸载",
+    "access": {
+        "auth": "public",
+        "local_only": true,
+        "deny_layout": "deny",
+        "_note": "安装窗口：全新站点没有用户可登录，因此 auth=public；安全性由「仅本机来源 + 一次性令牌 + 安装锁」三重保证，安装完成后页面自行返回 404"
+    }
+}

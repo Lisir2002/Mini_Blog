@@ -1,0 +1,8 @@
+{
+  "name": "log",
+  "class": "Wx\\Systems\\Log\\LogSystem",
+  "version": "0.1.0",
+  "requires": [],
+  "priority": 10,
+  "enabled": true
+}

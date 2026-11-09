@@ -1,0 +1,1273 @@
+# 万象 · 博客框架架构设计（v0.10）
+
+> 第一性原理：**高度自定义，万象皆接口**
+> 技术栈：**纯原生** PHP 8.1+ / MySQL 8.0+（PDO，实测 MariaDB 10.11）/ 原生 HTML + CSS + JavaScript
+> 代码全数自研，设计上借鉴成熟博客项目与公开规范，但落点全部回到上面这条原理。
+> v0.4 把此前提出的**全部建议一次落地**：内容系统、MySQL 全量实现、接口鉴权执行、幂等/限流/游标分页/OpenAPI 3.1、可卸载控制台、自包含独立页、裸 HTML 主题、安装向导、包签名验签、命名与版本定案。
+> v0.5 立下两条元规矩：**单文件职责预算**（H）与**协作全方位验证**（I），把超重文件真实拆分，并把 8 类协作关系做成可重跑的运行时守卫。
+
+---
+
+## 0. 一句话概括
+
+**核心只做「装配与调度」；一切能力是系统层，一切呈现是承载包，一切交互是接口，一切单元的生老病死由元层管辖。**
+
+核心不认识「文章」「评论」「登录页」「升级」「令牌」这些词，它只认识 `SystemInterface`、`PackageInterface`、契约（接口）和钩子（事件）。删光所有系统层与承载包，框架依然能启动——只是什么都不做，且**一个字节的样式都不会输出**。
+
+---
+
+## 1. 把第一性原理拆成可验证的硬约束
+
+「高度自定义」如果只停留在口号，最后一定会退化成「加个配置项吧」。所以这里把它拆成五条**有测试守卫**的约束：
+
+| 编号 | 硬约束 | 可验证方式 |
+| --- | --- | --- |
+| **H1 零呈现** | 核心永不产出 HTML / CSS / JS；未接入主题时全站零样式 | 运行时断言响应体无标签、无 `style`；静态扫描 `core/` 无 `.css/.js`、无 HTML 痕迹 |
+| **H2 零业务** | 核心不写 SQL、不建表、不实现任何业务功能、不内置任何路由与默认页面 | 核心目录无 SQL 语句；首页本身是独立页包；核心 PHP 文件数设上限 |
+| **H3 一切可换** | 任何能力都通过契约绑定，实现可被显式、可追溯地替换 | 容器覆盖留痕；同级冲突 fail-fast，不静默覆盖 |
+| **H4 纯原生栈** | 禁止 Twig / Blade / Smarty 等模板引擎，禁止任何 PHP 框架、ORM、`composer`/`vendor` | 静态守卫扫描全项目文件名与源码用法；主题模板必须是原生 `.php` |
+| **H5 操作皆接口** | 程序各项操作规范化为接口，**一个接口对应一份规范化操作文档** | 清单驱动生成 + 守卫测试检查 1:1、章节齐全、无孤儿文档 |
+
+另有两条工程规矩同样带守卫：**F** 写接口必须鉴权且默认不暴露公网；**G** CSS/JS 只存在于承载包。完整口径见第 11 节与 `docs/CONVENTIONS.md`。
+
+四条推论，决定了后面所有设计：
+
+1. **系统层是一等公民，且一律平等。** 官方自带的日志系统和站长三年后自己加的「AI 摘要系统」，走的是同一个 `SystemInterface`、同一份 `system.json`、同一套装配流程。v0.4 新增的 `content` 正是对这条能力的真实检验：一个目录 + 一份清单，内核与其它 10 个系统层零改动。
+2. **能力型 ≠ 承载型 ≠ 元型。** 日志/用户/安全/评论/数据库/内容/API 提供**契约与操作**；主题/插件/独立页负责**装载包**；装卸系统作为**元层**管理前述所有单元的生命周期。三者都不产出任何 HTML。
+3. **「无主题」不等于「无样式的 HTML」。** 若核心保留一份裸模板，它仍然拥有 markup，仍然越权。所以本框架把「无主题」定义为**退化为纯数据服务（Headless）**：输出结构化 JSON，零 HTML。想要裸 HTML？正确做法是装 `bare-html` 主题包（v0.4 已提供）。
+4. **身份来自清单，不是目录名。** 单元标识取自 `*.json` 里的 `slug` / `name`；目录只是物理位置。否则「停用一个插件」会和「装载它的过滤钩子」对不上。
+
+---
+
+## 2. 借鉴什么，超越什么
+
+WordPress 的 Action / Filter 与优先级机制证明了「钩子 + 精简核心」的生命力；Typecho 用 7 张表、不足 400KB 代码实现了完整的插件与模板机制，是 PHP 轻量的标杆；Halo 则把插件做成可动态加载卸载的一等扩展单元 [^1][^2][^3][^4]。
+
+| 项目 | 值得借鉴 | 我们不打算继承的部分 | 我们的超越点 |
+| --- | --- | --- | --- |
+| WordPress | Action 广播 / Filter 链式改值、priority 排序、核心保持精简 [^3][^5] | 核心自带默认主题与 `wp-admin` 全套样式；插件与核心同进程无边界，插件实质是「半个 core」[^4] | 把「系统层」也变成可插拔的一等公民；后台 UI 做成可卸载包；契约替换显式化、可追溯、冲突 fail-fast |
+| Typecho | 极致轻量、PHP 原生模板主题、结构清晰 [^1][^2] | 主题之外框架仍持有后台界面与基础样式 | 零兜底模板：卸载主题后连一个标签都不剩；裸 HTML 也要靠主题包 |
+| Halo | 插件动态装载 / 卸载、包有自己的生命周期 [^2] | Java 技术栈、核心承担较多业务 | 保持 PHP + MySQL，核心零业务、零表、零路由 |
+
+### 2.1 接口规范的借鉴
+
+「规范化接口」不是自己拍脑袋定字段，而是对齐公开规范后做取舍。完整对照见 [`docs/api/SPEC.md`](api/SPEC.md)：
+
+- **OpenAPI 3.1 / 3.1.1** [^oas]：`info` 元数据、稳定 `operationId`、参数必填性与示例、请求/响应 schema、统一错误 schema、operation 级安全声明、弃用标记、清单随代码评审。v0.4 已由 `tools/export-openapi.php` 直接导出标准 3.1 文档。
+- **RFC 9457 Problem Details** [^rfc9457]：机器可读错误、稳定 type、字段级明细、扩展字段前向兼容。
+- **Microsoft Azure REST API Guidelines** [^ms]：复数名词资源、路径不放动词、层级要浅、GET/PUT/DELETE 幂等、状态码语义。
+- **Google AIP-190 / AIP-136 / AIP-158** [^aip]、**Zalando** [^zalando]：术语一致、自定义动作显式化、kebab-case、游标分页、429 与废弃期。
+- **Stripe 幂等键** [^stripe]：`Idempotency-Key` 让重试安全，校验失败不入缓存。
+
+取舍：**借鉴的是约束，不是依赖**。全部用原生 PHP + 一份 JSON 清单落地，没有引入 YAML 解析器、Schema 库、API 框架或 SDK 生成器。
+
+### 2.2 包生命周期的借鉴
+
+WordPress 的 `register_activation_hook` / `register_deactivation_hook` / `register_uninstall_hook`、`upgrader_pre_install` / `upgrader_post_install`、`validate_file` 防目录穿越、解压到临时目录再替换、`attempt_rollback` [^wp][^wphook]——这些机制验证了「状态机 + 暂存区 + 备份 + 钩子」的必要性。我们把同一套模型统一到 **core / system / theme / plugin / page 五类单元**，把每次操作都登记为规范化接口，并在 v0.4 补上 **HMAC-SHA256 签名验签**。
+
+一句话：**它们把「内容」和「扩展」分层，我们把「框架本身」也拆成了接口。**
+
+---
+
+## 3. 五层模型
+
+```mermaid
+flowchart TB
+    subgraph L3["L3 · 表现与内容（全部来自包）"]
+        T["主题包 themes/*<br/>原生 PHP 模板 + CSS"]
+        P["插件包 plugins/*"]
+        G["独立页包 pages/*<br/>可 standalone 自带 CSS/JS"]
+    end
+    subgraph L2["L2 · 承载型系统层（只装载）"]
+        TS["主题系统 → RendererInterface"]
+        PS["插件系统"]
+        GS["独立页系统 → render.should_render 裁决"]
+    end
+    subgraph L1["L1 · 能力型系统层（只提供契约与操作）"]
+        LOG["日志"]; USR["用户"]; SEC["安全"]; CMT["评论"]; DB["数据库"]
+        CNT["内容（第 11 层）"]; API["API 接口"]
+    end
+    subgraph LM["LM · 元层（管理其余所有单元的生命周期）"]
+        LC["装卸系统<br/>install / activate / upgrade / rollback / uninstall / verify / 验签"]
+    end
+    subgraph L0["L0 · 系统核心（装配与调度）"]
+        K["Kernel · Container · HookBus · SystemRegistry · PackageLoader · Router"]
+    end
+    T --> TS; P --> PS; G --> GS
+    TS --> K; PS --> K; GS --> K
+    LOG --> K; USR --> K; SEC --> K; CMT --> K; DB --> K; CNT --> K; API --> K
+    LC -->|LifecycleManagerInterface| K
+    LC -.->|"package.enabled 裁决装载权"| L2
+    LC -.->|"登记 operation"| API
+    K -.->|"render.should_render / route.resolve / kernel.response"| GS
+```
+
+层间**只允许通过接口通信**，不允许跨层直接 `new` 具体类。核心甚至不知道「文章」「升级」这两个词的存在。
+
+**元层的特殊之处**：它由内核在装配期直接实例化，自身不可被卸载（否则没人能恢复它）；但站点程序 `core` 的升级同样由它执行，只是默认关闭、需显式开启。
+
+---
+
+## 4. 「万象皆接口」= 五张接口网
+
+| 接口网 | 载体 | 解决什么 | 站长可以怎么改 |
+| --- | --- | --- | --- |
+| **契约面** | `Container` + `core/Contracts/*`（12 个） | 实现可替换 | 用更高 `priority` 重新绑定任意契约，把日志换 Syslog、用户换 LDAP、鉴权换 SSO |
+| **事件面** | `HookBus`（action 广播 / filter 链式改值） | 流程可拦截 | 在任何内核节点插入逻辑；业务钩子由系统层自己声明，核心不管 |
+| **装配面** | `system.json` / `theme.json` / `plugin.json` / `page.json` | 单元可插拔 | 丢一个目录即接入新系统层；改配置即可停用任意自带系统 |
+| **数据面** | `DatabaseInterface` + Headless JSON | 数据可读写 | 表结构与 SQL 归各系统层自持；无主题时整站就是一套 JSON API |
+| **接口面** | `api/registry.json` + `ApiRegistry` + 统一信封 | 操作可规范化 | 21 个操作各有编号与文档；替换执行者只需重新 `registerOperation` |
+
+核心只定义内核级钩子（`kernel.*` / `route.*` / `system.*` / `render.should_render`），像 `comment.before_save`、`theme.context`、`content.before_save`、`lifecycle.before_upgrade` 这类业务钩子全部由对应系统层自行声明。核心的钩子清单不会因为新增业务而膨胀。
+
+---
+
+## 5. 系统核心的职责边界
+
+**白名单（只做这 8 件）**
+
+1. 引导与自动装载
+2. 生命周期：`kernel.booting → system.registered → system.booted → kernel.ready → … → kernel.shutdown`
+3. 契约容器（绑定 / 覆盖仲裁 / 解析）
+4. 事件总线
+5. 系统层发现、依赖拓扑排序、两阶段装配
+6. 承载包统一装载协议（含 `package.enabled` 裁决点）
+7. 请求分发、HTTP 抽象（含 JSON 请求体、来源 IP 判定）与异常边界
+8. 配置读取与运行期覆盖（多站点 / 嵌入 / 测试）
+
+**黑名单（写进代码评审清单）**
+
+> 任何 HTML / CSS / JS、任何内联样式、任何 `<link>`、任何默认模板或兜底模板、任何默认主题、任何管理后台 UI、任何登录页、任何默认路由、任何首页、任何 SQL、任何建表语句、任何业务表、任何菜单 / 面包屑 / 分页 HTML、任何 `echo` 标签、**任何模板引擎与第三方框架**。
+
+`core/` 目前 **24 个 PHP 文件**（其中 13 个契约接口），**已达规矩 D 的 24 上限**：后续新增能力必须进系统层或走钩子，不得再加契约文件。核心变胖，就是原理被破坏的第一个信号。
+
+---
+
+## 6. 契约清单
+
+| 契约 | 默认实现 | 谁可覆盖 |
+| --- | --- | --- |
+| `SystemInterface` | 14 个系统层 | 未来任意新系统层 |
+| `PackageInterface` | 主题 / 插件 / 独立页包 | 任意包 |
+| `RendererInterface` | **仅主题包**（核心无实现） | 高 priority 主题 / 插件 |
+| `LoggerInterface` | 日志系统 → `FileLogger` | 任意系统层 / 插件 |
+| `UserProviderInterface` | 用户系统 → **`PdoUserProvider`**（无库回退 `SessionUserProvider`） | 任意系统层 / 插件 |
+| `SecurityGuardInterface` | 安全系统 → `DefaultGuard`（CSRF 落库 + 过期） | 任意系统层 / 插件 |
+| `CommentStoreInterface` | 评论系统 → **`PdoCommentStore`**（无库回退 `MemoryCommentStore`） | 换实现只改一行绑定 |
+| **`ContentRepositoryInterface`** | **内容系统 → `PdoContentRepository`**（无库回退 `MemoryContentRepository`） | 任意系统层 / 插件 |
+| `DatabaseInterface` | 数据库系统 → `PdoDatabase` | 可换其它 PDO 数据源 |
+| **`ApiAuthenticatorInterface`** | **安全系统 → `DbApiAuthenticator`**（令牌落库 + 角色） | 可换 OAuth / 签名 / 企业 SSO |
+| `LifecycleManagerInterface` | 装卸系统 → `LifecycleManager` | 可换成带远程仓库的实现 |
+| `ApiRegistryInterface` | API 系统 → `ApiRegistry` | 可换成带额外策略的注册表 |
+
+**双实现是刻意的**：`systems/Database/Db::connected()` 惰性探测 MySQL，接上库走 PDO 实现，拔掉库自动回退内存 / 会话适配器。主题、插件、首页包、核心四者零改动——这就是「契约与实现可分离」的兑现，也由守卫测试逐条验证。
+
+---
+
+## 7. 生命周期与冲突策略
+
+**装配期（两阶段是关键）**
+
+```
+discover()              扫描 systems/*/system.json，读 requires / priority / enabled
+  ↓ topologicalOrder()   依赖拓扑排序 + 成环检测 + 缺失依赖报错
+register() × 11         所有系统先绑定契约、订阅钩子（此阶段禁止解析他人实现）
+  ↓
+boot() × 11             契约已全部就绪，安全地建表、装载包、登记 operation
+  ↓ kernel.ready
+```
+
+两阶段保证了「系统 A 在启动时能用到系统 B 的契约」，同时避免装配顺序耦合。实测顺序：
+`log → database → security → lifecycle → user → api → plugin → content → theme → comment → page`。
+
+**请求期**
+
+```
+route.resolve（priority=5 API 先声明；10 独立页/插件）
+  → 匹配接口 → 429 限流 → 写接口公网边界 → 鉴权执行 → 参数校验
+  → 幂等去重 → 唯一 operation → 统一信封
+  → kernel.response（安全头 / 可选 CSP）
+  → kernel.response.filter（插件改写数据）
+  → render.should_render（独立页可声明绕过主题）
+  → renderStage（只有主题绑定 RendererInterface 才渲染；否则输出纯数据）
+  → kernel.shutdown
+```
+
+**冲突策略**：两个实现绑定同一契约时，`priority` 更高者胜，并记入 `Container::overrides()`；相同或更低则抛 `RuntimeException`。接口的 `id`、`method+path`、`operation` 三者同样各自全局唯一。不搞「最后注册者静默胜出」——那会让站点的自定义行为变得不可推理，这是从 WordPress 插件冲突里学到的反面经验 [^4][^5]。
+
+---
+
+## 8. 「无主题零样式」是怎么被结构性地保证的
+
+不是靠约定，是靠四处代码结构 + 两层测试：
+
+1. `Response` 默认 `body = ''`，默认 `Content-Type: text/plain; charset=utf-8`（绝不是 `text/html`）。
+2. `Kernel::renderStage()` 是**全站唯一的表现层入口**，且它自己不渲染：先询问 `render.should_render` 裁决钩子，只有容器里存在 `RendererInterface` 且裁决为 true 才把响应交给主题；否则调用 `asData()` 输出 JSON（仅在 body 为空时，因此 API 与 standalone 响应都不会被覆盖）。
+3. `RendererInterface` 在核心里**只有接口、没有任何实现类**，也没有 `default` 主题目录。主题包自己读取自己目录里的 `style.css`，并用**原生 PHP 模板** `include` 渲染。
+4. `themes/BareHtml` 证明「裸 HTML」也是主题包的职责：它只输出语义标签，不持有任何 CSS 文件。
+
+**双层守卫测试**（`tests/run.php`，共 55 项）：
+
+- *静态守卫*：`core/` 无 `.css/.js`、源码无 HTML 痕迹、核心 PHP 文件数 ≤ 24；全项目无 `composer.json` / `vendor/` / `.twig` / `.blade.php` / 模板引擎用法；CSS/JS 只存在于承载包。
+- *运行时守卫*：未启用主题时不绑定 `RendererInterface`；响应 `Content-Type` 不含 `html`、响应体无标签 / 样式 / 脚本；启用 `bare` 后页面样式与 `themes/Bare/style.css` 逐字一致；启用 `bare-html` 后输出 HTML 但零 CSS / 零 class / 零脚本。
+
+默认配置 `theme.active = null`——**全新安装开箱即零样式**。实测：
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+X-Content-Type-Options: nosniff
+X-RateLimit-Limit: 120
+
+{"title":"站点首页","items":["第一篇文章","第二篇文章","这一行由插件系统通过钩子注入"],"page":"home"}
+```
+
+> **已解决的衍生问题**：管理后台若写死在核心里必然带上硬编码样式，直接违反 H1。因此后台做成**可卸载的独立页包** `pages/Console`（见第 15 节），核心与系统层零样式。
+
+---
+
+## 9. 装卸系统（元层设计）
+
+### 9.1 层次定位
+
+装卸系统是**元系统层**：它不产出内容、不提供业务数据，只管理其余所有系统层与承载包的生命周期。它与核心同处装配期（由 `LifecycleSystem::register()` 直接实例化），但对外只暴露 `LifecycleManagerInterface`。
+
+### 9.2 五类被管单元
+
+| 类型 | 目录 | 清单 | 说明 |
+| --- | --- | --- | --- |
+| `core` | `core/` | `version.json` | **站点程序本体**；只能升级 / 回滚，不可安装、卸载、停用 |
+| `system` | `systems/<X>/` | `system.json` | 系统层（含第 11 层 content 与未来新增的） |
+| `theme` | `themes/<X>/` | `theme.json` | 主题包 |
+| `plugin` | `plugins/<X>/` | `plugin.json` | 插件包 |
+| `page` | `pages/<X>/` | `page.json` | 独立页包 |
+
+**身份取自清单的 `slug` / `name`**，目录名只作物理路径记录在状态里。状态与操作历史持久化在 `storage/lifecycle/state.json`，可审计、可回溯。v0.4 新增**版本对账**：已登记单元若磁盘清单版本与状态不一致（如人工改了 `version.json`），自动同步为磁盘版本；有备份的升级中间态不覆盖，避免破坏回滚链路。
+
+### 9.3 状态机
+
+```
+absent ──install──▶ installed ──activate──▶ active
+                        ▲                      │
+                        └────deactivate────────┘
+        installed / active ──upgrade──▶ installed / active（版本提升，状态保持）
+        installed ──uninstall──▶ absent
+        installed / active ──rollback──▶ installed / active（版本回退）
+```
+
+非法转换直接抛 `40901`，不做「尽力而为」的隐式修正。停用**不清数据**（借鉴 WordPress：deactivation 只清临时态，uninstall 才彻底清理）[^wp]。
+
+### 9.4 操作矩阵
+
+| 操作 | 前置 | 关键动作 | 失败处理 |
+| --- | --- | --- | --- |
+| `install` | absent、目标不存在 | 路径/依赖/哈希/签名校验 → 暂存区 → 目标写入 → `on_install` → 状态落盘 | 删除目标与暂存，广播 `lifecycle.failed` |
+| `activate` | installed | 状态 → active；`package.enabled` 钩子据此决定装载 | 状态不变 |
+| `deactivate` | active | 状态 → installed；文件与数据保留 | 状态不变 |
+| `upgrade` | installed/active、新版本严格更高 | 备份当前 → 暂存替换 → `on_upgrade(from,to)` → 记录 backup | 自动从备份恢复 |
+| `rollback` | 有可用备份 | 当前移入暂存 → 备份复制回目标 → 回写版本 | 自动还原回滚前现场 |
+| `uninstall` | installed、无反向依赖 | `on_uninstall` → 删除目录 → 状态 absent | 状态不变 |
+| `verify` | 目录存在 | 按 `manifest.sha256` 逐文件比对 SHA-256 | 返回 mismatch 列表 |
+
+### 9.5 事务性：暂存区 → 原子替换 → 备份回滚
+
+借鉴 WordPress upgrader 的「解压到临时目录再替换」与 `attempt_rollback` [^wphook][^wpup]：所有写操作先落到 `storage/lifecycle/staging/`，校验通过才写入目标；升级前**必留备份**到 `storage/lifecycle/backup/`；文件替换或迁移钩子抛错时自动恢复。不会出现「半升级」状态。
+
+### 9.6 安全边界
+
+- **路径穿越防护**：`slug` 必须匹配 `^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`，拒绝 `..` 与空字节（对应 WP 的 `validate_file`）[^wp]。
+- **源包越界防护**：`realpath` 后必须位于站点根目录内，否则 `40301`。
+- **完整性**：源包可带 `manifest.sha256`；`config.lifecycle.require_checksum=true` 时强制要求。
+- **依赖 / 反向依赖**：安装前校验 `requires`；卸载前扫描所有清单，仍被依赖则拒绝；当前启用的主题也拒绝卸载。
+- **站点程序**：`core` 不可安装 / 卸载 / 停用；升级默认关闭，须显式设 `allow_core_update=true`。
+
+### 9.7 生命周期钩子（纯原生 PHP）
+
+包可自带 `lifecycle.php`，返回一个闭包数组——**没有模板引擎、没有 DSL、没有注解**：
+
+```php
+<?php
+return [
+    'on_install' => function (array $ctx): void { /* 建表、写默认配置 */ },
+    'on_upgrade' => function (array $ctx): void { /* 执行 migrations */ },
+    'on_uninstall' => function (array $ctx): void { /* 清表、清配置 */ },
+];
+```
+
+装卸系统只负责在约定时机 `include` 并调用，不解释闭包内容。`Content` / `User` / `Comment` 三个系统层各自带 `lifecycle.php`，卸载时清理自己建的表。
+
+### 9.8 与核心、接口系统的关系
+
+- 核心只认 `LifecycleManagerInterface`，不认任何文件系统操作。
+- 装卸系统通过 `package.enabled` filter **裁决装载权**：仅 `active`（或未登记的旧包）会被 `PackageLoader` 装载。
+- 装卸系统把 8 个操作登记为 `lifecycle.*` operation；接口系统只认 operation 名，不认装卸系统。任一方被停用，另一方仍可独立工作（守卫测试验证停用后返回 `50101`）。
+
+### 9.9 包签名验签（v0.4 新增）
+
+`tools/sign-package.php <目录> <密钥>` 生成 `manifest.sha256` 与 `signature.json`：
+
+```json
+{
+  "algorithm": "HMAC-SHA256",
+  "signature": "<对规范化文件清单的 HMAC-SHA256 摘要>",
+  "signed_at": "2026-11-08T23:40:55+08:00"
+}
+```
+
+待签串是「相对路径 → SHA-256」按键排序后的 JSON（`Fs::canonical()`），签名文件与哈希清单自身被排除以避免自指。验签用 `hash_hmac` + `hash_equals`，**纯原生 PHP，无第三方依赖**。任何文件改动都会让 HMAC 不匹配；`require_signature=true` 时缺签名直接拒绝。守卫测试验证「正确签名通过 / 篡改后重算清单但保留旧签名仍被拒 / 强制缺签名被拒」。
+
+---
+
+## 10. API 接口系统与「一接口一文档」
+
+### 10.1 清单是唯一事实源
+
+`api/registry.json` 定义 **55 个接口**：`API-CORE-001~004`、`API-LOG-001`、`API-LC-001~009`、`API-AUTH-001~004`、`API-USER-001`、`API-CONTENT-001~005`、`API-COMMENT-001~002`、`API-PERM-001~014`、`API-MEMBER-001~010`、`API-REL-001~005`。每条必须声明 `id / name / system / method / path / operation / auth / idempotent / side_effects / since / summary / scenario / params / response_fields / errors / example_request / example_response / notes / changelog / doc`。
+
+`ApiRegistry` 构造时强校验：ID 唯一、`method+path` 唯一、`operation` 唯一；`registerOperation` 拒绝重复执行者。
+
+### 10.2 统一信封与错误码
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {},
+  "request_id": "16 位十六进制",
+  "meta": {"api": "API-CORE-001", "version": "v1", "system": "core"}
+}
+```
+
+错误码 5 位，前两位对齐 HTTP 状态；错误响应带 `errors` 字段级明细，`data` 恒为 `null`，**禁止 200 里塞错误**。表定义在 `systems/Api/Envelope.php`（14 个码），文档表格与 OpenAPI 响应由生成器读同一张表，不会多处漂移。完整规范见 [`docs/api/SPEC.md`](api/SPEC.md)。
+
+### 10.3 鉴权从声明变成执行（v0.4）
+
+`ApiDispatcher` 的分发顺序是刻意设计的安全口径：
+
+```
+匹配接口 → 429 限流 → 写接口公网边界 → 鉴权执行 → 参数校验 → 幂等去重 → 唯一 operation → 统一信封
+```
+
+- **鉴权在参数校验之前**：未认证者不应探知参数要求。
+- `ApiAuthenticatorInterface`（安全系统实现 `DbApiAuthenticator`）校验 Bearer 令牌：库里只存 SHA-256 摘要，带过期与撤销；`public` / `user` / `admin` 三级；未认证 `40101`、无效 `40102`、角色不足 `40301`。
+- 身份以 `_identity` 注入 `input`，业务执行者不解析请求头。
+- **写接口公网边界**：`config.api.expose_write=false`（默认）时，非 GET/HEAD/OPTIONS 操作仅本机来源可调用，公网一律 `40302`。
+- `POST /api/v1/auth/token` 用 `password_verify()` 校验凭据后签发落库令牌；明文只在响应中出现一次。
+
+### 10.4 幂等键、限流、游标分页、OpenAPI 导出
+
+| 能力 | 实现 | 口径 |
+| --- | --- | --- |
+| 幂等键 | `IdempotencyStore`（文件 JSON） | 同键同参数重放首次结果并回 `Idempotency-Replayed: true`；同键不同参数 `40902`；参数校验失败不写缓存；429 不被缓存 |
+| 429 限流 | `RateLimiter`（固定窗口） | `Retry-After` + `X-RateLimit-Limit/Remaining/Reset`；CLI 用 PID 隔离避免跨轮累积 |
+| 游标分页 | `content.posts` | `limit + cursor`，cursor 为 base64 编码的记录 ID，走 `id > cursor` 的 keyset 分页，避免 OFFSET 深翻页 |
+| OpenAPI 3.1 | `tools/export-openapi.php` | 由清单导出 `docs/api/openapi.json`（19 条路径 / 21 个 operation，同路径多方法合并），含 `bearerAuth` 安全声明与统一 schema |
+
+### 10.5 一个接口 = 一份规范化操作文档
+
+| 项 | 约定 |
+| --- | --- |
+| 1:1 | 清单每条接口 → 且仅 → 一份 `docs/api/<ID>.md`；任何 `API-*.md` 必须能对应清单条目 |
+| 8 节固定 | 接口标识 / 功能与适用场景 / 请求规范 / 响应规范 / 错误码 / 调用示例 / 幂等性与副作用 / 变更记录 |
+| 生成 | `php tools/gen-api-docs.php` 依据清单 + `docs/api/_TEMPLATE.md` 生成 49 份文档与索引 |
+| 禁止手改 | 先改清单 → 重新生成 → 跑守卫测试；直接手写文档视为破坏单一事实源 |
+| 守卫 | `tests/run.php` 第 6、10 组逐条检查 1:1、章节、编号与路径一致、无孤儿、无重复、OpenAPI 与清单一致 |
+
+### 10.6 新增接口的 5 步
+
+1. 在 `api/registry.json` 追加定义（字段齐全）。
+2. 保证 `id` / `method+path` / `operation` 唯一。
+3. 在对应系统层 `boot()` 里 `registerOperation()` 绑定唯一执行者。
+4. 运行 `php tools/gen-api-docs.php` 与 `php tools/export-openapi.php`。
+5. 运行 `php tests/run.php`；不通过不得合入。
+
+---
+
+## 11. 工程规矩（立规矩）
+
+完整文本见 [`docs/CONVENTIONS.md`](CONVENTIONS.md)。每条规矩都配**可执行守卫**，否则视为没立住。
+
+| 编号 | 规矩 | 执行口径 |
+| --- | --- | --- |
+| **A** | **验证性截图不存活三轮对话** | 验证用截图自产生起最多 3 轮有效；第 4 轮起视为过期，**不得再引用、不得据此判断、不得用于新旧对比**。复核改用可复现的文本证据（测试断言、HTTP 响应体、`php -l`、文件 diff）。截图不入库、不写进文档 |
+| **B** | **纯原生栈（H4）** | 禁 Twig / Blade / Smarty / `.twig` / `.blade.php` / `composer.json` / `vendor/` / 任何 PHP 框架或 ORM；模板是原生 `.php`，输出转义走 `SecurityGuardInterface::escape()` |
+| **C** | **一接口一文档（H5）** | 清单驱动生成，禁止手写；新增接口必须同时改清单、重新生成、跑守卫 |
+| **D** | 核心轻量预算 | `core/` PHP 文件 ≤ 24（当前 24，已达上限） |
+| **E** | 规矩必须有守卫 | 新增规矩须同时提交条目 + 测试断言 + 一次全绿的文本运行记录 |
+| **F** | **写接口必须鉴权、默认不暴露公网** | 鉴权先于参数校验；非本机写操作 `40302`；令牌只存摘要、带过期 |
+| **G** | **CSS/JS 只存在于承载包** | `core/` / `systems/` 出现任一 `.css` / `.js` 即视为核心越权；后台 UI 必须可卸载 |
+| **H** | **单文件不允许职责职权过重** | 行数 / 责任主体 / 扇出 / 职权跨度四指标分层预算；`tools/audit-responsibility.php` 静态审计，违规即非 0 退出 |
+| **I** | **相互协作必须得到全方位验证** | 8 类协作矩阵（C1–C8）+ 存在性 / 一致性 / 运行时贯通 / 故障注入四维 + C9 覆盖守卫 |
+
+**默认验证方式**（天然符合规矩 A）：`php tests/run.php`、`php -l`、`curl -i` 响应体。本项目所有结论均基于**可重跑的文本证据**，不使用截图。
+
+---
+
+## 12. 目录结构
+
+```
+/workspace
+├── public/index.php            唯一入口（引导 + run，无任何业务/样式）
+├── core/                       L0 系统核心：24 个 PHP，零 CSS / 零 SQL / 零 HTML
+│   ├── Contracts/              13 个契约接口
+│   ├── Http/                   Request（含 JSON 体 / 来源 IP） / Response
+│   ├── version.json            站点程序版本 + 命名 + PHP 要求（已定案）
+│   ├── Kernel.php              生命周期 + renderStage + render.should_render
+│   ├── Container.php / HookBus.php / SystemRegistry.php / PackageLoader.php
+│   ├── Router.php / Config.php / AbstractSystem.php / bootstrap.php
+├── systems/                    14 个系统层，每目录 = 一个系统层 + system.json + permissions.json（可选）
+│   ├── Log/ User/ Security/ Comment/ Database/ Content/   （能力型）
+│   │   └── migrations/*.sql + lifecycle.php               （自己的表与清理钩子）
+│   ├── Theme/ Plugin/ Page/                              （承载型）
+│   ├── Api/       ApiRegistry / Dispatcher / RequestGuard / SystemIntrospection / Envelope / IdempotencyStore / RateLimiter
+│   ├── Release/   版本层：ReleaseManager（编排）+ MigrationRunner / MigrationStore / HealthProbe / ReleaseLog / ReleaseManifest / ReleaseUnits
+│   ├── Database/  连接 + Schema + SqlScript（迁移脚本解析与校验和）
+│   └── Lifecycle/ 元层：LifecycleManager（编排）+ 8 协作者（StateMachine / UnitCatalog / DependencyGraph / PackageVerifier / FileTransaction / HookRunner / StateStore / Fs / ReleaseArchive / VersionSwitcher）
+├── themes/Bare/ · themes/BareHtml/        主题包（后者零 CSS）
+├── plugins/Hello/                          插件包（只通过钩子改数据）
+├── pages/Home/ Links/ Console/ Toolbox/ Install/   独立页包（后三者 standalone；Install 拆为 InstallPage / Installer / InstallerAccount / InstallerMigrate / InstallState / InstallProbe）
+├── api/registry.json           接口清单（唯一事实源，55 条）
+├── docs/api/                   SPEC.md + 55 份 API-*.md + openapi.json + 模板 + 索引
+├── docs/CONVENTIONS.md         工程规矩 A–P
+├── docs/responsibility-report.json   职责与协作审计报告（每次测试自动刷新）
+├── tools/                      gen-api-docs.php / export-openapi.php / sign-package.php / audit-responsibility.php + audit/(Policy|CollaborationGraph|Auditor|concerns.json)
+├── config/app.php              装配清单（核心不解释键的含义）
+├── .gitignore                  版本控制兜底：脚本 / 临时 / 日志 / 转储不入库（规矩 O）
+├── tests/                     run.php（引导）+ helpers.php（共享辅助）+ groups/*.php（34 个分组，170 项守卫）
+├── storage/lifecycle/          装卸状态 / 暂存 / 备份（运行时产物）
+├── storage/api/                幂等缓存 / 限流计数（运行时产物）
+├── storage/cache/permission/   权限决策基础数据缓存（epoch 失效，运行时产物）
+├── storage/logs/               日志
+└── docs/ARCHITECTURE.md · docs/architecture.html
+```
+
+---
+
+## 13. MySQL 的归属：核心零表
+
+技术栈里有 MySQL，但**核心不认识 MySQL**。SQL、表结构、迁移脚本全部归属于各系统层自己的目录，核心只定义 `DatabaseInterface`。表命名约定 `wx_<系统>_<用途>`，占位前缀 `wx_` 在装载 `migrations/*.sql` 时替换为 `config.database.prefix`。
+
+| 表 | 归属 | 用途 |
+| --- | --- | --- |
+| `wx_content_posts` | `systems/Content/migrations/` | 文章（slug 唯一、状态、正文、摘要、时间戳；`idx_status_id` 支持游标分页） |
+| `wx_user_accounts` | `systems/User/migrations/` | 账号（username 唯一、`password_hash`、角色） |
+| `wx_user_tokens` | `systems/Security/migrations/` | API 令牌（只存 `token_hash`、过期、撤销） |
+| `wx_csrf_tokens` | `systems/Security/migrations/` | CSRF 令牌（摘要、过期、一次性 `used`） |
+| `wx_comments` | `systems/Comment/migrations/` | 评论（`idx_post` 支持按文章查询） |
+
+`systems/Database` 是最初清单之外的第 8 个系统层，`Lifecycle` / `Api` / `Content` 是第 9、10、11 个——它们和日志系统走完全相同的接入路径，内核零改动、其它系统层零改动。建表由各系统层 `boot()` 幂等执行（`CREATE TABLE IF NOT EXISTS`），核心完全不知道「建表」这件事。
+
+**真实踩过的坑**：PHP CLI 默认 UTC、MySQL 使用系统时区（GMT+8），若用 SQL 的 `NOW()` 与 PHP 写入的 `expires_at` 比较，令牌会永远判定为过期。修复口径是**所有时间统一由 PHP 生成并作为参数比较**（`expires_at > :now`），不让两个时钟同时参与判定。守卫测试已覆盖 CSRF 令牌「首次通过 / 二次拒绝」。
+
+**优雅降级**：`config.database.dsn` 留空或连不上时，`Db::connected()` 返回 false，各能力型系统层自动回退内存 / 会话适配器，框架仍可启动；`GET /api/v1/system/health` 会返回 `database: fallback` 与空表清单。这让「删光数据库也能验证第一性原理」始终成立。
+
+---
+
+## 14. 内容系统（第 11 层）与 MySQL 全量实现
+
+`content` 是需求清单里原本缺位的「文章 / 正文数据模型」，也是**对「可接入新系统层能力」的第一次真实检验**：
+
+```
+systems/Content/system.json       name=content, requires=[log,database,security], priority=45
+systems/Content/ContentSystem.php 绑定契约 + 声明 content.before_save + 登记 4 个 operation
+systems/Content/PdoContentRepository.php    keyset 游标分页 / 建表 / seed / 读写
+systems/Content/MemoryContentRepository.php 无库回退
+systems/Content/migrations/001_create_posts.sql
+systems/Content/lifecycle.php     卸载时清表
+core/Contracts/ContentRepositoryInterface.php
+```
+
+内核零改动、其它系统层零改动、配置零新增（除 `content.per_page` 可选）。实测装配顺序自动把它排在 `plugin` 与 `theme` 之间。
+
+`pages/Home` 不再持有任何文章数据，改为解析 `ContentRepositoryInterface::list()` 取标题；文章、用户、评论三套契约默认全部绑定 MySQL 实现。守卫测试验证：真实建 20 张表、写入文章 / 评论并读回、凭据校验、令牌签发与摘要落库、游标分页两页不重复、拔掉 DSN 后回退且首页仍有数据。
+
+---
+
+## 15. 承载包：控制台 / 自包含独立页 / 裸 HTML 主题 / 安装向导
+
+| 包 | 路径 | 关键能力 |
+| --- | --- | --- |
+| `themes/BareHtml` | `theme.active='bare-html'` | 零 CSS 的裸 HTML 主题，输出语义标签但无样式声明、无 class、无脚本 |
+| `pages/Console` | `/console` | **可卸载的后台 UI**：自带 CSS/JS，读 public API，支持填入 admin 令牌查询受保护数据 |
+| `pages/Toolbox` | `/toolbox` | 纯前端文本小工具，样式与脚本完全来自自身 `assets/` |
+| `pages/Install` | `/install` | 只读安装向导：盘点 PHP 版本、数据库连通、已建表、系统层、接口数、当前主题 |
+| `pages/Links` | `/links` | 复用站点主题的普通独立页（对照组） |
+
+**standalone 机制**：`page.json` 声明 `standalone: true` + `routes` + `assets`，`PageSystem` 汇总这些路径并订阅 `render.should_render` filter 返回 false。核心的 `renderStage()` 只负责「询问」，不解释原因、不产出标签。因此即便站点启用了 `bare` 主题，`/console` 仍输出自己的样式而不会被主题覆盖（守卫测试逐字比对 CSS）。
+
+这同时落实了两条决策：**后台 UI 不写进核心**（否则必然带硬编码样式，违反 H1）、**独立页允许完全绕过站点主题并自带 CSS/JS**（自包含是「高度自定义」的一部分）。
+
+---
+
+## 16. 决策已全部执行（原「需要你拍板」）
+
+v0.2 列出的 9 项决策与两轮回复里的明确边界，用户「全数采纳」，现已逐条落地：
+
+| # | 原决策 | 落地结果 | 验证位置 |
+| --- | --- | --- | --- |
+| 1 | 缺「文章 / 内容系统」 | 新增 `content` 作为**第 11 个系统层**，含契约、MySQL 实现、migrations、生命周期钩子、4 个接口 | 第 4、8 组 |
+| 2 | 无主题退化语义 | 保持 Headless 纯数据；新增 `bare-html` 主题包提供裸 HTML | 第 1、11 组 |
+| 3 | 后台 UI 放哪 | 做成**可卸载独立页包** `pages/Console`，核心与系统层零样式 | 第 5、11 组 |
+| 4 | 独立页能否自带 CSS/JS、绕过主题 | **允许**：`standalone` + `routes` + `assets` + `render.should_render` 裁决点 | 第 11 组 |
+| 5 | PHP 最低版本 | **定案 8.1+**（不为 7.4 放弃枚举 / `readonly` / `str_starts_with` / 构造器属性提升）；写入 `core/version.json` | 第 11 组 |
+| 6 | 契约与接口冲突策略 | **保留**「显式 priority + fail-fast + 留痕」，可预测优先于方便 | 第 4、6 组 |
+| 7 | `auth` 何时从声明变执行 | **已执行**：`ApiAuthenticatorInterface` + 令牌落库 + 角色；写接口默认不暴露公网 | 第 9 组 |
+| 8 | 包仓库与签名 | **包签名验签已落地**（HMAC-SHA256 + 篡改拒绝）；远程仓库协议仍属 v1.0 | 第 11 组 |
+| 9 | 正式命名 | **定案「万象」/ `Wx\` / `wanxiang-core` / v0.10.0**，不再「待定」 | 第 11 组 |
+
+其余边界同样关闭：用户 / 评论从内存占位换成 MySQL 实现（第 8 组）；`Idempotency-Key`、429 限流、游标分页、OpenAPI 3.1 导出（第 10 组）；CSRF 令牌落库 + 过期 + 一次性、CSP 可配置注入（第 8、9 组）；安装向导作为独立页包（第 15 节）。
+
+v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待拍板项，而是用户直接立下的规矩，已按第 20 节执行。
+
+---
+
+## 17. 安全边界
+
+- 核心不输出 HTML，XSS 面天然压缩到主题渲染层；`SecurityGuardInterface::escape()` 由主题调用，而非核心代劳。
+- 安全头（`nosniff` / `SAMEORIGIN` / `Referrer-Policy`）由安全系统通过 `kernel.response` 钩子注入——无主题时也生效；CSP 由 `config.security.csp` 按需开启（默认关闭，因为示例主题用内联样式）。
+- 接口层：统一错误码、鉴权执行、写接口公网边界、令牌只存摘要且带过期、429 限流、幂等去重、`detail` 仅在 `expose_errors=true` 时出现。
+- 装卸层：路径穿越防护、源包根目录约束、SHA-256 清单、HMAC-SHA256 验签、依赖与反向依赖检查、升级备份与失败自动回滚。
+- **仍需注意**：匿名评论为 public 写接口，生产化需补验证码与内容审核；演示账号 `admin/admin123` 与配置里的明文口令 / 空签名密钥仅用于本地原型，投产前必须删除、改密并由环境注入；限流与幂等缓存基于文件存储，多实例部署需换共享存储；上传校验、契约版本协商、灰度发布列入 v1.0。
+
+---
+
+## 18. 演进路线
+
+| 阶段 | 目标 |
+| --- | --- |
+| v0.1 | 轻量内核 + 8 系统层 + 三大承载系统 + 守卫测试；跑通零主题 Headless 与主题渲染 |
+| v0.2 | 装卸系统（元层）+ API 接口系统 + 12 份接口文档 + 原生 PHP 模板 + 工程规矩 |
+| v0.3–v0.4 | `content` 第 11 层 + MySQL 全量实现 + 接口鉴权执行 + 幂等键 / 429 / 游标分页 / OpenAPI 3.1 + 可卸载控制台 + standalone 独立页 + bare-html 主题 + 安装向导 + 包签名验签 + 命名定案 |
+| v0.5 | 规矩 H 单文件职责预算 + 规矩 I 协作全方位验证：静态审计器、超重文件真实拆分、8 类协作矩阵 + 故障注入 + C9 覆盖守卫 |
+| **v0.6** | **规矩 J 呈现权归主题（后台布局同样过主题系统）+ 规矩 K 权限系统第 12 层：三层权限、三态决策、fail-closed、策略钩子不得提权、决策留痕；布局槽位、可选身份、契约覆盖裁决点；83 项守卫全绿** |
+| **v0.7** | **权限层三处深化：角色继承（边表 + 展开 + 自环/成环/深度裁决）、决策缓存（只缓存基础读取、显式失效、不缓存最终决策）、字段级权限（`resource.field` 维度）；新增 3 个协作者 / 2 个接口 / 2 组守卫，`core/` 一行未加；当时 98 项守卫全绿** |
+| **v0.8** | **规矩 L 页面身份权限清单化 + 装配期契约覆盖运行时身份鉴权：`route.access` 可编程裁决点、5 页分级策略、拒绝页归主题 `deny` 布局、契约覆盖授权台账与 2 个受保护接口；新增 4 组守卫，`core/` 未新增文件（仅 `Router.php` 加一个询问点）；当时 121 项守卫全绿** |
+| **v0.9** | **规矩 M 主体可扩展 + 凭据单一来源：用户组（角色来源扩展）、页面会话（HttpOnly Cookie，与 API 令牌同表同撤销）、可换权限缓存后端（file + epoch 跨请求共享）、字段级写校验（`content.update` 逐字段裁决）、契约覆盖默认安全（`require_grant=true` + 系统层自动登记）；新增 6 个接口 / 5 组守卫，`core/` 未新增文件** |
+| **v0.10** | **规矩 N 身份与授权解耦：第 13 系统层 `member`（站长自定义头衔 / 经验规则 / 等级门槛）、经验流水幂等 + 每日上限 + 事务、等级按门槛重解释且只升不降、头衔手动与等级自动两源且**零权限**；用户组补颜色 / 排序展示属性；`content.created` / `comment.created` / `user.lookup` / `user.profile.enrich` 四个装配点；新增 10 个接口 / 5 组 21 项守卫，`core/` 未新增文件** |
+| **v0.11（当前）** | **规矩 P 安装与版本可逆：标准化五步安装向导（`config/local.php` 覆盖层 + 一次性令牌 + `install.lock`）；第 14 系统层 `release`（迁移台账 + checksum 校验 + 安装基线 + 健康门禁 + 版本历史）；不重装升级与按版本快照回退（`keep_releases`）；新增 6 个接口 / 4 个守卫文件 11 项断言，`core/` 未新增文件** |
+| v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略 |
+
+---
+
+## 19. 当前状态与验证
+
+- `php -l` 全量 **201 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.8 只在 `core/Router.php` 增加一个访问裁决点；v0.9 / v0.10 / v0.11 均未改动 `core/` 的任何文件。
+- `php tests/run.php` → **181 passed, 0 failed**（38 个守卫文件：…、**协作全方位验证**、**权限模型与协作**、**角色继承**、**缓存与字段级权限**、**页面访问分级**、**页面策略与呈现**、**契约覆盖鉴权**、**身份载体同源**、**组自定义**、**头衔**、**经验**、**等级**、**成员层贯通**、**项目树纪律**、**版本升级 / 回退**、**版本安全边界**、**安装窗口**、**安装步骤**）。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；201 个文件共 12154 有效代码行，最大单文件 185 行（`ReleaseManager`），55 个 operation 全部绑定执行者。
+- **14 个系统层**自动装配：`log → database → security → lifecycle → user → permission → api → plugin → member → content → release → theme → comment → page`；**13 个契约接口文件**（容器运行时绑定 10 个）、**55 个接口 / 55 份文档**、OpenAPI 3.1（49 路径 / 55 操作）、**22 个承载单元**（14 系统层 + 2 主题 + 5 独立页 + 1 插件）、**31 个权限点**。
+- 真实 MariaDB 上建立 21 张系统层自建表（含 `schema_migrations`），验证文章 / 评论写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页；拔掉 DSN 后自动回退且首页仍有数据。
+- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=14, contracts=10, api_operations=55, core_version=0.11.0, headless=true`）；无令牌访问 `/api/v1/lifecycle/units` 返回 HTTP 401 + `40101`；`POST /api/v1/auth/token` 用 `admin/admin123` 换令牌后同一接口返回 `code=0`；`/console` `/install` `/toolbox` 现在需 admin 令牌：匿名返回 HTTP 401 + `access_denied` 结构化数据，主题提供 `deny` 布局时渲染拒绝页、`bare-html` 缺该布局时退化为纯 JSON；带令牌时无主题返回纯数据、启用 `bare` 主题时由主题 admin/tool/install 布局输出 `text/html`。
+- 装卸全链路与签名验签实测：安装 → 启用 → 升级（留备份）→ 回滚 → 停用 → 完整性校验 → 卸载；重复安装、版本未递增、反向依赖、路径穿越、源包越界、篡改签名、强制缺签名均被正确拒绝。
+- 所有验证均为**可重跑的文本证据**，未使用截图（规矩 A）。
+
+> 本仓库仍是**可运行的内核原型**，不是成品 CMS：控制台为只读 + 令牌查询原型，匿名评论尚需验证码与审核，演示凭据与明文配置仅用于本地原型。这些边界在第 17 节与 README 中明确标注，不假装完成。
+
+---
+
+## 20. 单文件职责预算与协作全方位验证（v0.5）
+
+### 20.1 为什么这两条是元规矩
+
+「万象皆接口」把能力拆成大量可插拔单元后，会出现两类退化：一是某个文件慢慢变成「什么都能干」的上帝类；二是协作关系只在文档里连着，实际悄悄断链却无人发现。规矩 H 管前者，规矩 I 管后者，且都必须有可执行守卫（规矩 E）。
+
+### 20.2 职责预算（规矩 H）
+
+`tools/audit-responsibility.php` 静态量测五个指标：有效代码行 `sloc`、单文件责任主体数、公开方法数、扇出（`use` 数）、业务职权跨度（持久化 / 文件系统 / 呈现 / 安全 / 校验 / HTTP）。违规是组合式的：
+
+- `sloc` 超分层预算、单文件 > 1 个类、公开方法 > 20、扇出超预算 —— 任一命中即违规；
+- 职权跨度 ≥ 4 直接违规；跨度 = 3 且体积超预算 80% 同样违规（防止「相关但过胖」的聚合）。
+
+预算分层：`core/` 120 行 / 扇出 5，`systems/` 190 / 8，承载包 150 / 6，`tools/` 240 / 8，`tests/` 240 / **12**。测试层的扇出特意放宽，因为测试的本质就是跨单元协作验证；但行数、主体数、跨度一概不放宽。关键字表放在 `tools/audit/concerns.json`，策略是数据而非代码，审计器自审时不会把字面量误判成自身职权。
+
+### 20.3 真实整改（不是只写规矩）
+
+| 文件 | 整改前 | 整改后 |
+| --- | --- | --- |
+| `LifecycleManager.php` | 563 行 / 4 职权域，状态机 + 事务 + 清单 + 验签 + 钩子全堆在一起 | **188 行 / 1 域**，只做编排；拆出 `StateMachine`、`UnitCatalog`、`DependencyGraph`、`PackageVerifier`、`FileTransaction`、`HookRunner`、`StateStore` 共 7 个协作者 |
+| `ApiDispatcher.php` | 196 行 / 3 域聚合 | 81 行编排 + `RequestGuard.php`（107 行，限流 / 写边界 / 鉴权 / 校验） |
+| `ApiSystem.php` | 9 扇出 | 5 扇出 + `SystemIntrospection.php`（只读盘点） |
+| `InstallPage.php` | 9 扇出 / 4 域 | 5 扇出 + `InstallProbe.php`（环境探测） |
+| `tests/run.php` | 829 行 / 21 扇出 / 6 域 | 18 行引导 + `helpers.php` + 34 个分组断言文件 |
+
+拆分后 `LifecycleManager` 源码里不再出现任何文件操作、加密、路径校验或 SQL——它只向协作者发指令并汇总结果。协作者各自在关键方法里自报 `lifecycle.collab` 轨迹，因此「拆开之后确实仍在协作」有运行时证据，而非静态推断。
+
+### 20.4 协作矩阵（规矩 I）
+
+「全方位」= **存在性 + 一致性 + 运行时贯通 + 故障注入**四维同时满足，缺一不可。8 类协作面：
+
+| 编号 | 协作面 | 两端 | 运行时 / 故障注入证据 |
+| --- | --- | --- | --- |
+| C1 | 契约面 | 接口 ↔ 实现 ↔ 容器 | 全部 `resolve()`；把内容契约换成内存实现后首页数据仍贯通；覆盖留痕 |
+| C2 | 装配面 | `system.json` requires ↔ 拓扑 | 停用被依赖的 `database` → 明确报「依赖未满足」 |
+| C3 | 事件面 | emit/apply ↔ on/filter | 3 个裁决型事件必有消费者；自定义 filter 确实被 `renderStage` 询问 |
+| C4 | 接口面 | operation ↔ 执行者 ↔ 文档 ↔ OpenAPI | 55 条四方 1:1；未注册执行者 → `50101` |
+| C5 | 装卸面 | 磁盘清单 ↔ 状态 ↔ 装载裁决 ↔ 验签 | 单元路径存在、版本对账、`package.enabled` 存在、`core` 不可卸载 |
+| C6 | 呈现面 | 路由 ↔ 布局槽位 ↔ 主题渲染 | 后台走主题 admin 布局；主题缺该布局时退化为纯数据 |
+| C7 | 数据面 | 契约 ↔ 真实表 ↔ 读回 | `system.info` 与 `Db::connected()` 对账；拔 DSN 回退且首页有数据 |
+| C8 | 编排面 | 编排者 ↔ 7 协作者 | `install` 全链路 `lifecycle.collab` 轨迹覆盖 7 个角色；状态机与验签器脱离编排者独立验证 |
+
+**C9** 是规矩 E 的强化：`check()` 登记每条用例名，C9 遍历矩阵断言每一类都有**实际执行过**的守卫，同时断言审计零违规、零孤儿、扫描文件数自洽。「文档写了协作、测试却没测」会被直接拦下。
+
+### 20.5 报告不会过期
+
+`tests/run.php` 每次运行都调用 `Auditor::run()` 重新计算并刷新 `docs/responsibility-report.json`；CLI 工具与守卫测试共用 `tools/audit/Auditor.php` 同一份实现。本轮正是 C9 抓到「新增测试文件后报告过期」这一真实缺陷，才把审计引擎改成共用，而不是让测试读一份可能陈旧的 JSON。
+
+---
+
+## 21. 呈现权归主题系统：布局与内容的分离（v0.6 / 规矩 J）
+
+### 21.1 一个必须堵上的例外口子
+
+v0.4 把 `/console`、`/toolbox`、`/install` 做成 **standalone 独立页**：各自持有一份 HTML 模板与 CSS/JS，通过 `render.should_render` 裁决钩子绕过站点主题。当时的理由是「后台 UI 必须可卸载」「工具页应自包含」，听起来符合「高度自定义」。
+
+但用户指出：**后台的布局样式一样是需要过主题系统的**。这句话戳中的是全称命题问题——只要框架里存在一条「不经主题系统就能产出样式」的合法路径，「所有样式都来自主题的接入，不可越权写死硬编码在框架上」就退化成了「除后台之外所有样式都来自主题」。独立页自带 CSS 与核心内置 CSS 在性质上没有区别，只是把越权从 `core/` 挪到了 `pages/`。
+
+**修法不是给后台再补一套主题**，那只会多一个例外；修法是把「布局」从「页面」里剥离出去。
+
+### 21.2 页面只产数据，主题只产呈现
+
+独立页包现在只做两件事：声明路由、产出结构化数据。它**零 HTML 模板、零 CSS、零 JS**。想用哪个布局槽位写在 `page.json` 的 `layout` 字段里（`site` / `admin` / `tool` / `install`），由 `PageSystem` 通过 `render.layout` 钩子注入 `Response::layout()`。
+
+主题包侧提供一个**通用区块协议**：页面输出 `blocks`（`pre` / `text` / `list` / `table` / `form` 五种类型），主题模板负责把数据变成标签。于是同一个主题可以同时决定前台、后台、工具页、安装向导长什么样；站长换主题，后台外观跟着换，而独立页包一行不用改。
+
+> 关键性质：**布局槽位是「意图」不是「样式」**。核心只搬运一个字符串，不解释含义、不查表、不产出任何标签。
+
+### 21.3 三条裁决链
+
+```
+页面 setPayload(data) + page.json.layout
+   → render.layout filter（可编程，插件可改布局意图）
+   → ThemeSystem 的 render.should_render：主题未自报该槽位 → 不渲染
+   → RendererInterface：主题没有这个布局模板 → 直接返回未改写的 Response（放弃呈现权）
+   → 核心：body 为空且 payload 非空 → asData() 纯 JSON（零标签、零样式）
+```
+
+`Response::layout()` 与「渲染器可以合法地不写 body」是 v0.6 新增的两处核心搬运逻辑；`core/` 没有新增任何文件。
+
+### 21.4 结构性保证（不是约定）
+
+| 状态 | `/`（site） | `/console`（admin） | `/toolbox`（tool） | `/install`（install） |
+| --- | --- | --- | --- | --- |
+| 无主题 | 纯 JSON | **纯 JSON** | 纯 JSON | 纯 JSON |
+| `bare`（自报 4 个槽位） | HTML + CSS | **HTML + admin.css + admin.js** | HTML + tool 资源 | HTML + install.css |
+| `bare-html`（只自报 `site`） | 裸 HTML 零 CSS | **纯 JSON** | 纯 JSON | 纯 JSON |
+
+第三行是关键：主题没提供 `admin` 布局时，后台**退化为纯数据**，框架绝不偷偷兜底一份「默认后台样式」。`bare-html` 主题因此成了这条规矩最有力的运行时证据。
+
+**为什么这比「给后台做个主题」更强**：前者把后台变成又一个例外（还要定义后台主题的优先级、冲突策略、降级规则），后者让全站只有一条呈现链，后台没有任何特殊性。规矩 G 随之收紧为 **CSS/JS 只允许存在于 `themes/`**，静态守卫扫 `core/`、`systems/`、`pages/`、`plugins/` 一律零资源。
+
+---
+
+## 22. 权限系统：三层权限与不可提权的扩展点（v0.6 / 规矩 K）
+
+### 22.1 为什么它必须是独立的系统层
+
+权限不是「用户系统里的一个字段」。一旦把授权塞进用户系统，内容、装卸、接口、日志全都要反向依赖用户系统，系统层之间就出现了等级，违背「所有系统层一律平等、实现同一个 `SystemInterface`」。
+
+所以 `permission` 作为**第 12 个系统层**接入：`system.json` 声明 `requires: [log, database, security, user]`、`priority: 32`，装配顺序自动变成 `… user → permission → api → …`。内核零改动，其余 11 层零改动——这是继 `content` 之后对「可接入新系统层能力」的第二次真实检验。
+
+核心只新增一个契约 `AccessControlInterface`（`core/` 因此达到 **24 个 PHP、13 个契约**，正好触及规矩 D 上限，后续新能力必须靠系统层 + 钩子，不得再加契约文件）。核心**不认识任何具体权限名**。
+
+### 22.2 模型选型：为什么不是纯 RBAC，也不是纯 ABAC
+
+| 模型 | 表达力 | 代价 | 判断 |
+| --- | --- | --- | --- |
+| 纯 RBAC（角色→许可） | 角色批量授权很干净 | 表达不了「这一篇只有作者能改」 | 不够 |
+| 纯 ABAC（属性规则） | 几乎无所不能 | 需要规则引擎与策略语言，等于在框架里再塞一个框架，违背「核心轻量」 | 过重 |
+| 纯 ACL（资源→授权） | 客体级控制直观 | 给一批人授权同一个操作要重复写 | 啰嗦 |
+| **RBAC + 资源 ACL + 策略钩子** | 三层各自回答一个问题 | 需要明确优先级与冲突语义 | **选用** |
+
+三类权限不是三套系统，而是**同一个决策接口的三个输入维度**：`decide(identity, action, resource)`。`identity` 来自用户层、`action` 来自系统层自报、`resource` 来自内容层。输出统一收敛为三态 `allow / deny / abstain`。
+
+> `abstain` 是刻意保留的第三态：它把「明确拒绝」和「没有策略可依」区分开，让日志能回答「是被禁止了，还是压根没配」。而 `allows()` 把 `abstain` 一律当 `false` —— 默认拒绝。
+
+### 22.3 三层权限展开
+
+**① 用户权限（主体 / who）** —— `permission_roles` + `permission_grants`。默认角色 `admin / editor / author / subscriber`，支持 `*` 与 `content.*` 前缀通配。这里有一个刻意的反直觉设计：**`*` 是一条显式授予、可以被撤销的记录，不是硬编码的超管判断**。`revoke('admin', '*')` 之后 admin 立刻失去隐式全权（13a 组实测）。身份来自 `ApiAuthenticatorInterface`，权限层不解析令牌。
+
+**② 文章权限（客体 / what）** —— `permission_acl`（资源类型 / 资源 ID / 主体 / 能力 / allow 位）+ 文章状态。内容层**不 import 权限层**，只在 `content.posts` / `content.post` 里询问 `content.visible` 钩子；权限层订阅该钩子逐篇过滤。这样内容层即使单独卸载权限层也能工作，是「万象皆接口」在业务层的落点。过滤规则：
+
+- `deny` 一律剔除（**对匿名也生效**，这是 13b 组抓到的真实缺陷）；
+- `allow` 一律放行；
+- `abstain`：`published` 公开可读，`draft / private / pending` 仅作者本人。
+
+**③ 系统权限（操作 / action）** —— 每个系统层可用 `permissions.json` 自报权限点（本轮共 5 个层、20 个点），`PermissionRegistry` 装配期汇总，**同名冲突直接 fail-fast**，不静默后者覆盖前者。接口清单用 `permission` 字段绑定（17 个接口），`RequestGuard` 在参数校验之前执行裁决，未放行返回 `40303`。契约覆盖走 `contract.override` 裁决点留痕——「可换实现」不等于「可随意提权」。
+
+### 22.4 决策算法与「不可提权」约束
+
+```
+base = ① 显式 deny（含匿名）→ DENY
+       ② 匿名且无 deny      → ABSTAIN
+       ③ 资源级显式 allow   → ALLOW
+       ④ 角色许可匹配       → ALLOW
+       ⑤ 其余               → ABSTAIN
+policy = hooks.apply('permission.decide', base, …)
+final  = tighten(base, policy)     // 只能往更严格方向移动
+record(final)                       // audit 表 + emit + 日志
+```
+
+`tighten()` 是全系统最关键的一段防御：`allow → abstain/deny` 有效，`abstain/deny → allow` **一律忽略**。插件与主题可以贡献更严的策略（比如「工作时间之外禁止发布」），但永远不能借扩展点给自己授权。把「可扩展」和「不可提权」同时写进一处，比靠文档约定可靠。
+
+每次决策写 `permission_audit` 表、emit `permission.decision`、由日志系统消费；留痕失败不阻断决策（避免审计故障演变成全站 500）。
+
+### 22.5 五个决策点与可选身份
+
+| 决策点 | 位置 | 说明 |
+| --- | --- | --- |
+| 接口 | `RequestGuard` | `endpoint.permission` → `AccessControlInterface`，401 / 40301 / 40303 分层 |
+| 页面 | 后台布局渲染前 | 后台数据由接口提供，页面本身不含权限判断 |
+| 内容 | `content.visible` 钩子 | 列表与单篇统一过滤，避免「列表不泄露、详情能直读」 |
+| 装卸 | 接口清单 | install / activate / upgrade / rollback / uninstall 各自独立权限点 |
+| 装配期 | `contract.override` | 覆盖契约时留痕并允许策略收紧；装配期没有请求身份，故不做细粒度鉴权 |
+
+为此 `RequestGuard` 增加了一个能力：**public 接口可选携带身份**——不强制认证，但带了 Bearer 且校验通过就注入 `_identity`。没有它，「作者能看到自己的草稿」这类客体权限在 HTTP 层根本无法生效（匿名永远拿不到身份）。
+
+### 22.6 fail-closed 与「不锁死公开只读」的取舍
+
+拔掉 DSN 或停用权限层时，容器回退到 `DenyAllAccessControl`（决策恒 `abstain`、仍返回权限清单）。受保护操作全部关闭，但**公开已发布文章仍可读**——否则装上权限系统就等于把站点锁死，这不是「安全」，是可用性事故。
+
+这个取舍需要你知晓并可调整：若你的站点要求「未登录一律不可读」，把 `ContentVisibility` 的 `abstain` 分支改成 `return false` 即可，核心与其它层零改动。
+
+### 22.7 与第一性原理的关系
+
+- 权限本身也是接口：`AccessControlInterface` 可整体替换成 LDAP / 外部策略服务 / 全拒绝测试桩（13a 组实测替换后公开首页不受影响）。
+- 权限名不进核心：由各系统层自报，新增系统层自带声明即可被收录。
+- 权限决策是四处协作面（契约 / 事件 / 装配 / 数据）之外的第五类横切面，同样遵守规矩 I 的「存在性 + 一致性 + 运行时贯通 + 故障注入」四维验证（13a / 13b 共 16 项守卫，v0.7 再补 13c / 13d 共 15 项）。
+
+### 22.8 v0.10 之后的剩余边界
+
+| 项 | 现状 | 建议 |
+| --- | --- | --- |
+| 用户组 | **v0.9 已落地**：`permission_group_*` 三张表 + 决策时并入角色（见 25.2）；不支持组嵌套 | 组嵌套等价于角色继承，已有 `RoleGraph`，不必再造一层图 |
+| 页面会话 | **v0.9 已落地**：HttpOnly Cookie，与 API 令牌同表同撤销（见 25.3）；无多设备管理界面 | 设备列表 = 查 `user_tokens WHERE kind='session'`，属控制台功能而非权限层能力 |
+| 权限缓存 | **v0.9 已落地**：file 后端跨请求 / 跨同机进程共享，epoch 失效（见 25.4） | 跨主机共享需把 `CacheBackend` 换成 Redis / 共享文件系统，实现类之外的代码无需改动 |
+| 字段级权限 | **v0.9 已落地读写同构**：`content.update` 逐字段裁决（见 25.5） | 其它业务层若要字段级写，复用同一个 `decide(..., ['field'=>...])`，不要另建接口 |
+| 装配期契约覆盖鉴权 | **v0.9 默认开启**：`require_grant=true`，系统层自动登记、第三方必须运行时授权（见 25.6） | 关闭开关仍可用于本地调试；生产不建议关闭 |
+| 头衔 / 等级与权限 | **v0.10 明确解耦**：`member` 层只描述身份，头衔与等级不参与 `decide()`（见 26.1）；授予前后决策逐项一致由 16b 断言 | 若业务确需「等级解锁能力」，把等级做成**角色来源**（与用户组同构），不要在标签上加判断 |
+| 经验流水与排行 | append-only 流水 + 每日上限已落地；无归档、无物化排名，排行榜为 `limit/offset` | 十万级成员时把排行改为游标或定时物化，流水按年归档；两者都不改接口形状 |
+| 成员展示 | 成员层零页面零样式，仅 `member.*` 接口与 `users.me` 快照 | 徽章 / 等级条 / 排行榜样式由主题或独立页承载（规矩 J） |
+| 超级管理员 | 不存在硬编码超管，`*` 可撤销 | 保持现状；「至少留一个管理员」应作为安装向导约束 |
+| 跨主机缓存 / 限流 / 幂等共享 | 未做 | v1.0 统一换成共享存储，三处都已是可替换实现，不涉及核心 |
+
+---
+
+## 23. 权限层的三处深化：角色继承 / 决策缓存 / 字段级权限（v0.7）
+
+### 23.1 范围与纪律
+
+v0.6 收尾时列了 5 项待拍板边界。这轮把其中 **3 项从「建议」变成代码**，另外 2 项保持原状是有原因的：「超级管理员」的建议本来就是*保持现状*（`*` 可撤销），不需要写代码；「装配期契约覆盖鉴权」要把 register 阶段的隐式行为改成显式受保护 API，属于产品语义变更而非实现问题，留给你拍板。
+
+全部改动落在 `systems/Permission/`：`core/` 仍是 **24 个 PHP / 13 个契约，一行未加**（规矩 D 已触顶）。新增 3 个单一职责协作者、1 份幂等增量 migration、2 个接口、2 组守卫。权限点仍为 **20 个**——新能力复用 `permission.read` / `permission.manage`，不为实现细节新增权限名。
+
+| 新增文件 | 职权 | 边界 |
+| --- | --- | --- |
+| `RoleGraph.php` | 继承图展开、写入前裁决 | 不写 SQL、不做决策 |
+| `PermissionCache.php` | 基础数据缓存与显式失效 | 不缓存最终决策 |
+| `AclMatcher.php` | `capability` / `subject` / `field` 三维匹配 | 不读写库、不认识请求对象 |
+| `migrations/002_role_inheritance.sql` | 继承表 + ACL 的 `field` 列 | `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`，每次 boot 重放仍幂等 |
+
+`AccessController` 从「什么都自己判」变成**编排者**：图结构、匹配、缓存、读写各归其位。这是规矩 H 的正向用法——新增能力先拆协作者，而不是把 `AccessController` 撑到超预算。
+
+### 23.2 角色继承：一张边表，不是角色表里加一列
+
+建模上有三条路，选了第三条：
+
+| 方案 | 问题 |
+| --- | --- |
+| 角色表加 `parent_role` 单列 | 只能单继承，菱形继承（同时继承编辑组与作者组）表达不了 |
+| 在许可表里塞 `@parent:xxx` 特殊记录 | 把图结构伪装成权限字符串，`catalog()` / 通配符匹配都要特判，语义变脏 |
+| **`permission_role_parents(role, parent_role)` 边表** | 多继承、图查询、环路检测都是自然的；与 `permission_grants` 正交，互不污染 |
+
+`RoleGraph::ancestors()` 从主体角色出发广度优先展开，`visited` 去重、**深度上限 8** 截断并留 `depth_limit:8` 告警；即使有人手工改库造出环也不会死循环。写入前 `canSetParent()` 拒绝三类脏关系：
+
+```
+empty  角色或父角色为空
+self   role === parent
+cycle  parent 的祖先链里已经出现 role
+depth  parent 的祖先链已达 MAX_DEPTH
+```
+
+裁决发生在**写库之前**，被拒时 `changed=false`，库里一条脏边都不会有。`permission.role.parent` 接口把 `cycle` / `depth` 规范化为 `40901`，`permission.role.tree` 则把整张图（每个角色的 `parents` / `ancestors` / `effective_permissions`）交给后台。
+
+> **继承是许可并集**：子角色继承父角色的全部许可；在子角色上 `revoke()` **不会**撤销父角色的许可，要收回必须改父角色。`*` 仍是一条可撤销的显式记录，继承不改变这一点。显式 `deny`（资源 ACL）与策略钩子的收紧优先级完全不变——继承绝不构成提权后门（13c 组实测）。
+
+### 23.3 决策缓存：明确「不缓存什么」比缓存什么更重要
+
+`PermissionCache` 只缓存四类**基础数据读取**：`grants:<role>`、`acl:<type>:<id>`、`parents:<role>`、`ancestors:<role>`。
+
+> **绝不缓存 `decide()` 的最终结果。** 策略钩子 `permission.decide` 可能携带请求级条件（例如「工作时间之外禁止发布」）；缓存最终决策会让这类收紧策略在第二次请求起被静默绕过，等于开了一个提权后门。13d 组专门验证：先无钩子放行、再挂上拒绝钩子，后续每一次决策都必须立刻变 `deny`，且钩子调用次数与决策次数相等。
+
+失效点是**所有授权写操作**：`grant` / `revoke` / `setAcl` / `setParent` / `removeParent` 一律 `flush()`，且宁可无条件多失效一次，也不允许读到过期授权。13d 组验证撤销父角色许可后子角色**同步**失去该许可，正是缓存失效与继承展开同时生效的证据。
+
+`config.permission.cache.enabled` 可整体关闭缓存（默认开启）。关闭后 `hits` 恒为 0，而 admin / 匿名 / 无授权角色三组决策结果与开启时**逐项一致**——证明缓存只是性能优化，不改变语义。
+
+> **部署语义要说清**：PHP 传统 FPM / 内置服务器下每个请求都会重建内核，所以这个进程内缓存只在**单次请求内**生效——同一请求里多次 `decide()`（例如列表过滤逐篇文章询问 `content.visible`）才命中。`php -S` 的真实 HTTP 冒烟返回 `hits=0 / misses=3 / flushes=0`，正是这个事实的文本证据，不是缓存失效的缺陷。要拿到跨请求的性能收益，必须把 `PermissionCache` 换成共享存储并广播失效，已列入 v1.0；当前版本消除的是**同一次请求内**的重复查库。
+
+### 23.4 字段级权限：一个维度，不是第四层权限
+
+`permission_acl` 增加 `field` 列，`setAcl` / `permission.check` 增加同名可选参数，`AccessControlInterface::decide()` 的**签名不变**。判定时把 `resource['field']` 交给 `AclMatcher`：
+
+| 条目 `field` | 请求 `field` | 是否参与判定 |
+| --- | --- | --- |
+| 空（整资源级） | 任意 | **是**，对任意字段生效 |
+| `body` | `body` | 是，精确匹配 |
+| `body` | `title` | 否 |
+| `body` | 不带 | 否 |
+
+这样「禁止读某篇文章的 `body`」不会把整篇文章从 `content.posts` 列表里剔除：`ContentVisibility` 传的 `resource` 不带 `field`，只受整资源级 ACL 影响。字段级权限因此是**资源 ACL 的一个维度**，而不是与用户 / 文章 / 系统并列的第四层——决策入口仍是同一个 `decide()`，`abstain` / `deny` 语义不变。
+
+### 23.5 优先级不变（三项改动都没有动决策骨架）
+
+```
+1. 显式 deny（含匿名，field 精确匹配）  → DENY
+2. 匿名且无 deny                       → ABSTAIN
+3. 资源级显式 allow                    → ALLOW
+4. 角色许可：自身 + 全部祖先的并集      → ALLOW   ← v0.7 只改这一行的数据来源
+5. 其余                                → ABSTAIN
+   ↓ 策略钩子 permission.decide（每次执行，只许收紧）
+   ↓ record() → audit 表 + permission.decision 事件
+```
+
+缓存只影响第 1/3/4 步的**读取路径**，不进入箭头链；`field` 只影响第 1/3 步的**匹配条件**。
+
+### 23.6 与第一性原理的关系与验证
+
+- **权限本身仍是接口**：`AccessControlInterface` 未改动，仍可整体替换成 LDAP / 外部策略服务 / 全拒绝测试桩。
+- **新能力也是接口**：继承图与父级写入各有一个规范化接口 + 一份清单驱动文档，不是藏在代码里的私有配置。
+- **核心零改动**：24 个 PHP、0 个 CSS/JS、0 条 SQL 全部保持；新增 3 个协作者均通过职责审计（0 违规 / 0 孤儿协作）。
+- **规矩 I 的第五类横切面**：13c（8 项）验证存在性 / 一致性 / 运行时贯通 / 环路与深度故障注入；13d（7 项）验证缓存失效、策略钩子不被绕过、开关一致性、字段级贯通与当时的 33 个 operation 四方 1:1（现随清单增长至 39 个，断言按清单动态计数）。
+- **回退不破窗**：拔掉 DSN 时受保护接口按 fail-closed 返回 `40303`，直接调用执行者则返回空图 + `fallback` 告警，公开首页仍可读。
+
+---
+
+## 24. 页面身份权限合理化与契约覆盖运行时鉴权（v0.8 / 规矩 L）
+
+### 24.1 为什么要单独做一轮
+
+v0.7 收尾时有两处不对称：
+
+1. **API 有完整守卫，页面没有。** `RequestGuard` 已做「限流 → 写接口公网边界 → 鉴权 → 细粒度授权 → 参数校验 → 幂等」，但 `/console` `/toolbox` `/install` 是独立页包直接订阅 `route.resolve` 写数据，匿名请求照样能拿到后台数据。权限系统铺了 12 层决策点，唯独漏了「页面」这一层。
+2. **装配期契约覆盖只有留痕，没有身份约束。** 任何系统层 / 插件只要声明更高 `priority` 就能替换契约实现，`contract.override` 钩子只 emit 一条决策事件，谁都能覆盖。
+
+「各个页面的身份权限验证也要合理化」点破的正是第一点：权限验证不能只覆盖 API，也不能靠每个独立页自己写 `if (!isLoggedIn())` —— 那既散落、又违反规矩 H，还会把跳转 / 标签写进页面（破坏规矩 J）。
+
+### 24.2 接入点：一个可编程询问点，而不是一堆 if
+
+`core/Router.php` 在 `route.resolve` 广播之前增加 `route.access` filter，并按 HTTP 状态短路：
+
+```php
+$response = $kernel->hooks()->apply('route.access', $response, $request, $kernel);
+if ($response->status() >= 400) return $response;
+$kernel->hooks()->emit('route.resolve', $request, $response, $kernel);
+```
+
+- 核心只认「HTTP 状态是否已表达拒绝」，**不认任何身份、权限名、页面类型**，也不产出任何呈现内容；与 `render.layout` / `render.should_render` / `contract.override` 是同一类裁决点。
+- 短路是**结构性保证**：被拒时页面回调根本不执行，未来独立页若有副作用也不会泄漏。若靠「每个页面自觉检查状态」，第三方插件漏写一处就是漏洞。
+- `core/` 仍是 **24 个 PHP / 13 个契约**，本轮只改 1 个文件、未新增文件。这是 v0.6 之后唯一一次为核心增加通用询问点，因为访问裁决必须发生在所有承载包之前，无法由包自己实现短路。
+
+### 24.3 策略是清单数据，不是代码
+
+5 个 `page.json` 增加 `access` 段，分级如下：
+
+| 页面 | `auth` | `permission` | `local_only` | 语义 |
+| --- | --- | --- | --- | --- |
+| `/` `/links` | `public` | — | 否 | 公开页，显式声明而非「漏写即公开」 |
+| `/console` | `user` | `page.console.read` | 否 | 登录 + 控制台读权限 |
+| `/toolbox` | `admin` | `page.toolbox.use` | 否 | 管理员级别 **且** 独立权限点，双重裁决 |
+| `/install` | `admin` | `page.install.run` | **是** | 管理员 + 权限点 + 仅本机来源，三重约束 |
+
+`PagePolicy` 把 `routes → 策略` 建成表；**缺省 fail-closed**：声明了 `routes` 却没写 `access` 的页面按 `auth=user` 处理并 emit `page.access.undeclared` 告警，公开页必须显式写 `public`。不在表里的路径（API / 404 / 插件自有路由）返回 `null`，页面系统不越权裁决。
+
+3 个新权限点由 `systems/Page/permissions.json` 自报，权限点总数 20 → 23；`editor` 默认获授 `page.console.read`，因此「编辑能进控制台但进不了工具页」可验证。
+
+### 24.4 与 API 同源的两级裁决
+
+`PageAccessGuard` 不发明第二套认证：
+
+```
+身份载体 → ApiAuthenticatorInterface::authenticate()   （同一个令牌表 / 静态令牌 / 可替换 SSO）
+级别     → ApiAuthenticatorInterface::allows()          （public / user / admin，与接口清单 auth 同义）
+权限     → AccessControlInterface::allows()             （page.* 权限点，三态 / fail-closed）
+```
+
+Bearer、`X-Api-Token`、`Cookie: wx_token=` 三种载体只是**取令牌的方式不同**，都交给同一个认证器；浏览器直访后台不必再引入 session 机制。无效令牌与无令牌统一返回 401 / `unauthenticated`，不向未认证者暴露「令牌是否存在」的差异。
+
+拒绝原因分四类：`unauthenticated`（401）、`level_denied` / `local_only` / `permission_denied`（403）。权限层缺席、`abstain`、撤销 `*`、非本机来源都会落到对应的拒绝分支。
+
+### 24.5 策略钩子只能收紧
+
+`page.access.policy` 允许插件改策略，但 `PagePolicy::tighten()` 只接受三种方向：**提升 `auth`**、**追加 `extra_permission`**、**打开 `local_only`**；把 `auth` 改成 `public`、清空主 `permission` 一律忽略。这与规矩 K 的 `tighten()` 是同一个原则：**扩展点只能加严，永远不能借钩子给自己授权**。
+
+### 24.6 拒绝页也归主题（规矩 J 的延伸）
+
+拒绝响应只 `setPayload()` 结构化数据 + `setLayout('deny')`，含 `reason` / `auth_level` / `permission` / `login_endpoint` / `return_to` / `blocks`，**没有一个标签、一行 CSS**。主题 `Bare` 自报 `deny` 槽位并提供 `templates/deny.php` + `assets/deny.css`；`BareHtml` 不提供 → 拒绝页退化为纯 JSON。`PageSystem` 的 `render.layout` 订阅者遇到 `status >= 400` 时不再覆盖布局，避免把 `deny` 改回 `admin`。
+
+身份贯通同样零侵入：`route.response` filter 把本次请求的身份合并进页面 `payload`，**5 个独立页一行未改**；API 响应的 `payload` 为 `null`，不会被注入污染。
+
+### 24.7 契约覆盖：把「授权」从隐式变成运行时、有身份、可审计
+
+时序上所有契约覆盖都发生在 `register()` 阶段，那时**没有请求、没有用户**，所以「在装配期做身份鉴权」本身是伪命题。合理的落地是把授权动作搬到运行时：
+
+1. 新增 `wx_permission_contract_overrides` 台账（`contract` + `owner` + `granted_by` + `active` + 时间），归权限层 migrations 自建、卸载时清理（共 6 张权限表）。
+2. `API-PERM-012`（`permission=system.contract.override`）由**有身份、有权限**的主体登记 / 撤销授权；`ContractOverrideOperations` 在执行者里再用同一个 `AccessControlInterface` 复核一次，绕过 `RequestGuard` 直调执行者也会抛 `40303`。
+3. `API-PERM-011` 把 `Container::overrides()` 的装配期留痕与台账逐条对账，返回 `unauthorized` 清单。
+4. `permission.contract_override.require_grant=true` 时，`contract.override` filter 查台账：未授权覆盖直接抛异常，容器不写入脏实现；台账不可读（表未建 / 拔 DSN）也按未授权处理，fail-closed。
+5. 默认 `false`，保留 v0.6/v0.7 的「只留痕 + 策略可收紧」语义 —— 否则装了权限层就可能启动不了。生产启用前用 `API-PERM-011` 盘点现有覆盖、逐条登记，是明确的运维步骤而非隐式魔术。
+
+`permission.decision` 留痕的 `reason` 会带 `grant=ok` / `grant=missing` / `grant=not_required`，审计时可区分「放行是因为授权」还是「放行是因为没开强制」。
+
+### 24.8 决策骨架未改、回退不破窗
+
+页面访问与契约覆盖都**没有改动 `AccessController::decide()` 的决策骨架**，只是新增两个询问它的地方。拔 DSN 时：受保护页面按 `permission_denied` 拒绝，契约覆盖按未授权拒绝，但公开首页 `/` 仍可读（`DenyAllAccessControl` + `content.visible` 的既有回退）。
+
+### 24.9 验证与数字
+
+- 新增 `PagePolicy` / `PageAccessGuard` / `ContractOverrideLedger` / `ContractOverrideOperations` 4 个单一职责协作者、`deny` 布局 2 个主题文件、1 份增量 migration、3 个页面权限点、2 个接口 + 2 份操作文档。
+- `14a`（6 项）/ `14b`（6 项）/ `14c`（8 项）/ `14d`（3 项）共 **23 项守卫**，覆盖存在性、一致性、运行时贯通、故障注入（撤销许可、未授权覆盖、拔 DSN、无效令牌、非本机来源）。
+- 职责审计 0 违规 / 0 孤儿协作；49 个 operation 全绑定执行者；`php tests/run.php` → **170 passed, 0 failed**（34 组）。
+
+过程中修掉一个真实缺陷：台账 upsert 里 `:now` 占位符出现两次，MySQL 原生 prepare 报 `HY093 Invalid parameter number`；拆成 `:created` / `:updated` 后修复。另有一次审计器把测试文件里的 `'Authorization'` / `'<html'` 字面量误判为职权域，按规矩 H **不放宽预算而是拆分**成 `14d`，而非给审计器开例外。
+
+---
+
+## 25. 主体可扩展、凭据单一来源与写路径同构（v0.9 / 规矩 M）
+
+### 25.1 范围与纪律
+
+v0.8 收尾时列了 5 项边界，这轮全部落地：
+
+| 项 | 落点 | 关键取舍 |
+| --- | --- | --- |
+| 用户组 | `permission_groups` / `_subjects` / `_roles` 三张表 + `GroupResolver` | 组只是**角色来源**，不是第四层权限，不复制授权表 |
+| 页面会话 | `SessionManager` / `SessionOperations` / `SessionCookie`，令牌表加 `kind` 列 | 与 API 令牌**同表同撤销**，只换载体，不造第二套身份体系 |
+| 缓存共享 | `CacheBackend` + `ArrayCacheBackend` / `FileCacheBackend` | 跨请求共享，epoch 失效；**仍绝不缓存最终决策** |
+| 字段级写 | `ContentRepositoryInterface::update()` + `content.update` | 与读路径共用 `decide(..., ['field'=>...])`，失败不部分写入 |
+| 契约覆盖安全默认 | `require_grant=true` + `AssemblyGrantRegistrar` | 系统层覆盖自动登记，第三方必须运行时授权 |
+
+`core/` 仍是 **24 个 PHP / 13 个契约，一行未改**。新增 8 个协作者全部落在 `systems/`，其中 3 个是从超预算文件里拆出来的（`PdoGroupStore`、`PermissionSeeder`、`PermissionOperations`），1 个从扇出超标的 `SecuritySystem` 拆出（`SessionBootstrap` / `SessionCookie`）。这是规矩 H 的正常用法：**先拆职责，再谈功能**。
+
+### 25.2 用户组：扩展「角色从哪来」，而不是新增一层权限
+
+建模上最容易犯的错是给组单独做一套授权表，然后在决策时再合并一次。那样会有两套语义、两处 bug、两个优先级规则。这轮选择把组压缩成一句话：
+
+> 主体角色集合 = 自身 `role` ∪ 所属组绑定的 `role`。
+
+`GroupResolver::rolesFor()` 输出这个集合，后面的链路（角色继承展开 → 许可匹配 → 资源 ACL → 策略收紧）一个字都没改。于是：
+
+- 组不可能绕过显式 `deny` —— deny 判定在角色集合**之前**，对匿名与组员一视同仁；
+- 组不可能提权 —— `tighten()` 仍在最后一步，插件加的拒绝策略照样生效；
+- 组不引入新的权限名 —— 组绑定的是既有角色（`editor` / `author` …），权限点总数仍是 23。
+
+代价是组不能直接表达「这个组额外有某个许可」，必须经由角色。这是刻意的：**角色的语义是「一组许可」，组只是「一群人」**，两者混在一起会让「为什么他有这个权限」无法回答。
+
+接口层只有两个：`API-PERM-013` 查全量分组，`API-PERM-014` 用 `op` 做增删（`upsert` / `delete` / `add_role` / `remove_role` / `add_member` / `remove_member`）。每次写操作都 `flush()`，缓存不会留下过期成员关系。
+
+### 25.3 页面会话：同一张令牌表，只换载体
+
+会话最容易做成第二套身份系统：独立的 session 表、独立的过期逻辑、独立的撤销接口，最后和 API 令牌的权限语义对不上。这轮的做法相反：
+
+```
+同一张 wx_user_tokens（kind = api | session）
+同一套 expires_at / revoked
+同一个 ApiAuthenticatorInterface::authenticate()
+```
+
+差别只有三点：
+
+1. **载体**：会话令牌写进 `Set-Cookie: wx_session=...; HttpOnly; SameSite=Lax`，并从响应体移除明文。浏览器脚本读不到，XSS 也偷不走。
+2. **用途**：`PageAccessGuard` 只在 `GET/HEAD` 时接受 Cookie；API 写操作仍要求 `Authorization` 头。浏览器跨站无法自动附加该头，CSRF 面因此天然关闭。
+3. **反向边界**：会话令牌**不能**当 Bearer 调普通 API。`RequestGuard` 见到 `kind=session` 直接 401，否则「一次浏览器登录」就变成可调任意写接口的万能凭据。唯一例外是会话自身的管理端点（`GET/DELETE /auth/session`），由清单显式声明 `accept_session: true`；它们必须能被浏览器直接调用，而 HttpOnly 令牌只能靠 Cookie 带上。
+
+`POST /auth/session` 与 `POST /auth/token` 都声明了 `public_write: true`。这不是给写边界开口子，而是把例外**写在清单里**：认证端点必须公网可达，否则生产环境没人能登录。`RequestGuard` 的默认边界仍是「写接口仅本机」。
+
+### 25.4 缓存：跨请求共享靠 epoch，不靠删除
+
+`PermissionCache` 现在是两层：
+
+```
+请求内条目（$entries）  →  单次请求里重复询问直接命中
+共享后端（CacheBackend） →  file / memory，可替换
+```
+
+`FileCacheBackend` 的失效不是逐条 `unlink`，而是往 `.epoch` 写一个新的随机串。读取时文件里的 epoch 与当前 epoch 不一致就视为未命中。这样多进程并发下不会出现「删到一半被写回」的竞态，也不需要广播；代价是旧文件留在磁盘上，需要定期清理（属运维，不影响正确性）。
+
+仍然**绝不缓存 `decide()` 的结果**。`15c` 组专门验证：在 file 后端下先放行一次，再挂上拒绝策略，第二次决策必须立刻变 `deny`。缓存只承载 `grants / acl / parents / ancestors / group_roles` 这类基础读取。
+
+关闭缓存、memory 后端、file 后端三种配置下，对 4 个身份 × 5 个动作的决策结果逐项一致 —— 这是「缓存只是性能优化」的可执行证明。
+
+### 25.5 字段级写：与读路径同构
+
+`permission_acl.field` 在 v0.7 只用于读判定。写路径要复用它，不能另造一套「字段白名单」：
+
+```
+读：decide(identity, 'content.read', ['type'=>'post','id'=>..,'field'=>'body'])
+写：decide(identity, 'content.edit', ['type'=>'post','id'=>..,'field'=>'body'])
+```
+
+`content.update` 对 `title` / `body` / `status` 逐个询问，任何一个非 `ALLOW` 就整次拒绝（`40303`），**绝不部分写入**。理由是安全语义：如果请求夹带 `title` 与 `body`，而 `body` 被禁，部分成功会让调用方误以为整次都失败了，而数据其实已经被改了一半。
+
+字段级 `deny` 不会误伤整篇资源：`15d` 组验证「禁止改 `body`」时改 `title` 仍然成功，且不带 `field` 的整资源判定不受影响。
+
+**资源标识必须两端一致**：读路径（`ContentVisibility`）用 `slug` 作为 `id`，写路径原先用数据库数字 `id`，于是按 `slug` 登记的 ACL 只保护读、按数字登记的只保护写 —— 同一条授权在两条路径上互相看不见。已统一为 `slug`（也是内容接口对外暴露、`content.update` 入参所用的标识），并由 `15d` 新增用例同时断言读拒绝、写拒绝与列表剔除。
+
+### 25.6 契约覆盖：安全默认，但装上权限层不能启动失败
+
+v0.8 把 `require_grant` 默认设为 `false`，理由是「否则装了权限层可能启动不了」。这轮把它反过来，并用一条规则消除副作用：
+
+| owner | 是否自动登记 | 理由 |
+| --- | --- | --- |
+| `system:<已注册层>` | **是**（`granted_by=assembly:auto`） | 系统层之间的合法替换发生在 `register()`，那时没有请求身份，无法走运行时授权 |
+| `system:<不存在>` | 否 | 前缀不是通行证，冒充系统层名会被拒 |
+| `plugin:` / `theme:` / `page:` | 否 | 第三方覆盖必须由运行时身份经受保护接口授权 |
+
+`AssemblyGrantRegistrar` 把这条规则做成纯函数（输入覆盖记录 + 已知系统层名），因此可以在守卫里直接构造用例，而不必制造「register 阶段覆盖」的复杂时序。
+
+于是默认配置既是安全的（第三方未授权覆盖 fail-closed），又不会让正常站点启动失败（系统层覆盖自动登记且可审计）。
+
+### 25.7 过程中修掉的四个真实缺陷
+
+1. **`PdoPermissionStore::dropSchema()` 漏清 `permission_contract_overrides`** —— v0.8 加表时忘了同步卸载钩子，会留下悬空授权记录。已补全到 9 张表，并由 `14c` 断言。
+2. **会话令牌可以当 Bearer 调任意 API** —— 这是本轮新功能引入的边界漏洞：令牌同表，认证器不区分 `kind`。修法不是禁止会话令牌，而是在 `RequestGuard` 里显式拒绝 `kind=session`，只放行清单声明 `accept_session` 的会话自身端点。
+3. **认证端点在公网被写边界拦住** —— v0.8 的 `expose_write=false` 会让公网用户无法登录（`POST /auth/token` 也是写方法）。改为清单声明 `public_write: true`，把例外变成可审计的数据，而不是代码里的特判。
+4. **读写两端资源标识不一致** —— 读路径用 `slug`、写路径用数据库数字 `id`，按 `slug` 登记的字段级 `deny` 只拦得住读，写仍然放行（HTTP 冒烟实测 `body` 写入 200）。这不属于「实现细节」，而是同一条授权在两条路径上指向了两个资源。已把写路径统一到 `slug`，并让 `15d` 用一条 ACL 同时验证读拒绝、写 `40303`、列表剔除。
+
+### 25.8 验证与数字
+
+- 新增 `GroupResolver`、`PdoGroupStore`、`PermissionSeeder`、`PermissionOperations`、`AssemblyGrantRegistrar`、`SessionManager`、`SessionOperations`、`SessionBootstrap`、`SessionCookie`、`CacheBackend` + 2 个实现，共 12 个单一职责协作者；`core/` 零改动。
+- 新增 6 个接口（`API-AUTH-002~004`、`API-PERM-013~014`、`API-CONTENT-005`），全部一接口一文档。
+- 新增 `15a`–`15e` 共 5 组 20 项守卫：组、会话、缓存后端、字段级写（含读写资源标识一致性）、契约覆盖安全默认。
+- `php tests/run.php` → **144 passed, 0 failed**（28 个分组文件）；职责审计 **0 违规 / 0 孤儿协作**，152 个 PHP 共 8617 有效行（v0.9 当时数字）。
+- 真实 HTTP 冒烟：会话 Cookie 访问 `/console` 200、会话令牌调普通 API 401、登出后页面 401；组创建 / 绑角色 / 加成员与列表一致；字段级 `body→40303` / `title→200`；契约覆盖 `require_grant=true`。
+
+## 26. 身份与授权解耦：头衔 / 经验 / 等级（v0.10 / 规矩 N）
+
+### 26.1 为什么是第 13 个系统层，而不是权限的第 4 层
+
+站长要的「头衔」「等级」很容易被做成权限：给用户挂一个「站长」头衔，代码里顺手 `if (title === 'founder') allow()`。这条路径一旦走通，授权入口就从「一张授权表」变成「授权表 + 一堆标签判断」，审计再也不可能说清「谁能做什么」。
+
+所以 `member` 层的边界写死为：**描述身份，不描述能力**。
+
+| 能力 | 归属 | 是否影响 `decide()` |
+| --- | --- | --- |
+| 角色、许可、资源 ACL、页面策略 | `permission` | 是，且是唯一入口 |
+| 用户组 | `permission` | 只作为**角色来源**（自身角色 ∪ 组角色） |
+| 头衔 | `member` | **否**（16b 用同一身份在授予前后各裁决一次，断言结果完全一致） |
+| 经验 / 等级 | `member` | **否**（等级不绑定角色，不写 `permission_*`） |
+
+这条边界也解释了为什么 `member` 的六张表里没有任何 `permission_` 前缀、没有任何 `role` 列。
+
+### 26.2 数据模型：六张表，三组关注点
+
+| 表 | 职责 | 关键约束 |
+| --- | --- | --- |
+| `member_profiles` | 一人一行：经验余额、当前等级 | `user_id` 主键；等级只升不降 |
+| `member_xp_events` | 经验流水（append-only） | `event_key` 唯一 → 幂等的最终防线 |
+| `member_levels` | 等级门槛表 | `level` 主键；`min_xp` 唯一 → 门槛不许撞车 |
+| `member_xp_rules` | 动作 → 单次经验 / 每日上限 / 启停 | `action` 主键 |
+| `member_titles` | 头衔定义 | `title_key` 主键；`min_level>0` 表示等级自动授予 |
+| `member_user_titles` | 手动授予关系 | `(user_id,title_key)` 主键 |
+
+三组关注点彼此独立：余额可以重建（流水是事实源），门槛可以整体换掉（等级是解释结果），头衔可以随时增删（不影响前两者）。
+
+### 26.3 经验：事务、幂等、每日上限
+
+一次发放是三步，必须在同一事务里：写流水 → 累加余额 → 读回余额。
+
+```
+INSERT INTO member_xp_events (user_id, action, amount, event_key, note, created_at)
+  VALUES (...)                      -- event_key 唯一，冲突即重放
+INSERT INTO member_profiles (user_id, xp, level, updated_at) VALUES (?, ?, 1, ?)
+  ON DUPLICATE KEY UPDATE xp = xp + VALUES(xp), updated_at = VALUES(updated_at)
+```
+
+三条不可让步的规则：
+
+1. **幂等按业务事实而不是按请求**：`event_key` 由调用方给出（`content:42`、`comment:7`），同一篇文章被重复广播、插件重试、管理员手滑点两次，都只加一次。它与 HTTP 层 `Idempotency-Key` 互补：前者防「同一事实被两个请求各发一次」，后者防「同一请求被重试两次」。
+2. **上限按自然日与动作统计**：`daily_cap=0` 表示不限；超出部分**截断**而不是报错（返回 `applied` 小于请求值，附 `reason=daily_cap`）。理由是上限是运营策略，不是调用方的错误。
+3. **经验只增**：没有扣减接口。要「纠正」只能追加一条负向规则或人工改库，且必须留下流水 —— 这让余额永远可以从流水重算。
+
+### 26.4 等级：把「等级」当解释结果，而不是状态
+
+`LevelCurve` 是纯函数：给定门槛表与经验，返回当前等级、下一级与进度。于是：
+
+- 改门槛不需要批处理：下次读取自动按新表解释；删掉某一级，落在该级的人自然回落到相邻等级（16d 断言）；
+- 满级不是特例：`progress()['next'] === null`，百分比固定 100；
+- 门槛重复在**写入时**就拒绝（`min_xp` 唯一 + 前置检查），不留到决策时才发现二义。
+
+`member_profiles.level` 只用于「记录曾经到达的最高等级」，`setLevel()` 用 `GREATEST(level, VALUES(level))` 保证只升不降；展示层永远以曲线计算为准。两者刻意不合并：一个是历史，一个是当前解释。
+
+### 26.5 头衔：两种来源，零权限
+
+头衔的两种获得方式：
+
+| 来源 | 写法 | 撤销方式 |
+| --- | --- | --- |
+| 手动授予 | 写 `member_user_titles` | 显式 `revoke` |
+| 等级自动 | **不写表**，读取时按 `min_level` 并集计算 | 把门槛调高 / 调低等级门槛即可自动消失 |
+
+读取时合并、按 `priority` 降序、同权重按 key 升序，并标注 `source=manual|level`，让主题可以区分「站长给的」与「自己练出来的」。
+
+头衔不参与授权的证据不是注释，而是守卫：授予 `founder` 前后，同一 subscriber 的 `content.delete` 决策与 `content.create` 许可逐项相同，角色集合仍只有 `subscriber`（16b）。
+
+### 26.6 四个装配点：只用既有接口面
+
+| 装配点 | 类型 | 谁提供 | 谁消费 | 意义 |
+| --- | --- | --- | --- | --- |
+| `content.created` | action | `content` | `member` | 发文章自动得经验；内容层不认识成员层 |
+| `comment.created` | action | `comment` | `member` | 评论自动得经验；匿名评论无主体则跳过 |
+| `user.lookup` | filter | `user` | `member` | 按 ID 或用户名解析身份，成员层不查用户表 |
+| `user.profile.enrich` | filter | `user` | `member` | `users.me` 追加成长快照，用户系统不认识成员系统 |
+
+四个点都不新增核心契约、不改 `core/`。停用 `member` 时：`users.me` 少一个 `member` 键、`member.*` 接口规范化为 `50101`、正文写入完全不受影响（16e 断言）。
+
+经验发放失败（规则写错、库抖动）只留痕、不影响正文写入 —— 附加价值不得反向拖垮主流程。
+
+### 26.7 权限组：站长自定义的是「展示」，不是「语义」
+
+v0.9 的组已经支持任意 key、任意角色组合、任意成员。v0.10 补的是站长真正会抱怨的两件事：**颜色**与**排序**（`permission_groups.color / sort_order`）。
+
+它们只出现在 `permission.groups` 的返回里，不进入 `AclMatcher`、不进入角色集合、不改变 `decide()`。16a 用「改颜色 / 排序前后决策逐项相同」把这句话变成断言。
+
+### 26.8 过程中修掉的四个真实缺陷
+
+1. **`ON DUPLICATE KEY UPDATE` 改错了行** —— `member_levels` 同时有主键 `level` 与唯一键 `min_xp`。插入 `level=9, min_xp=0` 时，冲突发生在 `min_xp` 上，MySQL 于是把 **level=1 那一行**的 `name` 改成了「重复门槛」，而 `level` 仍是 1。修法：写入前显式检查「同 `min_xp` 且不同 `level`」，命中即 `42201`；`ON DUPLICATE` 只留给同等级更新。16d 覆盖。
+2. **`user.lookup` 钩子参数不匹配导致 500** —— 过滤器声明了三个参数，调用方只传两个，`users.me` 直接抛 `Too few arguments`。修法：过滤器改为捕获注册时的 `$kernel`，对外只约定 `($user, $key)` 两个参数。16e 覆盖。
+3. **内部契约被注册进容器，污染了「契约数」语义** —— 三个存储协议一度用 `singleton()` 绑定，`system/info` 的 `contracts` 从 10 跳到 13，和「13 个核心契约」撞在一起，读者无法判断哪个数字是什么。修法：系统层内部契约不注册，只保留 `member.*` 接口与事件作为对外面。
+4. **测试内核继承生产限流，导致跨文件串扰** —— 新增守卫跑满 120 次/分钟后，后面的用例开始收到 `42901`，表现为「身份没注入」。这不是产品缺陷，但暴露了守卫纪律：**任何带全局副作用的开关（限流、幂等缓存、权限缓存）都必须在测试内核里显式隔离**，否则失败信息会指向完全无关的地方。16a–16e 统一关闭限流。
+
+### 26.9 验证与数字
+
+- 新增 `MemberSystem`、三组存储协议 + PDO / Memory 六个实现、`LevelCurve`、`XpAwarder`、`TitleBook`、`MemberProfile`、`MemberQueryOperations`、`MemberAdminOperations`，共 16 个单一职责文件；`core/` 零改动。
+- 新增 10 个接口（`API-MEMBER-001~010`）与 5 个权限点（`member.xp.award`、`member.xp.rule.manage`、`member.title.manage`、`member.title.grant`、`member.level.manage`），权限点 23 → **28**。
+- 新增 6 张表（14 → **20**）、1 个系统层（12 → **13**），装配顺序 `… api → plugin → member → content → …`。
+- 新增 `16a`–`16e` 共 5 组 21 项守卫；随后 `17` 组补上项目树纪律（5 项），`php tests/run.php` → **170 passed, 0 failed**（34 个分组文件）；审计 **0 违规 / 0 孤儿协作**，175 个 PHP 共 10417 有效行，最大单文件仍 188 行。
+- 真实 HTTP 冒烟：`system/info` → `core_version=0.10.0 / systems=13 / api_operations=49`；`member/levels` 返回 5 级基线；发经验 `120` → `level 2`；授予 `founder` 后档案立即回显且 `permission/check` 结果不变；MariaDB 共 **20** 张表。
+
+**边界（诚实标注）**：头衔不参与权限（刻意，若要让等级解锁能力，正确做法仍是「等级 → 角色来源」，而不是在头衔上加判断）；经验流水无过期归档策略；排行榜用 `limit/offset`，十万级成员需换游标或物化排名；等级表变更即时生效但不回溯通知（无「降级事件」）；成员层不自带任何页面与样式，展示权仍归主题。
+
+---
+
+## 27. 标准化安装与不重装版本迭代（v0.11 / 规矩 P）
+
+### 27.1 先看别人怎么做，再决定自己抄哪一半
+
+两件事各有成熟范式，先抄骨架，再按第一性原理剪裁：
+
+| 参考 | 可抄的部分 | 不抄的部分 |
+| --- | --- | --- |
+| 常见 PHP 安装器（Discuz / Nextcloud / 各类 `install/` 向导） | 五步流程、`install.lock` 防重装、`config.local.php` 覆盖主配置、写前环境检查 | 把建表 SQL 内联在安装脚本里、直接把配置写进主配置文件 |
+| Flyway[^flyway] | 版本化迁移 + schema history 表、checksum 校验、`baseline`、undo 迁移 | Java 生态的重量、需要外部 CLI |
+| Alembic | `upgrade` / `downgrade` 成对、按 revision 逐条走 | 依赖 Python 运行时 |
+| Deployer[^deployer] | `releases/` 多版本目录、`keep_releases` 保留策略、发布失败即回退 | 符号链接切换（PHP 站点目录被 Web 根直接引用，改用「快照 + 整体替换」取得同样效果） |
+
+结论：**安装抄「顺序 + 锁 + 覆盖层」，版本抄「台账 + checksum + 快照保留」**，其余一律自研，保持零依赖。
+
+### 27.2 安装器：五步、两份状态、一条覆盖层
+
+`pages/Install/` 从一个只读探测页升级成真正的向导，被拆成四个文件，各管一件事：
+
+| 文件 | 职责 | 不做什么 |
+| --- | --- | --- |
+| `InstallPage` | 路由、渲染步骤、按 `step` 分发、映射 HTTP 状态 | 不写配置、不建表 |
+| `Installer` | 五步编排：`preflight` / `database` / `admin` / `migrate` / `finish` | 不实现账号与迁移细节 |
+| `InstallerAccount` | 只创建 / 重置一个可登录的 `admin` | 不碰配置与建表 |
+| `InstallerMigrate` | 建表由各层 `ensureSchema` 完成，这里只建**迁移基线** | 不重写 DDL |
+| `InstallState` | 两份持久状态：`install.lock`（锁）、`install.token`（0600 令牌） | 不连数据库 |
+| `InstallProbe` | 只读盘点：环境、表数、接口数、装配顺序；外加库内进度事实 | 不写任何东西 |
+
+三条不可让步的约束：
+
+1. **只写覆盖层**。安装器只生成 `config/local.php`（`var_export` 写入，0600），`config/app.php` 的注释与默认值一字不动；`Config` 在构造时把 `local.php` 递归合并到主配置之上——**删掉它即回默认**，不需要「反安装」。
+2. **写动作三件套**：`local_only`（页面 `page.json` 声明）+ 一次性令牌（`hash_equals` 比对）+ `install.lock`（装完页面整体 404）。全新站点没有用户可登录，因此 `auth=public` 是唯一可行选择，安全性全部压在这三条上。
+3. **步骤进度必须说真话**。`admin` / `migrate` 两个事实存在数据库里，由 `InstallProbe::progress()` 读出来传给 `InstallState::steps($facts)`；`InstallState` 自己不连库（否则一个状态类同时管文件与 SQL，越过规矩 H 的职权跨度）。
+
+### 27.3 版本系统为什么是第 14 个系统层
+
+`lifecycle` 已经在管「文件怎么换」（备份、替换、还原、状态机），但它不该知道「数据库要跟着做什么」。把版本能力放进 `lifecycle` 会让一个类同时持有文件事务、SQL 执行、健康检查、历史记录四套职权，必然越过行数与跨度两条预算。
+
+于是切成两层，只经契约协作：
+
+```
+ReleaseManager ──(LifecycleManagerInterface)──> LifecycleManager ──> VersionSwitcher ──> ReleaseArchive
+      │                                              （文件怎么换）
+      ├── MigrationRunner ──> MigrationStoreInterface（库该做什么）
+      ├── HealthProbe                                （换完还活着吗）
+      ├── ReleaseLog                                 （发生过什么）
+      └── ReleaseUnits                               （哪些系统层版本变了）
+```
+
+`release` 层 `requires: [log, database, lifecycle, api]`，`priority: 46`（在 `content` 之后、`theme` 之前）。停用本层不影响站点运行，只是失去版本管理能力——`lifecycle` 的装卸照常可用。
+
+### 27.4 台账：迁移的唯一事实来源
+
+`schema_migrations` 五列：`id`（`owner/文件名`）、`owner`、`checksum`、`batch`、`applied_at`。三条规则直接来自 Flyway 的实践：
+
+- **只认台账，不认版本号**。判断「要不要执行」看的是 `id` 在不在台账里，而不是比较 `version.json` 的数字。这样跳版、补丁、回滚都不会漏脚本。
+- **checksum 变了就拒绝**（`40904`）。扫描时对文件内容做 `sha256`，与台账里的值比对；不一致说明有人改了历史脚本，静默重跑会让不同站点的库悄悄分叉。
+- **`baseline` 只登记不重跑**。全新站点首次启动时，各系统层 `ensureSchema` 已经幂等建表，此时把现有脚本一次性登记进台账（`batch=0`），否则第一次升级会重放建站以来的全部迁移，播种类脚本会被执行第二遍。
+
+批次（`batch`）让「一次升级」成为可回退的最小单位：同一次升级写入的脚本共享一个批次号，回退按批次整体逆序执行。
+
+### 27.5 顺序是刻意的：升级往前、回退往回
+
+```
+升级：执行未登记迁移 → 换有版本变化的系统层 → 换 core → 健康门禁
+失败：健康门禁不过 → 逆序回退 core → 逆序回退系统层 → 尝试撤销本批迁移 → 写失败历史
+回退：预检 down 是否齐备（缺则 40903，不动任何文件）→ 换回旧 core → 换回旧系统层 → 逆序执行 down
+```
+
+三个细节决定这套顺序能不能真的救场：
+
+1. **迁移先于文件**：新代码启动时表已就位；反过来会出现「新代码读旧表」的一段时间窗。
+2. **回退的 down 脚本必须在动文件之前读进内存**。代码一旦换回旧版，旧版目录里根本没有这批 down 文件——早期实现直接 `file_get_contents` 磁盘路径，结果「回退了但报错」，属于典型的半截状态。现在扫描时就把 `up_sql` / `down_sql` 固定下来。
+3. **健康门禁五项**：`database`（能连）、`tables`（本站点表齐）、`contracts`（契约有实现）、`systems`（装配顺序非空）、`operations`（清单 operation 全部绑定执行者）。任一项失败即自动逆向回退，绝不把「升上去但站挂了」留成既成事实。
+
+### 27.6 快照：从单 `backup` 字段到按版本归档
+
+旧实现只存一个 `backup` 字段，回退一次就被清空，等于「只能退一步，且退完不能反悔」。现在改成版本仓库：
+
+```
+storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
+```
+
+- **升级前**给旧版本留快照；**回退前**也给当前版本留快照（所以退回去还能再升回来）。
+- `keep_releases`（默认 5，与 Deployer 的同名配置同义）只裁最旧的；当前版本永不裁，最近一份永不裁。
+- 快照名带**微秒**时序戳：同一秒内连做两次升级时，目录 mtime 的秒级精度会让「保留最近 N 份」变成随机结果——这是实测出来的缺陷，不是理论洁癖。
+
+### 27.7 过程中修掉的四个真实缺陷
+
+1. **领域错误码没穿透到 HTTP**。`ReleaseException` 用 `getCode()` 携带 `40903` / `40904`，而分发器只认 `apiCode` 这个动态属性，于是「迁移不可逆」对外表现成 `50001 服务器内部错误`，站长无法据此分支处理。修法：分发器增加一条规则——**只有已在错误码表登记过的 `getCode()` 才被翻译成 HTTP**，未登记的一律 `50001`。
+2. **快照名只精确到秒**。「保留最近 N 份」在同一秒内的多次快照上变成随机裁剪，甚至可能裁掉刚生成的快照。修法：`YmdHis` + 6 位微秒，`all()` 按名字里的时序戳排序，不再依赖 `filemtime`。
+3. **回退时 down 文件已随单元回退消失**。表现为「文件回退了、数据库没回退、还抛一条 warning」。修法：扫描阶段把 SQL 内容读入内存，回退执行内存里的脚本。
+4. **安装步骤进度说谎**。`admin` / `migrate` 两步曾经恒为 `false`，装到一半刷新页面看不出做过什么；同时安装器把全库表都数成「本站点表」（63 张）。修法：进度由 `InstallProbe::progress()` 读库内事实，表数按 `prefix` 过滤。
+
+第 1 条与第 2 条都不是「测试写错了」，而是守卫逼出来的产品缺陷——这正是规矩 E 的意义。
+
+### 27.8 验证与数字
+
+- 新增第 14 系统层 `release`（`system.json` / `permissions.json` / `lifecycle.php` / 1 条迁移 / 9 个单一职责类）与 `pages/Install` 五个文件；`core/` 仍 24 个 PHP。
+- 接口 49 → **55**（新增 `API-REL-001~005`、`API-LC-009`；`API-LC-007` 增加可选 `version`）；权限点 28 → **31**（`release.read` / `release.upgrade` / `release.rollback`）；表 20 → **21**（`schema_migrations`）。
+- 新增 `18a`–`18d` 共 4 个守卫文件 11 项断言：升级/回退全链路、校验和冲突、不可逆拒绝、多快照与裁剪、无库降级、五步安装、令牌与公网边界、配置覆盖层与加锁。
+- `php tests/run.php` → **181 passed, 0 failed**（38 个守卫文件）；审计 **0 违规 / 0 孤儿协作**，201 个 PHP 共 12154 有效行。
+- 真实 HTTP 冒烟：`system/info` → `core_version=0.11.0 / systems=14 / api_operations=55`；`release/status` 返回 `schema.applied=12`；`lifecycle/releases` 与 `release/status.releases` 看到同一批快照。
+
+**边界（诚实标注）**：`source` 必须是已就位的目录，不做在线下载；不做灰度分批；不做升级并发锁（同一时刻只应有一次升级）；不支持跨大版本跳版（`assertUpgradable` 要求逐版递增）；健康门禁不含业务数据一致性校验。
+
+---
+
+[^1]: Typecho 官网：7 张数据表、不足 400KB 代码实现完整插件与模板机制。<https://typecho.org/>
+[^2]: Halo 官方对比文章：插件动态加载/卸载、应用市场、Java 技术栈与资源占用差异。<https://www.halo.run/archives/halo-typecho-blog-comparison>
+[^3]: WordPress Hooks Explained：Action 与 Filter 的差别、priority 语义、核心预留钩子。<https://en.wpmm.jp/blog?p=164>
+[^4]: 腾讯云开发者社区《Plug-In 架构设计与哲学》：WP 插件与核心同进程无隔离、「插件更像半个 Core」。<https://cloud.tencent.com/developer/article/2625299>
+[^5]: WordPress Hook System Internals：优先级排序、静默覆盖与递归等插件冲突失败模式。<https://openllm.wavise.com/blog/wordpress-hook-system-internals>
+[^oas]: OpenAPI Specification v3.1.1（`info` / `paths` / `components` / `security` / `operationId`）。<https://spec.openapis.org/oas/v3.1.1>；中文版 <https://openapi.apifox.cn/>
+[^rfc9457]: RFC 9457 Problem Details 机器可读错误体，参见 <https://www.digitalapplied.com/blog/rest-api-design-2026-engineering-reference-best-practices>
+[^ms]: Microsoft Azure Web API Design Best Practices：复数名词、避免路径动词、HTTP 动词语义。<https://docs.microsoft.com/en-us/azure/architecture/best-practices/api-design>
+[^aip]: Google AIP-190 命名一致性、AIP-136 自定义动作、AIP-158 游标分页，汇编见 <https://github.com/Cristhianzl/claude-skills-czl/blob/main/configs/agnostic/skills/api-design/references/rest-conventions.md>
+[^zalando]: Zalando RESTful API Guidelines 与 2026 REST 工程实践汇编：kebab-case、幂等、429、废弃期。<https://github.com/Cristhianzl/claude-skills-czl/blob/main/configs/agnostic/skills/api-design/references/rest-conventions.md>
+[^stripe]: Stripe `Idempotency-Key` 与「校验失败不入缓存」语义，参见 <https://www.digitalapplied.com/blog/rest-api-design-2026-engineering-reference-best-practices>
+[^wp]: WordPress 插件生命周期、activation / deactivation / uninstall 钩子、`validate_file` 防目录穿越。<https://deepwiki.com/WordPress/wordpress-develop/3.1-plugin-lifecycle>
+[^wphook]: WordPress upgrader 钩子参考：`upgrader_pre_install` / `upgrader_post_install` / `upgrader_process_complete`。<https://holdmywp.com/en/documents/hook-and-filter-reference/>
+[^wpup]: WordPress 更新流程：解压到临时目录再替换、备份与 `attempt_rollback`。<https://w4dev.com/wp/how-wordpress-plugin-auto-update-works/>
+[^flyway]: Flyway《Migrations》：版本化迁移、schema history 表、undo 迁移、baseline 与 migrate 幂等。 <https://documentation.red-gate.com/flyway/flyway-concepts/migrations>
+[^deployer]: Deployer 7.x《Common Recipe》与 `deploy/rollback`：`releases/` 多版本目录、`keep_releases`（默认 10）保留策略。 <https://deployer.org/docs/7.x/recipe/common>

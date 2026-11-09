@@ -1,0 +1,9 @@
+{
+  "name": "lifecycle",
+  "class": "Wx\\Systems\\Lifecycle\\LifecycleSystem",
+  "version": "0.1.0",
+  "requires": ["log", "security"],
+  "priority": 25,
+  "enabled": true,
+  "_note": "元系统层：管理其余所有系统层与承载包的装卸更新，自身由内核直接装配"
+}

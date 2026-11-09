@@ -1,0 +1,27 @@
+/* 这段样式 100% 属于主题包，框架核心目录中不存在任何 CSS 文件。 */
+:root {
+  --fg: #1b1b1f;
+  --bg: #faf9f7;
+  --line: #e3e0da;
+  --accent: #8b5cf6;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 4rem 1.5rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.75 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+.wx-shell { max-width: 46rem; margin: 0 auto; }
+h1 {
+  font-size: 1.75rem;
+  letter-spacing: .02em;
+  padding-bottom: .75rem;
+  border-bottom: 1px solid var(--line);
+}
+h1::before { content: ""; display: inline-block; width: .35rem; height: 1.4rem;
+  margin-right: .6rem; vertical-align: -.15rem; background: var(--accent); border-radius: 2px; }
+ul { padding-left: 1.25rem; }
+li { margin: .35rem 0; }
+li::marker { color: var(--accent); }

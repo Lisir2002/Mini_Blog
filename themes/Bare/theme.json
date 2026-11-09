@@ -1,0 +1,9 @@
+{
+  "slug": "bare",
+  "class": "Wx\\Themes\\Bare\\BareTheme",
+  "version": "0.2.0",
+  "priority": 10,
+  "enabled": true,
+  "layouts": ["site", "admin", "tool", "install"],
+  "_note": "主题是唯一持有布局模板与 CSS/JS 的地方；后台 / 工具页 / 安装向导的布局同样由本包提供"
+}

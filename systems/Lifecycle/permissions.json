@@ -1,0 +1,11 @@
+{
+  "system": "lifecycle",
+  "permissions": [
+    {"name": "lifecycle.read", "description": "查看装卸单元状态"},
+    {"name": "lifecycle.install", "description": "安装系统层 / 主题 / 插件 / 独立页"},
+    {"name": "lifecycle.activate", "description": "启用 / 停用装卸单元"},
+    {"name": "lifecycle.upgrade", "description": "升级装卸单元"},
+    {"name": "lifecycle.rollback", "description": "回滚升级"},
+    {"name": "lifecycle.uninstall", "description": "卸载单元并清理数据"}
+  ]
+}

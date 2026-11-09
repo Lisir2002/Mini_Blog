@@ -1,0 +1,8 @@
+{
+    "system": "release",
+    "permissions": [
+        {"name": "release.read", "description": "查看当前版本、迁移台账与升级历史"},
+        {"name": "release.upgrade", "description": "执行站点程序版本升级"},
+        {"name": "release.rollback", "description": "回退站点程序到历史版本"}
+    ]
+}

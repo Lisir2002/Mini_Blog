@@ -1,0 +1,8 @@
+{
+  "name": "security",
+  "class": "Wx\\Systems\\Security\\SecuritySystem",
+  "version": "0.1.0",
+  "requires": ["log"],
+  "priority": 20,
+  "enabled": true
+}

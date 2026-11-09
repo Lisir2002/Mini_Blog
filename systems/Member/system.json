@@ -1,0 +1,9 @@
+{
+  "name": "member",
+  "class": "Wx\\Systems\\Member\\MemberSystem",
+  "version": "0.1.0",
+  "requires": ["log", "database", "security", "user", "permission"],
+  "priority": 44,
+  "enabled": true,
+  "_note": "第 13 个系统层：头衔 / 经验 / 等级。身份标签与授权解耦 —— 头衔与等级默认不产生任何权限，授权入口仍只有权限系统一个"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "comment",
+  "class": "Wx\\Systems\\Comment\\CommentSystem",
+  "version": "0.1.0",
+  "requires": ["log", "security"],
+  "priority": 60,
+  "enabled": true
+}

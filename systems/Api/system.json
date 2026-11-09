@@ -1,0 +1,9 @@
+{
+  "name": "api",
+  "class": "Wx\\Systems\\Api\\ApiSystem",
+  "version": "0.1.0",
+  "requires": ["log", "security", "permission"],
+  "priority": 35,
+  "enabled": true,
+  "_note": "接口系统：清单驱动、统一信封、一接口一文档"
+}

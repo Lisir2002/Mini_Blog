@@ -1,0 +1,4345 @@
+{
+    "spec": "wx-api-manifest/1.0",
+    "version": "v1",
+    "prefix": "/api/v1",
+    "_note": "唯一事实源：新增接口必须同时登记于此并运行 php tools/gen-api-docs.php 与 php tools/export-openapi.php；tests/run.php 会阻断文档漂移",
+    "endpoints": [
+        {
+            "id": "API-AUTH-001",
+            "name": "签发访问令牌",
+            "system": "user",
+            "method": "POST",
+            "path": "/api/v1/auth/token",
+            "operation": "auth.token",
+            "auth": "public",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.4.0",
+            "summary": "校验用户名与口令后签发落库令牌：库内只存 SHA-256 摘要，明文令牌仅在本次响应中出现一次，并带过期时间与撤销标记。",
+            "scenario": "管理后台登录、CLI 运维脚本取得 admin 令牌；后续受保护接口以 Authorization: Bearer 携带。",
+            "params": [
+                {
+                    "name": "username",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "用户名"
+                },
+                {
+                    "name": "password",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "明文口令，仅本次请求出现，不落日志"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "token",
+                    "type": "string",
+                    "desc": "一次性返回的明文令牌（64 位十六进制）"
+                },
+                {
+                    "name": "expires_at",
+                    "type": "string",
+                    "desc": "过期时间 YYYY-MM-DD HH:MM:SS"
+                },
+                {
+                    "name": "role",
+                    "type": "string",
+                    "desc": "令牌角色，admin / user"
+                },
+                {
+                    "name": "token_type",
+                    "type": "string",
+                    "desc": "固定为 Bearer"
+                }
+            ],
+            "errors": [
+                40102,
+                40302,
+                40902,
+                42201,
+                42901,
+                50101,
+                50001
+            ],
+            "example_request": "POST /api/v1/auth/token  {\"username\":\"admin\",\"password\":\"***\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "token": "a1b2...(64 位)",
+                    "expires_at": "2026-11-09 00:40:55",
+                    "role": "admin",
+                    "token_type": "Bearer"
+                },
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-AUTH-001",
+                    "version": "v1",
+                    "system": "user"
+                }
+            },
+            "notes": "口令校验用 password_verify()，库里只存 password_hash。演示账号 admin/admin123 仅供本地原型，投产前必须删除或改密。令牌表归安全系统层自持。 v0.9 起清单显式声明 public_write=true：登录端点必须公网可达，写接口默认「仅本机」的边界不为它开隐式例外。",
+            "changelog": [
+                "0.4.0 初次发布"
+            ],
+            "doc": "docs/api/API-AUTH-001.md",
+            "public_write": true
+        },
+        {
+            "id": "API-COMMENT-001",
+            "name": "查询文章评论",
+            "system": "comment",
+            "method": "GET",
+            "path": "/api/v1/comments",
+            "operation": "comments.list",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.4.0",
+            "summary": "按文章 slug 返回评论列表（过滤垃圾评论），数据来自 CommentStoreInterface 的 MySQL 或内存实现。",
+            "scenario": "文章详情页渲染评论区；Headless 客户端拉取评论。",
+            "params": [
+                {
+                    "name": "post_slug",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "文章 slug"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "post_slug",
+                    "type": "string",
+                    "desc": "所查文章 slug"
+                },
+                {
+                    "name": "items",
+                    "type": "object[]",
+                    "desc": "评论：id / post_slug / author / body / status / created_at"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "本次返回条数"
+                }
+            ],
+            "errors": [
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/comments?post_slug=first-post",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "post_slug": "first-post",
+                    "items": [],
+                    "total": 0
+                },
+                "request_id": "8192a3b4c5d6e7f8",
+                "meta": {
+                    "api": "API-COMMENT-001",
+                    "version": "v1",
+                    "system": "comment"
+                }
+            },
+            "notes": "评论区的 HTML / CSS / JS 全部由主题或独立页承载，系统层只返回结构化数据。",
+            "changelog": [
+                "0.4.0 初次发布"
+            ],
+            "doc": "docs/api/API-COMMENT-001.md"
+        },
+        {
+            "id": "API-COMMENT-002",
+            "name": "提交评论",
+            "system": "comment",
+            "method": "POST",
+            "path": "/api/v1/comments",
+            "operation": "comments.add",
+            "auth": "public",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.4.0",
+            "summary": "经 comment.before_save 钩子补时间戳与状态后写入评论，默认待审核（pending）。",
+            "scenario": "访客在文章页提交评论；Headless 客户端代提交。",
+            "params": [
+                {
+                    "name": "post_slug",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "所属文章 slug"
+                },
+                {
+                    "name": "body",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "评论内容，不能为空"
+                },
+                {
+                    "name": "author",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "署名"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "新评论 ID"
+                },
+                {
+                    "name": "status",
+                    "type": "string",
+                    "desc": "默认 pending（待审核）"
+                },
+                {
+                    "name": "created",
+                    "type": "bool",
+                    "desc": "固定为 true"
+                }
+            ],
+            "errors": [
+                40302,
+                40902,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "POST /api/v1/comments  {\"post_slug\":\"first-post\",\"author\":\"访客\",\"body\":\"写得很好\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 1,
+                    "status": "pending",
+                    "created": true
+                },
+                "request_id": "92a3b4c5d6e7f809",
+                "meta": {
+                    "api": "API-COMMENT-002",
+                    "version": "v1",
+                    "system": "comment"
+                }
+            },
+            "notes": "匿名写接口：受 429 限流与写接口公网边界（config.api.expose_write）双重保护，评论默认 pending 待审核；生产化还应补验证码与内容审核。",
+            "changelog": [
+                "0.4.0 初次发布"
+            ],
+            "doc": "docs/api/API-COMMENT-002.md"
+        },
+        {
+            "id": "API-CONTENT-001",
+            "name": "查询文章列表（游标分页）",
+            "system": "content",
+            "method": "GET",
+            "path": "/api/v1/content/posts",
+            "operation": "content.posts",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.4.0",
+            "summary": "按 keyset 游标分页返回文章列表，支持状态过滤与关键词检索；数据来自 ContentRepositoryInterface（MySQL 或回退适配器）。",
+            "scenario": "博客首页 / 归档页取数据；Headless 站点对外提供文章 API；深翻页用 next_cursor 而非 OFFSET。",
+            "params": [
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "required": false,
+                    "type": "int",
+                    "desc": "每页条数 1-100，默认取 config.content.per_page"
+                },
+                {
+                    "name": "cursor",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "上一页返回的 next_cursor（base64 编码的记录 ID）"
+                },
+                {
+                    "name": "status",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "published / draft / any，默认 published"
+                },
+                {
+                    "name": "keyword",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "标题或正文模糊匹配"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "items",
+                    "type": "object[]",
+                    "desc": "文章对象：id / slug / title / excerpt / body / status / author / created_at"
+                },
+                {
+                    "name": "next_cursor",
+                    "type": "string|null",
+                    "desc": "下一页游标；null 表示已到末尾"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "当前状态过滤下的总数"
+                }
+            ],
+            "errors": [
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/content/posts?limit=1",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "items": [
+                        {
+                            "id": 1,
+                            "slug": "first-post",
+                            "title": "第一篇文章",
+                            "excerpt": "这是内容系统提供的第一篇示例文章。",
+                            "status": "published",
+                            "author": "admin"
+                        }
+                    ],
+                    "next_cursor": "MQ==",
+                    "total": 2
+                },
+                "request_id": "4d5e6f708192a3b4",
+                "meta": {
+                    "api": "API-CONTENT-001",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "游标为 base64 编码的自增 ID，采用 id > cursor 的 keyset 分页，避免 OFFSET 深翻页性能塌陷；非法游标返回 42201。",
+            "changelog": [
+                "0.4.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-001.md"
+        },
+        {
+            "id": "API-CONTENT-002",
+            "name": "查询单篇文章",
+            "system": "content",
+            "method": "GET",
+            "path": "/api/v1/content/post",
+            "operation": "content.post",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.4.0",
+            "summary": "按 slug 返回一篇文章的完整正文与元数据。",
+            "scenario": "文章详情页；静态生成器按 slug 抓取内容。",
+            "params": [
+                {
+                    "name": "slug",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "文章唯一标识（小写字母、数字、连字符）"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "记录 ID"
+                },
+                {
+                    "name": "slug / title / body / excerpt",
+                    "type": "string",
+                    "desc": "文章正文与摘要"
+                },
+                {
+                    "name": "status / author",
+                    "type": "string",
+                    "desc": "状态与作者"
+                },
+                {
+                    "name": "created_at / updated_at",
+                    "type": "string",
+                    "desc": "时间戳"
+                }
+            ],
+            "errors": [
+                40403,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/content/post?slug=first-post",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 1,
+                    "slug": "first-post",
+                    "title": "第一篇文章",
+                    "body": "这是内容系统提供的第一篇示例文章。",
+                    "status": "published"
+                },
+                "request_id": "5e6f708192a3b4c5",
+                "meta": {
+                    "api": "API-CONTENT-002",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "资源不存在返回 40403（HTTP 404），与「接口不存在」40401 区分；data 恒为 null 的错误响应不塞业务数据。",
+            "changelog": [
+                "0.4.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-002.md"
+        },
+        {
+            "id": "API-CONTENT-003",
+            "name": "创建文章",
+            "system": "content",
+            "method": "POST",
+            "path": "/api/v1/content/posts",
+            "operation": "content.create",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.4.0",
+            "summary": "经 content.before_save 业务钩子补默认字段后写入文章；slug 缺省时自动生成，非法 slug / 空标题 / 空正文返回 42201。",
+            "scenario": "控制台或写作客户端发布新文章；批量导入时配合 Idempotency-Key 防重复提交。",
+            "params": [
+                {
+                    "name": "title",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "文章标题"
+                },
+                {
+                    "name": "body",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "文章正文"
+                },
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "唯一标识，缺省自动生成 post-时间戳-随机串"
+                },
+                {
+                    "name": "status",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "published / draft，默认 published"
+                },
+                {
+                    "name": "author",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "作者署名"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "新记录 ID"
+                },
+                {
+                    "name": "slug",
+                    "type": "string",
+                    "desc": "最终使用的 slug"
+                },
+                {
+                    "name": "created",
+                    "type": "bool",
+                    "desc": "固定为 true"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40902,
+                42201,
+                42901,
+                50001,
+                40303
+            ],
+            "example_request": "POST /api/v1/content/posts  Authorization: Bearer <admin-token>  {\"title\":\"第三篇文章\",\"body\":\"正文\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 3,
+                    "slug": "post-20261108-234055-a1b2c3",
+                    "created": true
+                },
+                "request_id": "6f708192a3b4c5d6",
+                "meta": {
+                    "api": "API-CONTENT-003",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "写接口：默认仅本机来源可调用（config.api.expose_write），且必须携带 admin 令牌；建议带 Idempotency-Key，校验失败不入缓存，同键不同参数返回 40902。",
+            "changelog": [
+                "0.4.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-003.md",
+            "permission": "content.create"
+        },
+        {
+            "id": "API-CONTENT-004",
+            "name": "查询文章统计",
+            "system": "content",
+            "method": "GET",
+            "path": "/api/v1/content/stats",
+            "operation": "content.stats",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.4.0",
+            "summary": "返回已发布文章数与全部文章数（含草稿）。",
+            "scenario": "控制台仪表盘、站点地图生成前的容量评估。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "published",
+                    "type": "int",
+                    "desc": "已发布文章数"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "全部文章数"
+                }
+            ],
+            "errors": [
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/content/stats",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "published": 2,
+                    "total": 2
+                },
+                "request_id": "708192a3b4c5d6e7",
+                "meta": {
+                    "api": "API-CONTENT-004",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "统计走 ContentRepositoryInterface::count()，与列表接口共享同一实现，不含独立缓存。",
+            "changelog": [
+                "0.4.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-004.md"
+        },
+        {
+            "id": "API-CORE-001",
+            "name": "查询站点与内核元信息",
+            "system": "core",
+            "method": "GET",
+            "path": "/api/v1/system/info",
+            "operation": "system.info",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.2.0",
+            "summary": "返回框架版本、PHP 版本、已装配系统层数量、当前主题与是否处于零呈现模式。",
+            "scenario": "用于健康检查、部署后冒烟验证、以及在无主题 Headless 模式下确认框架仍可用。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "framework",
+                    "type": "string",
+                    "desc": "框架名称"
+                },
+                {
+                    "name": "core_version",
+                    "type": "string",
+                    "desc": "站点程序版本，取自 core/version.json"
+                },
+                {
+                    "name": "php",
+                    "type": "string",
+                    "desc": "当前 PHP 运行时版本"
+                },
+                {
+                    "name": "requires_php",
+                    "type": "string",
+                    "desc": "最低 PHP 版本要求（已定案 8.1+）"
+                },
+                {
+                    "name": "api_version",
+                    "type": "string",
+                    "desc": "接口版本"
+                },
+                {
+                    "name": "systems",
+                    "type": "int",
+                    "desc": "已装配的系统层数量"
+                },
+                {
+                    "name": "contracts",
+                    "type": "int",
+                    "desc": "容器内已绑定的契约数"
+                },
+                {
+                    "name": "api_operations",
+                    "type": "int",
+                    "desc": "清单登记的接口数"
+                },
+                {
+                    "name": "database",
+                    "type": "string",
+                    "desc": "mysql 表示已连库；fallback 表示回退适配器"
+                },
+                {
+                    "name": "theme_active",
+                    "type": "string|null",
+                    "desc": "当前启用主题；null 表示无主题零样式"
+                },
+                {
+                    "name": "headless",
+                    "type": "bool",
+                    "desc": "true 表示未绑定渲染器，框架处于纯数据模式"
+                }
+            ],
+            "errors": [
+                50001
+            ],
+            "example_request": "GET /api/v1/system/info",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "framework": "万象 · 博客框架",
+                    "core_version": "0.11.0",
+                    "php": "8.3.6",
+                    "requires_php": ">=8.1",
+                    "api_version": "v1",
+                    "systems": 14,
+                    "contracts": 10,
+                    "api_operations": 55,
+                    "database": "mysql",
+                    "theme_active": null,
+                    "headless": true
+                },
+                "request_id": "9f1c2a7b4e6d8013",
+                "meta": {
+                    "api": "API-CORE-001",
+                    "version": "v1",
+                    "system": "core"
+                }
+            },
+            "notes": "只读接口，不触发任何装配副作用；即使全部业务系统层被停用也可调用。",
+            "changelog": [
+                "0.2.0 初次发布"
+            ],
+            "doc": "docs/api/API-CORE-001.md"
+        },
+        {
+            "id": "API-CORE-002",
+            "name": "查询契约绑定清单",
+            "system": "core",
+            "method": "GET",
+            "path": "/api/v1/system/contracts",
+            "operation": "system.contracts",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.2.0",
+            "summary": "列出当前容器内所有已绑定的契约，以及发生过覆盖替换的记录。",
+            "scenario": "排查「某个能力被谁接管了」；验证站长自定义实现是否成功覆盖自带实现。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "contracts",
+                    "type": "string[]",
+                    "desc": "已绑定契约的完整类名列表"
+                },
+                {
+                    "name": "overrides",
+                    "type": "object[]",
+                    "desc": "覆盖记录：contract / from / to / priority"
+                }
+            ],
+            "errors": [
+                50001
+            ],
+            "example_request": "GET /api/v1/system/contracts",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "contracts": [
+                        "Wx\\Contracts\\LoggerInterface",
+                        "Wx\\Contracts\\RendererInterface"
+                    ],
+                    "overrides": []
+                },
+                "request_id": "a13c05e7b29f4d68",
+                "meta": {
+                    "api": "API-CORE-002",
+                    "version": "v1",
+                    "system": "core"
+                }
+            },
+            "notes": "契约覆盖采用显式 priority，同级冲突会 fail-fast，因此 overrides 是可审计的确定性结果。",
+            "changelog": [
+                "0.2.0 初次发布"
+            ],
+            "doc": "docs/api/API-CORE-002.md"
+        },
+        {
+            "id": "API-CORE-003",
+            "name": "查询系统层装配顺序",
+            "system": "core",
+            "method": "GET",
+            "path": "/api/v1/system/layers",
+            "operation": "system.layers",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.2.0",
+            "summary": "返回本次启动的拓扑装配顺序与已发现的系统层清单。",
+            "scenario": "新增系统层后验证依赖排序是否生效；定位「契约未实现」类故障。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "order",
+                    "type": "string[]",
+                    "desc": "按依赖拓扑排序后的装配顺序"
+                },
+                {
+                    "name": "manifests",
+                    "type": "string[]",
+                    "desc": "被发现的系统层名称"
+                }
+            ],
+            "errors": [
+                50001
+            ],
+            "example_request": "GET /api/v1/system/layers",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "order": [
+                        "log",
+                        "database",
+                        "security",
+                        "lifecycle",
+                        "api",
+                        "user",
+                        "plugin",
+                        "theme",
+                        "comment",
+                        "page"
+                    ],
+                    "manifests": [
+                        "log",
+                        "database",
+                        "security",
+                        "lifecycle",
+                        "api",
+                        "user",
+                        "plugin",
+                        "theme",
+                        "comment",
+                        "page"
+                    ]
+                },
+                "request_id": "c72b91e0a4d5f83",
+                "meta": {
+                    "api": "API-CORE-003",
+                    "version": "v1",
+                    "system": "core"
+                }
+            },
+            "notes": "装配分 register / boot 两阶段，所有契约绑定完成后才进入 boot，因此顺序可预测。",
+            "changelog": [
+                "0.2.0 初次发布"
+            ],
+            "doc": "docs/api/API-CORE-003.md"
+        },
+        {
+            "id": "API-CORE-004",
+            "name": "健康检查与安装环境探测",
+            "system": "core",
+            "method": "GET",
+            "path": "/api/v1/system/health",
+            "operation": "system.health",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.4.0",
+            "summary": "返回数据库连通状态、已建表清单、系统层数量与当前主题，供安装向导和控制台使用。",
+            "scenario": "部署后冒烟验证；安装向导判断是否已连上 MySQL 并完成建表；控制台展示环境状态。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "status",
+                    "type": "string",
+                    "desc": "固定为 ok"
+                },
+                {
+                    "name": "database",
+                    "type": "string",
+                    "desc": "mysql 或 fallback（未连库时各系统层回退内存 / 会话适配器）"
+                },
+                {
+                    "name": "tables",
+                    "type": "string[]",
+                    "desc": "数据库中已存在的表名，表归各系统层自持"
+                },
+                {
+                    "name": "systems",
+                    "type": "int",
+                    "desc": "已装配系统层数"
+                },
+                {
+                    "name": "theme_active",
+                    "type": "string|null",
+                    "desc": "当前启用主题"
+                }
+            ],
+            "errors": [
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/system/health",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "status": "ok",
+                    "database": "mysql",
+                    "tables": 21,
+                    "systems": 14,
+                    "theme_active": null
+                },
+                "request_id": "3c4d5e6f708192a3",
+                "meta": {
+                    "api": "API-CORE-004",
+                    "version": "v1",
+                    "system": "core"
+                }
+            },
+            "notes": "只做盘点，不建表、不改配置；建表由各系统层 boot 阶段幂等执行。无数据库时框架仍可启动，此为契约与实现可分离的验证点。",
+            "changelog": [
+                "0.4.0 初次发布"
+            ],
+            "doc": "docs/api/API-CORE-004.md"
+        },
+        {
+            "id": "API-LC-001",
+            "name": "列出全部装卸单元",
+            "system": "lifecycle",
+            "method": "GET",
+            "path": "/api/v1/lifecycle/units",
+            "operation": "lifecycle.units",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.2.0",
+            "summary": "扫描 core / system / theme / plugin / page 五类目录，返回每个单元的版本、状态与备份情况。",
+            "scenario": "升级前盘点全站单元；确认某主题或插件是被停用还是未安装。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "units",
+                    "type": "object[]",
+                    "desc": "单元列表：unit / type / slug / version / state / has_backup / path / updated_at"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "单元总数"
+                }
+            ],
+            "errors": [
+                50001,
+                40303
+            ],
+            "example_request": "GET /api/v1/lifecycle/units",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "units": [
+                        {
+                            "unit": "plugin:hello",
+                            "type": "plugin",
+                            "slug": "hello",
+                            "version": "0.1.0",
+                            "state": "active",
+                            "has_backup": false,
+                            "path": "plugins/Hello",
+                            "updated_at": "2026-11-08T23:10:09+08:00"
+                        }
+                    ],
+                    "total": 1
+                },
+                "request_id": "e1a7c3d95b24f608",
+                "meta": {
+                    "api": "API-LC-001",
+                    "version": "v1",
+                    "system": "lifecycle"
+                }
+            },
+            "notes": "首次访问会对账：磁盘上存在但状态文件未记录的单元自动补登记为 active。",
+            "changelog": [
+                "0.2.0 初次发布"
+            ],
+            "doc": "docs/api/API-LC-001.md",
+            "permission": "lifecycle.read"
+        },
+        {
+            "id": "API-LC-002",
+            "name": "安装单元",
+            "system": "lifecycle",
+            "method": "POST",
+            "path": "/api/v1/lifecycle/install",
+            "operation": "lifecycle.install",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "filesystem",
+            "since": "0.2.0",
+            "summary": "把源包经暂存区校验后安装到对应类型目录，状态由 absent 转为 installed。",
+            "scenario": "上传并接入一个新插件 / 主题 / 独立页 / 系统层；安装后还需调用 activate 才会装载。",
+            "params": [
+                {
+                    "name": "type",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "system | theme | plugin | page（core 不可安装，只能升级）"
+                },
+                {
+                    "name": "source",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "源包目录，必须位于站点根目录内"
+                },
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "单元标识；缺省时取包清单的 slug"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "type / slug / version / state",
+                    "type": "string",
+                    "desc": "安装后的单元记录"
+                },
+                {
+                    "name": "installed_at",
+                    "type": "string",
+                    "desc": "ISO 8601 安装时间"
+                }
+            ],
+            "errors": [
+                40301,
+                40901,
+                42201,
+                50001,
+                40303
+            ],
+            "example_request": "POST /api/v1/lifecycle/install  {\"type\":\"plugin\",\"source\":\"storage/packages/demo\",\"slug\":\"demo\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "type": "plugin",
+                    "slug": "demo",
+                    "version": "1.0.0",
+                    "state": "installed",
+                    "installed_at": "2026-11-08T23:10:09+08:00",
+                    "updated_at": "2026-11-08T23:10:09+08:00",
+                    "backup": null
+                },
+                "request_id": "f3b8d2e6a1c74095",
+                "meta": {
+                    "api": "API-LC-002",
+                    "version": "v1",
+                    "system": "lifecycle"
+                }
+            },
+            "notes": "执行链：路径穿越校验 → 依赖校验 → 哈希清单校验 → 暂存区复制 → 目标写入 → on_install 钩子 → 状态落盘；任一步失败即清理目标目录并回滚。",
+            "changelog": [
+                "0.2.0 初次发布"
+            ],
+            "doc": "docs/api/API-LC-002.md",
+            "permission": "lifecycle.install"
+        },
+        {
+            "id": "API-LC-003",
+            "name": "启用单元",
+            "system": "lifecycle",
+            "method": "POST",
+            "path": "/api/v1/lifecycle/activate",
+            "operation": "lifecycle.activate",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "state",
+            "since": "0.2.0",
+            "summary": "把已安装单元状态由 installed 转为 active，使其在下次装配中被装载。",
+            "scenario": "安装完插件后启用；重新启用此前被停用的主题或独立页。",
+            "params": [
+                {
+                    "name": "type",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元类型"
+                },
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元标识"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "state",
+                    "type": "string",
+                    "desc": "固定为 active"
+                }
+            ],
+            "errors": [
+                40402,
+                40901,
+                42201,
+                50001,
+                40303
+            ],
+            "example_request": "POST /api/v1/lifecycle/activate  {\"type\":\"plugin\",\"slug\":\"demo\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "type": "plugin",
+                    "slug": "demo",
+                    "version": "1.0.0",
+                    "state": "active",
+                    "backup": null
+                },
+                "request_id": "0a6d4f2b9c18e735",
+                "meta": {
+                    "api": "API-LC-003",
+                    "version": "v1",
+                    "system": "lifecycle"
+                }
+            },
+            "notes": "启用状态由 package.enabled 钩子裁决：仅 active 或未登记的旧包会被 PackageLoader 装载。",
+            "changelog": [
+                "0.2.0 初次发布"
+            ],
+            "doc": "docs/api/API-LC-003.md",
+            "permission": "lifecycle.activate"
+        },
+        {
+            "id": "API-LC-004",
+            "name": "停用单元",
+            "system": "lifecycle",
+            "method": "POST",
+            "path": "/api/v1/lifecycle/deactivate",
+            "operation": "lifecycle.deactivate",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "state",
+            "since": "0.2.0",
+            "summary": "把 active 单元转为 installed，保留文件与数据但不再装载。",
+            "scenario": "临时关闭出问题的插件；排查故障时不删除文件与配置。",
+            "params": [
+                {
+                    "name": "type",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元类型"
+                },
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元标识"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "state",
+                    "type": "string",
+                    "desc": "固定为 installed"
+                }
+            ],
+            "errors": [
+                40402,
+                40901,
+                42201,
+                50001,
+                40303
+            ],
+            "example_request": "POST /api/v1/lifecycle/deactivate  {\"type\":\"plugin\",\"slug\":\"demo\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "type": "plugin",
+                    "slug": "demo",
+                    "version": "1.0.0",
+                    "state": "installed",
+                    "backup": null
+                },
+                "request_id": "b5c9e1a73d02f846",
+                "meta": {
+                    "api": "API-LC-004",
+                    "version": "v1",
+                    "system": "lifecycle"
+                }
+            },
+            "notes": "停用不清理数据；只有 uninstall 才彻底删除。站点程序 core 不允许停用。",
+            "changelog": [
+                "0.2.0 初次发布"
+            ],
+            "doc": "docs/api/API-LC-004.md",
+            "permission": "lifecycle.activate"
+        },
+        {
+            "id": "API-LC-005",
+            "name": "升级单元",
+            "system": "lifecycle",
+            "method": "POST",
+            "path": "/api/v1/lifecycle/upgrade",
+            "operation": "lifecycle.upgrade",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "filesystem",
+            "since": "0.2.0",
+            "summary": "校验版本递增后备份当前单元，经暂存区替换文件并触发 on_upgrade 迁移钩子。",
+            "scenario": "升级插件、主题、独立页、系统层，以及（显式开启后）站点程序 core 本体。",
+            "params": [
+                {
+                    "name": "type",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元类型；core 需 config.lifecycle.allow_core_update=true"
+                },
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元标识"
+                },
+                {
+                    "name": "source",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "新版本源包目录"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "version",
+                    "type": "string",
+                    "desc": "升级后的版本号"
+                },
+                {
+                    "name": "backup",
+                    "type": "string",
+                    "desc": "本次升级创建的备份路径，供 rollback 使用"
+                }
+            ],
+            "errors": [
+                40301,
+                40402,
+                40901,
+                42201,
+                50001,
+                40303
+            ],
+            "example_request": "POST /api/v1/lifecycle/upgrade  {\"type\":\"plugin\",\"slug\":\"demo\",\"source\":\"storage/packages/demo-1.1\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "type": "plugin",
+                    "slug": "demo",
+                    "version": "1.1.0",
+                    "state": "active",
+                    "backup": "storage/lifecycle/backup/plugin-demo-1.0.0-20261108231009"
+                },
+                "request_id": "c9e2a6b47d31f058",
+                "meta": {
+                    "api": "API-LC-005",
+                    "version": "v1",
+                    "system": "lifecycle"
+                }
+            },
+            "notes": "新版本必须严格高于当前版本（version_compare）；文件替换或迁移钩子抛错时自动从备份恢复，并广播 lifecycle.failed。",
+            "changelog": [
+                "0.2.0 初次发布"
+            ],
+            "doc": "docs/api/API-LC-005.md",
+            "permission": "lifecycle.upgrade"
+        },
+        {
+            "id": "API-LC-006",
+            "name": "卸载单元",
+            "system": "lifecycle",
+            "method": "DELETE",
+            "path": "/api/v1/lifecycle/uninstall",
+            "operation": "lifecycle.uninstall",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "filesystem",
+            "since": "0.2.0",
+            "summary": "执行反向依赖检查后触发 on_uninstall 清理钩子并删除单元目录，状态回到 absent。",
+            "scenario": "彻底移除不再使用的插件 / 主题 / 独立页，并清理其自建数据表与配置。",
+            "params": [
+                {
+                    "name": "type",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元类型；core 不可卸载"
+                },
+                {
+                    "name": "slug",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元标识"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "state",
+                    "type": "string",
+                    "desc": "固定为 absent"
+                },
+                {
+                    "name": "removed",
+                    "type": "bool",
+                    "desc": "是否已删除目录"
+                }
+            ],
+            "errors": [
+                40301,
+                40901,
+                42201,
+                50001,
+                40303
+            ],
+            "example_request": "DELETE /api/v1/lifecycle/uninstall?type=plugin&slug=demo",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "unit": "plugin:demo",
+                    "state": "absent",
+                    "removed": true
+                },
+                "request_id": "d2f70b5c8a14e963",
+                "meta": {
+                    "api": "API-LC-006",
+                    "version": "v1",
+                    "system": "lifecycle"
+                }
+            },
+            "notes": "必须先停用（状态 installed）；active 单元、被其他单元依赖的单元、当前启用的主题、以及 core 均会被拒绝。",
+            "changelog": [
+                "0.2.0 初次发布"
+            ],
+            "doc": "docs/api/API-LC-006.md",
+            "permission": "lifecycle.uninstall"
+        },
+        {
+            "id": "API-LC-007",
+            "name": "回滚单元",
+            "system": "lifecycle",
+            "method": "POST",
+            "path": "/api/v1/lifecycle/rollback",
+            "operation": "lifecycle.rollback",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "filesystem",
+            "since": "0.2.0",
+            "summary": "把单元恢复到指定版本快照；省略版本时回到最近一个历史快照。",
+            "scenario": "升级后出现兼容性问题，快速退回上一版本而不必重装。",
+            "params": [
+                {
+                    "name": "type",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元类型"
+                },
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元标识"
+                },
+                {
+                    "name": "version",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "目标版本；省略时回到最近一个非当前版本快照"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "version",
+                    "type": "string",
+                    "desc": "回滚后的版本号"
+                },
+                {
+                    "name": "backup",
+                    "type": "null",
+                    "desc": "回滚后清空，避免重复回滚到同一备份"
+                }
+            ],
+            "errors": [
+                40901,
+                42201,
+                50001,
+                40303
+            ],
+            "example_request": "POST /api/v1/lifecycle/rollback  {\"type\":\"plugin\",\"slug\":\"demo\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "type": "plugin",
+                    "slug": "demo",
+                    "version": "1.0.0",
+                    "state": "active",
+                    "backup": null
+                },
+                "request_id": "e7a31c9d5b02f486",
+                "meta": {
+                    "api": "API-LC-007",
+                    "version": "v1",
+                    "system": "lifecycle"
+                }
+            },
+            "notes": "v0.11 起按版本归档：升级前自动留快照，保留最近 5 份，可回退到任意已装版本；回退前会先给当前版本留一份快照，因此回退可逆。无快照返回 40901，恢复失败自动还原现场。",
+            "changelog": [
+                "0.2.0 初次发布",
+                "0.11.0 支持指定版本与多快照归档"
+            ],
+            "doc": "docs/api/API-LC-007.md",
+            "permission": "lifecycle.rollback"
+        },
+        {
+            "id": "API-LC-008",
+            "name": "校验单元完整性",
+            "system": "lifecycle",
+            "method": "GET",
+            "path": "/api/v1/lifecycle/verify",
+            "operation": "lifecycle.verify",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.2.0",
+            "summary": "按包内 manifest.sha256 清单比对单元目录文件的 SHA-256 摘要。",
+            "scenario": "升级前后做完整性核对；排查文件被篡改或传输损坏。",
+            "params": [
+                {
+                    "name": "type",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元类型"
+                },
+                {
+                    "name": "slug",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元标识"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "ok",
+                    "type": "bool",
+                    "desc": "是否全部匹配"
+                },
+                {
+                    "name": "mode",
+                    "type": "string",
+                    "desc": "sha256 或 no-manifest"
+                },
+                {
+                    "name": "files",
+                    "type": "int",
+                    "desc": "扫描到的文件数"
+                },
+                {
+                    "name": "mismatch",
+                    "type": "string[]",
+                    "desc": "摘要不一致的相对路径列表"
+                }
+            ],
+            "errors": [
+                40402,
+                42201,
+                50001,
+                40303
+            ],
+            "example_request": "GET /api/v1/lifecycle/verify?type=plugin&slug=demo",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "ok": true,
+                    "mode": "sha256",
+                    "files": 2,
+                    "checked": 2,
+                    "mismatch": []
+                },
+                "request_id": "f0b8d47c2a91e356",
+                "meta": {
+                    "api": "API-LC-008",
+                    "version": "v1",
+                    "system": "lifecycle"
+                }
+            },
+            "notes": "未提供清单时返回 mode=no-manifest 并仍视为通过；可把 config.lifecycle.require_checksum 设为 true 强制要求清单。",
+            "changelog": [
+                "0.2.0 初次发布"
+            ],
+            "doc": "docs/api/API-LC-008.md",
+            "permission": "lifecycle.read"
+        },
+        {
+            "id": "API-LOG-001",
+            "name": "查询日志",
+            "system": "log",
+            "method": "GET",
+            "path": "/api/v1/logs/query",
+            "operation": "logs.query",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.2.0",
+            "summary": "按日期读取日志系统落盘的日志行尾部若干条。",
+            "scenario": "在零呈现 / Headless 模式下排查装卸操作与内核 trace，无需登录后台界面。",
+            "params": [
+                {
+                    "name": "date",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "YYYY-MM-DD，默认当天"
+                },
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "required": false,
+                    "type": "int",
+                    "desc": "返回条数，1-200，默认 20"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "date",
+                    "type": "string",
+                    "desc": "查询日期"
+                },
+                {
+                    "name": "lines",
+                    "type": "string[]",
+                    "desc": "日志行（最新若干条）"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "本次返回行数"
+                }
+            ],
+            "errors": [
+                42201,
+                50001,
+                40303
+            ],
+            "example_request": "GET /api/v1/logs/query?limit=5",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "date": "2026-11-08",
+                    "lines": [
+                        "[2026-11-08 23:10:09] INFO    内核装配完成 {\"systems\":[]}"
+                    ],
+                    "total": 1
+                },
+                "request_id": "d8e4a1c0b73f5296",
+                "meta": {
+                    "api": "API-LOG-001",
+                    "version": "v1",
+                    "system": "log"
+                }
+            },
+            "notes": "auth=admin 已在 v0.4 接入鉴权执行：未认证 40101、令牌失效 40102、角色不足 40301。写接口默认仅本机来源可调用。",
+            "changelog": [
+                "0.2.0 初次发布"
+            ],
+            "doc": "docs/api/API-LOG-001.md",
+            "permission": "logs.read"
+        },
+        {
+            "id": "API-USER-001",
+            "name": "查询当前调用身份",
+            "system": "user",
+            "method": "GET",
+            "path": "/api/v1/users/me",
+            "operation": "users.me",
+            "auth": "user",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.4.0",
+            "summary": "返回分发器鉴权后注入的身份信息，用于确认当前令牌对应的用户、角色与令牌来源。",
+            "scenario": "控制台确认登录态；排查「令牌有效但角色不足」类权限问题。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "identity",
+                    "type": "object|null",
+                    "desc": "user_id / username / role / scopes / source"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                42901,
+                50001,
+                40303
+            ],
+            "example_request": "GET /api/v1/users/me  Authorization: Bearer <token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "identity": {
+                        "user_id": 1,
+                        "username": "admin",
+                        "role": "admin",
+                        "scopes": [],
+                        "source": "database"
+                    }
+                },
+                "request_id": "2b3c4d5e6f708192",
+                "meta": {
+                    "api": "API-USER-001",
+                    "version": "v1",
+                    "system": "user"
+                }
+            },
+            "notes": "身份由分发器以 _identity 注入 input，业务执行者不解析请求头；鉴权执行顺序早于参数校验。",
+            "changelog": [
+                "0.4.0 初次发布"
+            ],
+            "doc": "docs/api/API-USER-001.md",
+            "permission": "user.read"
+        },
+        {
+            "id": "API-PERM-001",
+            "name": "权限点清单",
+            "system": "permission",
+            "method": "GET",
+            "path": "/api/v1/permission/catalog",
+            "operation": "permission.catalog",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.6.0",
+            "summary": "汇总各系统层 permissions.json 自报的全部权限点。核心与权限层都不硬编码具体权限名。",
+            "scenario": "后台权限配置页、插件开发时查询可声明的操作点。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "permissions",
+                    "type": "object",
+                    "desc": "权限点 → 名称、所属系统层、说明"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "权限点总数"
+                },
+                {
+                    "name": "by_system",
+                    "type": "object",
+                    "desc": "各系统层自报的权限点数"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "GET /api/v1/permission/catalog",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {},
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-PERM-001",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "同名权限由两个系统层声明会在装配期 fail-fast，不静默覆盖。",
+            "changelog": [
+                "0.6.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-001.md"
+        },
+        {
+            "id": "API-PERM-002",
+            "name": "权限决策查询",
+            "system": "permission",
+            "method": "GET",
+            "path": "/api/v1/permission/check",
+            "operation": "permission.check",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.6.0",
+            "summary": "对指定主体与动作做一次决策，返回三态结果。匿名或 abstain 一律 allowed=false（fail-closed）。",
+            "scenario": "前端预检按钮是否可用、运维排查「为什么这个操作被拒」。",
+            "params": [
+                {
+                    "name": "action",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "权限点名称，如 content.delete"
+                },
+                {
+                    "name": "resource_type",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "资源类型，如 post"
+                },
+                {
+                    "name": "resource_id",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "资源标识，如文章 slug"
+                },
+                {
+                    "name": "field",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "资源字段（如 body / title）；留空只应用整资源级 ACL，指定后字段级条目精确匹配"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "action",
+                    "type": "string",
+                    "desc": "被判定的权限点"
+                },
+                {
+                    "name": "decision",
+                    "type": "string",
+                    "desc": "allow / deny / abstain 三态"
+                },
+                {
+                    "name": "allowed",
+                    "type": "bool",
+                    "desc": "仅 allow 为真"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/permission/check",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {},
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-PERM-002",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "未声明的权限点返回 abstain；显式 deny 优先于角色通配符与继承链；策略钩子只能收紧不能提权。field 为空时字段级 ACL 不参与判定。",
+            "changelog": [
+                "0.6.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-002.md"
+        },
+        {
+            "id": "API-PERM-003",
+            "name": "角色与授权清单",
+            "system": "permission",
+            "method": "GET",
+            "path": "/api/v1/permission/roles",
+            "operation": "permission.roles",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.6.0",
+            "summary": "列出角色、直接父角色、祖先链与继承展开后的有效许可。",
+            "scenario": "管理员查看当前授权配置。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "roles",
+                    "type": "object",
+                    "desc": "角色 → 说明与许可列表"
+                },
+                {
+                    "name": "roles.*.parents",
+                    "type": "string[]",
+                    "desc": "直接父角色"
+                },
+                {
+                    "name": "roles.*.ancestors",
+                    "type": "string[]",
+                    "desc": "全部祖先（广度优先、去重）"
+                },
+                {
+                    "name": "roles.*.effective_permissions",
+                    "type": "string[]",
+                    "desc": "自身与全部祖先许可的并集"
+                },
+                {
+                    "name": "max_depth",
+                    "type": "int",
+                    "desc": "继承深度上限（默认 8）"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/permission/roles  Authorization: Bearer <admin-token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {},
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-PERM-003",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "默认角色 admin/editor/author/subscriber 由权限层幂等播种；站长改动不会被覆盖。继承是许可并集：在子角色 revoke 不会撤销父角色的许可。",
+            "changelog": [
+                "0.6.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-003.md",
+            "permission": "permission.read"
+        },
+        {
+            "id": "API-PERM-004",
+            "name": "授予角色许可",
+            "system": "permission",
+            "method": "POST",
+            "path": "/api/v1/permission/grants",
+            "operation": "permission.grant",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.6.0",
+            "summary": "给角色追加一条许可。重复授予幂等，不报错。",
+            "scenario": "把自定义角色接入新系统层的能力。",
+            "params": [
+                {
+                    "name": "role",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "角色名"
+                },
+                {
+                    "name": "permission",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "权限点，支持 * 与 content.* 前缀"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "是否新增了授权（重复授予返回 false）"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001,
+                40902
+            ],
+            "example_request": "POST /api/v1/permission/grants  Authorization: Bearer <admin-token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {},
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-PERM-004",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "写操作，建议携带 Idempotency-Key；* 是显式授予的通配许可，可被撤销，不存在硬编码超管。",
+            "changelog": [
+                "0.6.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-004.md",
+            "permission": "permission.manage"
+        },
+        {
+            "id": "API-PERM-005",
+            "name": "撤销角色许可",
+            "system": "permission",
+            "method": "DELETE",
+            "path": "/api/v1/permission/grants",
+            "operation": "permission.revoke",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.6.0",
+            "summary": "撤销角色的某条许可，立即影响后续决策。",
+            "scenario": "收回误授的权限、撤销 admin 的通配许可。",
+            "params": [
+                {
+                    "name": "role",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "角色名"
+                },
+                {
+                    "name": "permission",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "要撤销的权限点"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "是否确实删除了一条授权"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "DELETE /api/v1/permission/grants  Authorization: Bearer <admin-token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {},
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-PERM-005",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "撤销 * 后 admin 不再拥有隐式全权，这是「可撤销的超管」设计的关键。",
+            "changelog": [
+                "0.6.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-005.md",
+            "permission": "permission.manage"
+        },
+        {
+            "id": "API-PERM-006",
+            "name": "设置资源 ACL",
+            "system": "permission",
+            "method": "POST",
+            "path": "/api/v1/permission/acl",
+            "operation": "permission.acl.set",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.6.0",
+            "summary": "对单个资源（或资源的某个字段）设置显式放行或显式拒绝，实现客体级权限。",
+            "scenario": "把某篇草稿设为私有、禁止某角色删除某篇文章。",
+            "params": [
+                {
+                    "name": "type",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "资源类型，默认 post"
+                },
+                {
+                    "name": "id",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "资源标识，如文章 slug"
+                },
+                {
+                    "name": "subject",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "主体：* / role:admin / user:3，默认 *"
+                },
+                {
+                    "name": "capability",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "能力或权限点，默认 *"
+                },
+                {
+                    "name": "allow",
+                    "in": "body",
+                    "required": false,
+                    "type": "bool",
+                    "desc": "true 放行 / false 显式拒绝"
+                },
+                {
+                    "name": "field",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "字段级维度（如 body）；留空表示整资源级，对任意请求生效"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "ACL 记录是否写入成功"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001,
+                40902
+            ],
+            "example_request": "POST /api/v1/permission/acl  Authorization: Bearer <admin-token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {},
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-PERM-006",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "显式 deny 优先级最高，压过角色通配符与继承链；多条 ACL 按插入顺序判定，deny 先扫描。field 非空时只对同名字段的请求生效，不会把整篇文章从列表剔除。",
+            "changelog": [
+                "0.6.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-006.md",
+            "permission": "permission.manage"
+        },
+        {
+            "id": "API-PERM-007",
+            "name": "资源 ACL 清单",
+            "system": "permission",
+            "method": "GET",
+            "path": "/api/v1/permission/acl",
+            "operation": "permission.acl.list",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.6.0",
+            "summary": "列出资源级授权记录。",
+            "scenario": "审计「哪些文章被单独设了权限」。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "entries",
+                    "type": "array",
+                    "desc": "最近 100 条资源 ACL 记录（含 field 维度）"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/permission/acl  Authorization: Bearer <admin-token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {},
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-PERM-007",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "与 API-PERM-006 同路径不同方法，OpenAPI 3.1 导出时按 operation 合并。",
+            "changelog": [
+                "0.6.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-007.md",
+            "permission": "permission.read"
+        },
+        {
+            "id": "API-PERM-008",
+            "name": "权限决策留痕",
+            "system": "permission",
+            "method": "GET",
+            "path": "/api/v1/permission/decisions",
+            "operation": "permission.decisions",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.6.0",
+            "summary": "读取最近权限决策留痕，用于审计与「为什么被拒」的排查。",
+            "scenario": "安全审计、故障复盘。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "entries",
+                    "type": "array",
+                    "desc": "本次进程最近的决策记录（actor/action/decision/reason/at）"
+                },
+                {
+                    "name": "cache",
+                    "type": "object",
+                    "desc": "决策缓存命中 / 未命中 / 失效次数；只缓存基础数据读取，不缓存最终决策"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/permission/decisions  Authorization: Bearer <admin-token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {},
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-PERM-008",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "每次 decide 都会写 audit 表并 emit permission.decision 事件，由日志系统消费；留痕失败不阻断决策。",
+            "changelog": [
+                "0.6.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-008.md",
+            "permission": "permission.audit.read"
+        },
+        {
+            "id": "API-PERM-009",
+            "name": "查询角色继承图",
+            "system": "permission",
+            "method": "GET",
+            "path": "/api/v1/permission/role/tree",
+            "operation": "permission.role.tree",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.7.0",
+            "summary": "返回全部角色的直接父角色、祖先链与继承展开后的有效许可，以及继承深度上限与展开告警。",
+            "scenario": "后台权限配置页展示角色继承关系；排查「某角色为什么有这个权限」。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "roles",
+                    "type": "object",
+                    "desc": "角色 → parents / ancestors / effective_permissions"
+                },
+                {
+                    "name": "max_depth",
+                    "type": "int",
+                    "desc": "继承深度上限，默认 8"
+                },
+                {
+                    "name": "warnings",
+                    "type": "string[]",
+                    "desc": "展开时的深度截断告警"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/permission/role/tree  Authorization: Bearer <admin-token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {},
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-PERM-009",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "只读接口。继承是许可并集，显式 deny 与策略收紧的优先级不变；拔库回退时返回空图并带 fallback 告警。",
+            "changelog": [
+                "0.7.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-009.md",
+            "permission": "permission.read"
+        },
+        {
+            "id": "API-PERM-010",
+            "name": "设置或移除角色父级",
+            "system": "permission",
+            "method": "POST",
+            "path": "/api/v1/permission/role/parent",
+            "operation": "permission.role.parent",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.7.0",
+            "summary": "声明一个角色继承另一个角色；写入前拒绝自环、成环与深度超限，并立即失效决策缓存。",
+            "scenario": "让「高级编辑」继承「编辑」再继承「作者」，避免逐角色重复授权。",
+            "params": [
+                {
+                    "name": "role",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "子角色名"
+                },
+                {
+                    "name": "parent",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "父角色名"
+                },
+                {
+                    "name": "remove",
+                    "in": "body",
+                    "required": false,
+                    "type": "bool",
+                    "desc": "true 表示移除该继承关系"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "ok",
+                    "type": "bool",
+                    "desc": "裁决是否通过"
+                },
+                {
+                    "name": "reason",
+                    "type": "string",
+                    "desc": "ok / empty / self / cycle / depth"
+                },
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "是否实际写入或删除了一条关系"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001,
+                40901,
+                40902
+            ],
+            "example_request": "POST /api/v1/permission/role/parent  {\"role\":\"senior-editor\",\"parent\":\"editor\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {},
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-PERM-010",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "写接口，默认仅本机来源可调用（40302）；建议携带 Idempotency-Key。成环 / 自环 / 深度超限返回 40901 且不写库；角色许可变更与继承变更都会显式 flush 决策缓存。",
+            "changelog": [
+                "0.7.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-010.md",
+            "permission": "permission.manage"
+        },
+        {
+            "id": "API-PERM-011",
+            "name": "契约覆盖授权台账对账",
+            "system": "permission",
+            "method": "GET",
+            "path": "/api/v1/permission/overrides",
+            "operation": "permission.overrides",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.8.0",
+            "summary": "把装配期实际发生的契约覆盖与运行时授权台账逐条对账，标出未授权覆盖。",
+            "scenario": "排查「某个契约为什么被替换了」；开启 require_grant 前先确认现有覆盖是否已登记授权。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "overrides",
+                    "type": "array",
+                    "desc": "Container 留痕的覆盖记录（contract/from/to/priority/authorized）"
+                },
+                {
+                    "name": "grants",
+                    "type": "array",
+                    "desc": "运行时登记的有效 / 已撤销授权台账"
+                },
+                {
+                    "name": "require_grant",
+                    "type": "bool",
+                    "desc": "当前是否启用「覆盖必须先授权」"
+                },
+                {
+                    "name": "unauthorized",
+                    "type": "array",
+                    "desc": "require_grant=true 时未获授权的覆盖清单"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/permission/overrides  Authorization: Bearer <admin-token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {},
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-PERM-011",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "只读接口。require_grant=false 时所有覆盖都标记 authorized=true（保持「只留痕」语义）；拔库回退时 grants 为空数组且不伪造授权。",
+            "changelog": [
+                "0.8.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-011.md",
+            "permission": "permission.audit.read"
+        },
+        {
+            "id": "API-PERM-012",
+            "name": "登记或撤销契约覆盖授权",
+            "system": "permission",
+            "method": "POST",
+            "path": "/api/v1/permission/override/grant",
+            "operation": "permission.override.grant",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.8.0",
+            "summary": "以运行时身份登记「允许某 owner 覆盖某契约」的授权，或将其撤销；授权是装配期覆盖放行的前提。",
+            "scenario": "站长在启用 require_grant 前，先把主题 / 插件的合法契约替换逐条登记，避免升级后启动失败。",
+            "params": [
+                {
+                    "name": "contract",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "契约接口全限定名，如 Wx\\Contracts\\LoggerInterface"
+                },
+                {
+                    "name": "owner",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "覆盖者标识，必须与 Container::bind() 的 owner 一致"
+                },
+                {
+                    "name": "reason",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "登记原因，写入台账供审计"
+                },
+                {
+                    "name": "remove",
+                    "in": "body",
+                    "required": false,
+                    "type": "bool",
+                    "desc": "true 表示撤销该授权（active=0，保留记录）"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "是否写入 / 更新了一条台账记录"
+                },
+                {
+                    "name": "contract",
+                    "type": "string",
+                    "desc": "契约名"
+                },
+                {
+                    "name": "owner",
+                    "type": "string",
+                    "desc": "覆盖者标识"
+                },
+                {
+                    "name": "active",
+                    "type": "bool",
+                    "desc": "当前授权是否生效"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001,
+                40901
+            ],
+            "example_request": "POST /api/v1/permission/override/grant  {\"contract\":\"Wx\\\\Contracts\\\\LoggerInterface\",\"owner\":\"plugin:audit\",\"reason\":\"审计插件替换日志实现\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {},
+                "request_id": "1a2b3c4d5e6f7081",
+                "meta": {
+                    "api": "API-PERM-012",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "写接口，默认仅本机来源可调用（40302）；建议携带 Idempotency-Key。授权本身需要 system.contract.override 权限（40303），且执行者会再次用同一个决策器复核，绕过 RequestGuard 直调执行者也不会变成无主授权。upsert 语义：重复登记只更新，不产生脏数据。",
+            "changelog": [
+                "0.8.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-012.md",
+            "permission": "system.contract.override"
+        },
+        {
+            "id": "API-AUTH-002",
+            "name": "创建页面会话",
+            "system": "security",
+            "method": "POST",
+            "path": "/api/v1/auth/session",
+            "operation": "auth.session.create",
+            "auth": "public",
+            "public_write": true,
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.9.0",
+            "summary": "校验用户名与口令后签发会话令牌，并以 HttpOnly + SameSite=Lax 的 Cookie 下发；响应体不返回令牌明文。",
+            "scenario": "浏览器登录后台：一次登录后页面 GET 自动携带会话，无需前端保存 Bearer 令牌。",
+            "params": [
+                {
+                    "name": "username",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "用户名"
+                },
+                {
+                    "name": "password",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "明文口令，仅本次请求出现，不落日志"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "expires_at",
+                    "type": "string",
+                    "desc": "会话过期时间 YYYY-MM-DD HH:MM:SS"
+                },
+                {
+                    "name": "role",
+                    "type": "string",
+                    "desc": "会话角色"
+                },
+                {
+                    "name": "kind",
+                    "type": "string",
+                    "desc": "固定为 session"
+                },
+                {
+                    "name": "max_age",
+                    "type": "int",
+                    "desc": "Cookie 有效期（秒），与令牌过期一致"
+                },
+                {
+                    "name": "cookie_name",
+                    "type": "string",
+                    "desc": "固定为 wx_session，由安全层写入 Set-Cookie"
+                }
+            ],
+            "errors": [
+                40102,
+                40302,
+                42201,
+                42901,
+                50101,
+                50001
+            ],
+            "example_request": "POST /api/v1/auth/session  {\"username\":\"admin\",\"password\":\"***\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "expires_at": "2026-11-09 14:30:00",
+                    "role": "admin",
+                    "kind": "session",
+                    "max_age": 7200,
+                    "cookie_name": "wx_session"
+                },
+                "meta": {
+                    "api": "API-AUTH-002",
+                    "version": "v1",
+                    "system": "security"
+                }
+            },
+            "notes": "会话令牌与 API 令牌共用 wx_user_tokens（kind=session 区分），同一套过期与撤销语义。令牌明文只进 HttpOnly Cookie，响应体被安全层移除，脚本读不到。Cookie 仅用于页面 GET，API 写操作仍要求 Authorization 头，因此无 CSRF 面。",
+            "changelog": [
+                "0.9.0 初次发布"
+            ],
+            "doc": "docs/api/API-AUTH-002.md"
+        },
+        {
+            "id": "API-AUTH-003",
+            "name": "查询当前会话",
+            "system": "security",
+            "method": "GET",
+            "path": "/api/v1/auth/session",
+            "operation": "auth.session.current",
+            "auth": "user",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.9.0",
+            "summary": "返回当前令牌对应的身份与令牌元数据（类型、过期时间、签发时间），不回显令牌本身。",
+            "scenario": "后台判断「当前登录是谁、会话还剩多久」；排查某个会话是浏览器会话还是脚本令牌。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "identity",
+                    "type": "object",
+                    "desc": "身份（username / role / user_id / kind / token_hash）"
+                },
+                {
+                    "name": "session",
+                    "type": "object",
+                    "desc": "令牌元数据；静态令牌或已撤销时返回 null"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/auth/session  Authorization: Bearer <token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "identity": {},
+                    "session": {}
+                },
+                "meta": {
+                    "api": "API-AUTH-003",
+                    "version": "v1",
+                    "system": "security"
+                }
+            },
+            "notes": "只读接口。token_hash 是摘要而非明文，可安全用于对账；静态令牌没有可撤销摘要，session 为 null。 本接口在清单里显式声明 accept_session=true：允许浏览器用 HttpOnly 会话 Cookie 直接调用，其余接口一律不接受会话令牌作为凭据。",
+            "changelog": [
+                "0.9.0 初次发布"
+            ],
+            "doc": "docs/api/API-AUTH-003.md",
+            "accept_session": true
+        },
+        {
+            "id": "API-AUTH-004",
+            "name": "撤销当前会话",
+            "system": "security",
+            "method": "DELETE",
+            "path": "/api/v1/auth/session",
+            "operation": "auth.session.revoke",
+            "auth": "user",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.9.0",
+            "summary": "撤销当前请求所用令牌；若它是会话令牌则同时清除 wx_session Cookie。",
+            "scenario": "后台退出登录；设备丢失时远程吊销浏览器会话。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "revoked",
+                    "type": "bool",
+                    "desc": "是否撤销了一条会话令牌；静态令牌固定为 false"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "DELETE /api/v1/auth/session  Authorization: Bearer <token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "revoked": true
+                },
+                "meta": {
+                    "api": "API-AUTH-004",
+                    "version": "v1",
+                    "system": "security"
+                }
+            },
+            "notes": "只撤销 kind=session 的令牌，不会误伤同用户的 API 脚本令牌。响应总是带一条清除 Cookie 的 Set-Cookie；重复调用返回 revoked=false 而非报错（幂等语义）。 本接口在清单里显式声明 accept_session=true：允许浏览器用 HttpOnly 会话 Cookie 直接调用，其余接口一律不接受会话令牌作为凭据。",
+            "changelog": [
+                "0.9.0 初次发布"
+            ],
+            "doc": "docs/api/API-AUTH-004.md",
+            "accept_session": true
+        },
+        {
+            "id": "API-PERM-013",
+            "name": "列出主体分组",
+            "system": "permission",
+            "method": "GET",
+            "path": "/api/v1/permission/groups",
+            "operation": "permission.groups",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.9.0",
+            "summary": "列出全部分组、每组绑定的角色与成员，用于排查「某人为什么有这个权限」。",
+            "scenario": "后台权限页展示用户组；排查组成员关系导致的授权来源。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "groups",
+                    "type": "object",
+                    "desc": "group_key → {group, name, description, roles, members}"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "分组数量"
+                },
+                {
+                    "name": "warnings",
+                    "type": "string[]",
+                    "desc": "未知主体类型等展开告警"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/permission/groups  Authorization: Bearer <admin-token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "groups": {},
+                    "total": 0,
+                    "warnings": []
+                },
+                "meta": {
+                    "api": "API-PERM-013",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "只读接口。组只是角色来源：成员通过组获得的角色与自身角色取并集，不复制授权表。拔库回退时返回空图并带 fallback 告警。",
+            "changelog": [
+                "0.9.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-013.md",
+            "permission": "permission.read"
+        },
+        {
+            "id": "API-PERM-014",
+            "name": "管理主体分组",
+            "system": "permission",
+            "method": "POST",
+            "path": "/api/v1/permission/group",
+            "operation": "permission.group",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.9.0",
+            "summary": "创建 / 删除分组，或增删分组的角色绑定与成员；每次写入立即失效权限缓存。",
+            "scenario": "把「运营」组绑定 editor 角色，成员加入后即获得编辑权限；离组即失去。",
+            "params": [
+                {
+                    "name": "op",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "upsert / delete / add_role / remove_role / add_member / remove_member"
+                },
+                {
+                    "name": "group",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "分组标识，小写字母数字与 ._-"
+                },
+                {
+                    "name": "name",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "显示名（upsert 用）"
+                },
+                {
+                    "name": "description",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "说明（upsert 用）"
+                },
+                {
+                    "name": "role",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "角色名（add_role / remove_role 必填）"
+                },
+                {
+                    "name": "color",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "组颜色，仅用于展示"
+                },
+                {
+                    "name": "sort",
+                    "in": "body",
+                    "required": false,
+                    "type": "int",
+                    "desc": "展示排序，越小越靠前"
+                },
+                {
+                    "name": "subject",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "成员，形如 user:3（add_member / remove_member 必填）"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "group",
+                    "type": "string",
+                    "desc": "分组标识"
+                },
+                {
+                    "name": "op",
+                    "type": "string",
+                    "desc": "实际执行的操作"
+                },
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "是否实际改变了一条记录"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "POST /api/v1/permission/group  {\"op\":\"add_role\",\"group\":\"ops\",\"role\":\"editor\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "group": "ops",
+                    "op": "add_role",
+                    "changed": true
+                },
+                "meta": {
+                    "api": "API-PERM-014",
+                    "version": "v1",
+                    "system": "permission"
+                }
+            },
+            "notes": "写接口，默认仅本机来源可调用（40302）；建议携带 Idempotency-Key。组不新增权限层：只扩大主体的角色集合，显式 deny 与策略收紧仍优先。删除组会一并清理成员与角色绑定，不会留下悬空关系。 v0.10 起组支持颜色与排序，两者都只是展示属性，不参与权限决策。",
+            "changelog": [
+                "0.9.0 初次发布"
+            ],
+            "doc": "docs/api/API-PERM-014.md",
+            "permission": "permission.manage"
+        },
+        {
+            "id": "API-CONTENT-005",
+            "name": "按字段更新文章",
+            "system": "content",
+            "method": "POST",
+            "path": "/api/v1/content/post/update",
+            "operation": "content.update",
+            "auth": "user",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.9.0",
+            "summary": "按 slug 更新 title / body / status；每个字段单独做一次字段级授权，任一字段非 allow 则整次写入被拒。",
+            "scenario": "作者改自己的文章；编辑只能改标题不能改正文这类字段级限制。",
+            "params": [
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "文章唯一标识"
+                },
+                {
+                    "name": "title",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "新标题"
+                },
+                {
+                    "name": "body",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "新正文（同时刷新摘要）"
+                },
+                {
+                    "name": "status",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "published / draft / private / pending"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "slug",
+                    "type": "string",
+                    "desc": "被更新的文章"
+                },
+                {
+                    "name": "updated",
+                    "type": "string[]",
+                    "desc": "实际写入的字段名"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001,
+                40403
+            ],
+            "example_request": "POST /api/v1/content/post/update  {\"slug\":\"first-post\",\"title\":\"新标题\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "slug": "first-post",
+                    "updated": [
+                        "title"
+                    ]
+                },
+                "meta": {
+                    "api": "API-CONTENT-005",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "字段级权限是资源 ACL 的 field 维度，不是第四层权限：ACL 条目 field=body 只影响 body，不会把整篇文章从列表剔除。决策输入为 content.edit + {type:post, id:文章 slug, field:字段名}，资源标识与读路径（content.read）统一为 slug，避免同一条 ACL 只对一侧生效；权限层缺席或任一字段非 allow 一律 40303（fail-closed），不做部分写入。",
+            "changelog": [
+                "0.9.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-005.md",
+            "permission": "content.edit"
+        },
+        {
+            "id": "API-MEMBER-001",
+            "name": "读取成员档案",
+            "system": "member",
+            "method": "GET",
+            "path": "/api/v1/member/profile",
+            "operation": "member.profile",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "read_only",
+            "since": "0.10.0",
+            "summary": "返回指定用户的经验余额、等级、升级进度与头衔；省略 user_id 时读取当前身份。",
+            "scenario": "主题在文章页展示作者等级徽章与头衔；控制台展示「我的成长」。",
+            "params": [
+                {
+                    "name": "user_id",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "用户 ID 或用户名；匿名请求必填，携带身份时可省略"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "user_id",
+                    "type": "string",
+                    "desc": "用户标识"
+                },
+                {
+                    "name": "username",
+                    "type": "string",
+                    "desc": "用户名"
+                },
+                {
+                    "name": "display_name",
+                    "type": "string",
+                    "desc": "显示名"
+                },
+                {
+                    "name": "xp",
+                    "type": "int",
+                    "desc": "经验余额"
+                },
+                {
+                    "name": "level",
+                    "type": "int",
+                    "desc": "当前等级"
+                },
+                {
+                    "name": "level_name",
+                    "type": "string",
+                    "desc": "等级名称"
+                },
+                {
+                    "name": "level_color",
+                    "type": "string",
+                    "desc": "等级颜色（由站长定义）"
+                },
+                {
+                    "name": "next_level",
+                    "type": "int|null",
+                    "desc": "下一等级；已满级为 null"
+                },
+                {
+                    "name": "next_level_name",
+                    "type": "string|null",
+                    "desc": "下一等级名称"
+                },
+                {
+                    "name": "xp_to_next",
+                    "type": "int",
+                    "desc": "距离下一级还差多少经验"
+                },
+                {
+                    "name": "progress",
+                    "type": "int",
+                    "desc": "当前等级进度 0–99，满级为 100"
+                },
+                {
+                    "name": "titles",
+                    "type": "array",
+                    "desc": "头衔列表，含 source=manual|level"
+                }
+            ],
+            "errors": [
+                40403,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/member/profile?user_id=1",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "user_id": "1",
+                    "username": "admin",
+                    "display_name": "站点管理员",
+                    "xp": 150,
+                    "level": 2,
+                    "level_name": "常驻读者",
+                    "level_color": "#4a9eff",
+                    "next_level": 3,
+                    "next_level_name": "活跃作者",
+                    "xp_to_next": 350,
+                    "progress": 12,
+                    "titles": [
+                        {
+                            "title_key": "founder",
+                            "name": "站长",
+                            "color": "#e0413e",
+                            "priority": 100,
+                            "visible": true,
+                            "min_level": 0,
+                            "source": "manual"
+                        }
+                    ]
+                },
+                "meta": {
+                    "api": "API-MEMBER-001",
+                    "version": "v1",
+                    "system": "member"
+                }
+            },
+            "notes": "档案是只读投影：经验来自流水，等级按当前门槛表解释，头衔是手动授予与等级自动授予的并集。头衔不参与任何权限决策。",
+            "changelog": [
+                "0.10.0 初次发布"
+            ],
+            "doc": "docs/api/API-MEMBER-001.md"
+        },
+        {
+            "id": "API-MEMBER-002",
+            "name": "经验排行榜",
+            "system": "member",
+            "method": "GET",
+            "path": "/api/v1/member/leaderboard",
+            "operation": "member.leaderboard",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "read_only",
+            "since": "0.10.0",
+            "summary": "按经验降序返回成员排行，含名次、等级与公开身份字段。",
+            "scenario": "站点侧边栏「活跃成员」、独立页的贡献榜。",
+            "params": [
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "required": false,
+                    "type": "int",
+                    "desc": "返回条数，默认 20，最大 100"
+                },
+                {
+                    "name": "offset",
+                    "in": "query",
+                    "required": false,
+                    "type": "int",
+                    "desc": "偏移量，默认 0"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "items",
+                    "type": "array",
+                    "desc": "排行条目：rank / user_id / username / display_name / xp / level / level_name"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "本页条目数"
+                }
+            ],
+            "errors": [
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/member/leaderboard?limit=2",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "items": [
+                        {
+                            "rank": 1,
+                            "user_id": "1",
+                            "username": "admin",
+                            "display_name": "站点管理员",
+                            "xp": 150,
+                            "level": 2,
+                            "level_name": "常驻读者"
+                        }
+                    ],
+                    "total": 1
+                },
+                "meta": {
+                    "api": "API-MEMBER-002",
+                    "version": "v1",
+                    "system": "member"
+                }
+            },
+            "notes": "只暴露公开字段，不含角色、邮箱、口令摘要。排序为 xp 降序 + user_id 升序，保证同分时名次稳定。",
+            "changelog": [
+                "0.10.0 初次发布"
+            ],
+            "doc": "docs/api/API-MEMBER-002.md"
+        },
+        {
+            "id": "API-MEMBER-003",
+            "name": "发放经验",
+            "system": "member",
+            "method": "POST",
+            "path": "/api/v1/member/xp/award",
+            "operation": "member.xp.award",
+            "auth": "admin",
+            "permission": "member.xp.award",
+            "idempotent": true,
+            "side_effects": "database",
+            "since": "0.10.0",
+            "summary": "为指定用户发放经验：按 event_key 幂等、按动作每日上限截断、跨门槛自动升级。",
+            "scenario": "插件在用户完成业务动作后回调发经验；站长手动补发或调整。",
+            "params": [
+                {
+                    "name": "user_id",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "用户 ID 或用户名"
+                },
+                {
+                    "name": "action",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "经验动作，如 post.publish；需匹配经验规则"
+                },
+                {
+                    "name": "event_key",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "业务事件唯一键，重放不会重复加分"
+                },
+                {
+                    "name": "amount",
+                    "in": "body",
+                    "required": false,
+                    "type": "int",
+                    "desc": "显式经验值；省略时取规则配置，仍受每日上限约束"
+                },
+                {
+                    "name": "note",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "备注，写入流水"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "user_id",
+                    "type": "string",
+                    "desc": "用户标识"
+                },
+                {
+                    "name": "applied",
+                    "type": "int",
+                    "desc": "本次实际增加的经验"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "发放后的经验余额"
+                },
+                {
+                    "name": "level",
+                    "type": "int",
+                    "desc": "发放后的等级"
+                },
+                {
+                    "name": "level_up",
+                    "type": "bool",
+                    "desc": "本次是否升级"
+                },
+                {
+                    "name": "duplicate",
+                    "type": "bool",
+                    "desc": "是否为幂等重放"
+                },
+                {
+                    "name": "reason",
+                    "type": "string",
+                    "desc": "未加分原因：disabled / daily_cap / duplicate，空表示正常发放"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "POST /api/v1/member/xp/award  {\"user_id\":\"1\",\"action\":\"post.publish\",\"event_key\":\"content:42\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "user_id": "1",
+                    "applied": 50,
+                    "total": 200,
+                    "level": 2,
+                    "level_up": false,
+                    "duplicate": false,
+                    "reason": ""
+                },
+                "meta": {
+                    "api": "API-MEMBER-003",
+                    "version": "v1",
+                    "system": "member"
+                }
+            },
+            "notes": "event_key 是本接口的业务幂等键，与 HTTP 层 Idempotency-Key 互补：前者防「同一业务事实被两个请求各发一次」，后者防「同一请求被重试两次」。每日上限按自然日与动作统计，超出部分截断而不是报错。",
+            "changelog": [
+                "0.10.0 初次发布"
+            ],
+            "doc": "docs/api/API-MEMBER-003.md"
+        },
+        {
+            "id": "API-MEMBER-004",
+            "name": "查看经验规则",
+            "system": "member",
+            "method": "GET",
+            "path": "/api/v1/member/xp/rules",
+            "operation": "member.xp.rules",
+            "auth": "admin",
+            "permission": "member.xp.rule.manage",
+            "idempotent": true,
+            "side_effects": "read_only",
+            "since": "0.10.0",
+            "summary": "列出全部经验规则：单次经验、每日上限、启停状态与说明。",
+            "scenario": "站长在后台核对哪些动作会产生经验、每天最多拿多少。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "rules",
+                    "type": "array",
+                    "desc": "规则条目：action / amount / daily_cap / enabled / description"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "规则数量"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/member/xp/rules  Authorization: Bearer <admin>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "rules": [
+                        {
+                            "action": "post.publish",
+                            "amount": 50,
+                            "daily_cap": 200,
+                            "enabled": true,
+                            "description": "发布文章"
+                        }
+                    ],
+                    "total": 1
+                },
+                "meta": {
+                    "api": "API-MEMBER-004",
+                    "version": "v1",
+                    "system": "member"
+                }
+            },
+            "notes": "读取规则需要管理权限，因为规则数值本身就是运营策略，不宜公开。",
+            "changelog": [
+                "0.10.0 初次发布"
+            ],
+            "doc": "docs/api/API-MEMBER-004.md"
+        },
+        {
+            "id": "API-MEMBER-005",
+            "name": "定义经验规则",
+            "system": "member",
+            "method": "POST",
+            "path": "/api/v1/member/xp/rule",
+            "operation": "member.xp.rule",
+            "auth": "admin",
+            "permission": "member.xp.rule.manage",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.10.0",
+            "summary": "新增或修改一条经验规则（op=upsert），或删除规则（op=delete）。",
+            "scenario": "站长把「发布文章」从 50 调到 80，或关闭评论经验。",
+            "params": [
+                {
+                    "name": "op",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "upsert（默认）/ delete"
+                },
+                {
+                    "name": "action",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "经验动作标识"
+                },
+                {
+                    "name": "amount",
+                    "in": "body",
+                    "required": false,
+                    "type": "int",
+                    "desc": "单次经验，upsert 时必填且 > 0"
+                },
+                {
+                    "name": "daily_cap",
+                    "in": "body",
+                    "required": false,
+                    "type": "int",
+                    "desc": "每日上限，0 表示不限"
+                },
+                {
+                    "name": "enabled",
+                    "in": "body",
+                    "required": false,
+                    "type": "bool",
+                    "desc": "是否启用，默认 true"
+                },
+                {
+                    "name": "description",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "规则说明"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "action",
+                    "type": "string",
+                    "desc": "动作标识"
+                },
+                {
+                    "name": "op",
+                    "type": "string",
+                    "desc": "执行的操作"
+                },
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "是否发生了变更"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "POST /api/v1/member/xp/rule  {\"action\":\"post.publish\",\"amount\":80,\"daily_cap\":240}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "action": "post.publish",
+                    "op": "upsert",
+                    "changed": true
+                },
+                "meta": {
+                    "api": "API-MEMBER-005",
+                    "version": "v1",
+                    "system": "member"
+                }
+            },
+            "notes": "规则只影响「以后发放」的经验，不回溯已入账流水；调低上限也不会扣减历史经验。",
+            "changelog": [
+                "0.10.0 初次发布"
+            ],
+            "doc": "docs/api/API-MEMBER-005.md"
+        },
+        {
+            "id": "API-MEMBER-006",
+            "name": "查看头衔目录",
+            "system": "member",
+            "method": "GET",
+            "path": "/api/v1/member/titles",
+            "operation": "member.titles",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "read_only",
+            "since": "0.10.0",
+            "summary": "返回站长定义的头衔目录；默认只含 visible=1 的条目，include_hidden 可查看全部。",
+            "scenario": "主题渲染头衔徽章样式表；控制台展示可选头衔。",
+            "params": [
+                {
+                    "name": "include_hidden",
+                    "in": "query",
+                    "required": false,
+                    "type": "bool",
+                    "desc": "是否包含隐藏头衔，默认 false"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "titles",
+                    "type": "array",
+                    "desc": "头衔条目：title_key / name / description / color / priority / visible / min_level"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "条目数量"
+                }
+            ],
+            "errors": [
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/member/titles",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "titles": [
+                        {
+                            "title_key": "founder",
+                            "name": "站长",
+                            "description": "站点创建者",
+                            "color": "#e0413e",
+                            "priority": 100,
+                            "visible": true,
+                            "min_level": 0
+                        }
+                    ],
+                    "total": 1
+                },
+                "meta": {
+                    "api": "API-MEMBER-006",
+                    "version": "v1",
+                    "system": "member"
+                }
+            },
+            "notes": "头衔定义不是机密：隐藏头衔只是「不默认展示」，不是访问控制。真正的访问控制仍在权限系统。",
+            "changelog": [
+                "0.10.0 初次发布"
+            ],
+            "doc": "docs/api/API-MEMBER-006.md"
+        },
+        {
+            "id": "API-MEMBER-007",
+            "name": "定义头衔",
+            "system": "member",
+            "method": "POST",
+            "path": "/api/v1/member/title",
+            "operation": "member.title",
+            "auth": "admin",
+            "permission": "member.title.manage",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.10.0",
+            "summary": "站长自定义头衔：名称、描述、颜色、排序权重、是否展示、自动获得所需等级。",
+            "scenario": "新增「年度贡献者」徽章，或把「资深成员」改为 5 级自动获得。",
+            "params": [
+                {
+                    "name": "op",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "upsert（默认）/ delete"
+                },
+                {
+                    "name": "title_key",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "头衔标识，小写字母数字与 . _ -"
+                },
+                {
+                    "name": "name",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "展示名称，upsert 时必填"
+                },
+                {
+                    "name": "description",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "说明"
+                },
+                {
+                    "name": "color",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "颜色值，由主题决定如何用"
+                },
+                {
+                    "name": "priority",
+                    "in": "body",
+                    "required": false,
+                    "type": "int",
+                    "desc": "展示排序权重，越大越靠前"
+                },
+                {
+                    "name": "visible",
+                    "in": "body",
+                    "required": false,
+                    "type": "int",
+                    "desc": "1 展示 / 0 隐藏，默认 1"
+                },
+                {
+                    "name": "min_level",
+                    "in": "body",
+                    "required": false,
+                    "type": "int",
+                    "desc": "达到该等级自动获得；0 表示仅手动授予"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "title_key",
+                    "type": "string",
+                    "desc": "头衔标识"
+                },
+                {
+                    "name": "op",
+                    "type": "string",
+                    "desc": "执行的操作"
+                },
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "是否发生了变更"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "POST /api/v1/member/title  {\"title_key\":\"annual\",\"name\":\"年度贡献者\",\"color\":\"#8a5cf6\",\"min_level\":0}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "title_key": "annual",
+                    "op": "upsert",
+                    "changed": true
+                },
+                "meta": {
+                    "api": "API-MEMBER-007",
+                    "version": "v1",
+                    "system": "member"
+                }
+            },
+            "notes": "min_level > 0 时，达到等级的用户在读取档案时自动拥有该头衔，不写授予表；把门槛调高后自动消失，无需逐人回收。",
+            "changelog": [
+                "0.10.0 初次发布"
+            ],
+            "doc": "docs/api/API-MEMBER-007.md"
+        },
+        {
+            "id": "API-MEMBER-008",
+            "name": "授予或撤销头衔",
+            "system": "member",
+            "method": "POST",
+            "path": "/api/v1/member/title/grant",
+            "operation": "member.title.grant",
+            "auth": "admin",
+            "permission": "member.title.grant",
+            "idempotent": true,
+            "side_effects": "database",
+            "since": "0.10.0",
+            "summary": "把某个头衔授予用户或撤销；只写头衔关系，不触碰角色与许可。",
+            "scenario": "站长手动给某位作者挂上「站长」「贡献者」等身份标签。",
+            "params": [
+                {
+                    "name": "op",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "grant（默认）/ revoke"
+                },
+                {
+                    "name": "user_id",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "用户 ID 或用户名"
+                },
+                {
+                    "name": "title_key",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "头衔标识"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "user_id",
+                    "type": "string",
+                    "desc": "用户标识"
+                },
+                {
+                    "name": "title_key",
+                    "type": "string",
+                    "desc": "头衔标识"
+                },
+                {
+                    "name": "op",
+                    "type": "string",
+                    "desc": "执行的操作"
+                },
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "是否发生了变更"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "POST /api/v1/member/title/grant  {\"user_id\":\"1\",\"title_key\":\"founder\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "user_id": "1",
+                    "title_key": "founder",
+                    "op": "grant",
+                    "changed": true
+                },
+                "meta": {
+                    "api": "API-MEMBER-008",
+                    "version": "v1",
+                    "system": "member"
+                }
+            },
+            "notes": "关键安全边界：授予头衔不会改变该用户的任何权限决策。守卫 16b 用同一身份在授予前后各做一次 decide，断言结果完全一致。",
+            "changelog": [
+                "0.10.0 初次发布"
+            ],
+            "doc": "docs/api/API-MEMBER-008.md"
+        },
+        {
+            "id": "API-MEMBER-009",
+            "name": "查看等级表",
+            "system": "member",
+            "method": "GET",
+            "path": "/api/v1/member/levels",
+            "operation": "member.levels",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "read_only",
+            "since": "0.10.0",
+            "summary": "返回站长定义的等级门槛表，按经验阈值升序。",
+            "scenario": "主题渲染升级进度条刻度；控制台展示等级体系。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "levels",
+                    "type": "array",
+                    "desc": "等级条目：level / name / min_xp / color"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "等级数量"
+                }
+            ],
+            "errors": [
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/member/levels",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "levels": [
+                        {
+                            "level": 1,
+                            "name": "初来乍到",
+                            "min_xp": 0,
+                            "color": "#9aa4b2"
+                        }
+                    ],
+                    "total": 1
+                },
+                "meta": {
+                    "api": "API-MEMBER-009",
+                    "version": "v1",
+                    "system": "member"
+                }
+            },
+            "notes": "等级表是公开的：升级规则应当让用户看得见，隐藏门槛只会制造猜测。",
+            "changelog": [
+                "0.10.0 初次发布"
+            ],
+            "doc": "docs/api/API-MEMBER-009.md"
+        },
+        {
+            "id": "API-MEMBER-010",
+            "name": "定义等级",
+            "system": "member",
+            "method": "POST",
+            "path": "/api/v1/member/level",
+            "operation": "member.level",
+            "auth": "admin",
+            "permission": "member.level.manage",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.10.0",
+            "summary": "新增 / 修改等级门槛或删除等级；门槛重复会被拒绝。",
+            "scenario": "站长把等级从 5 级改成 8 级，或调整某一级的经验门槛。",
+            "params": [
+                {
+                    "name": "op",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "upsert（默认）/ delete"
+                },
+                {
+                    "name": "level",
+                    "in": "body",
+                    "required": true,
+                    "type": "int",
+                    "desc": "等级序号，≥ 1"
+                },
+                {
+                    "name": "name",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "等级名称，upsert 时必填"
+                },
+                {
+                    "name": "min_xp",
+                    "in": "body",
+                    "required": false,
+                    "type": "int",
+                    "desc": "进入该等级所需经验，≥ 0"
+                },
+                {
+                    "name": "color",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "等级颜色，由主题决定如何用"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "level",
+                    "type": "int",
+                    "desc": "等级序号"
+                },
+                {
+                    "name": "op",
+                    "type": "string",
+                    "desc": "执行的操作"
+                },
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "是否发生了变更"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40302,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "POST /api/v1/member/level  {\"level\":6,\"name\":\"传奇\",\"min_xp\":50000,\"color\":\"#8a5cf6\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "request_id": "1a2b3c4d5e6f7081",
+                "data": {
+                    "level": 6,
+                    "op": "upsert",
+                    "changed": true
+                },
+                "meta": {
+                    "api": "API-MEMBER-010",
+                    "version": "v1",
+                    "system": "member"
+                }
+            },
+            "notes": "改门槛不写用户档案：等级是「经验 + 门槛」的解释结果，下次读取自然按新表计算，因此不存在「升降级批处理」。删除某级后，落在该级的用户会按相邻等级重新解释。",
+            "changelog": [
+                "0.10.0 初次发布"
+            ],
+            "doc": "docs/api/API-MEMBER-010.md"
+        },
+        {
+            "id": "API-REL-001",
+            "name": "版本状态",
+            "system": "release",
+            "method": "GET",
+            "path": "/api/v1/release/status",
+            "operation": "release.status",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "none",
+            "since": "0.11.0",
+            "summary": "返回当前站点程序版本、迁移台账统计、待执行迁移、可回退快照与最近一次版本操作。",
+            "scenario": "升级前确认当前版本与数据库结构状态；回退前确认有哪些历史快照可用。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "version",
+                    "type": "string",
+                    "desc": "当前 core/version.json 的 SemVer 版本"
+                },
+                {
+                    "name": "schema",
+                    "type": "object",
+                    "desc": "已应用迁移数、批次总数、最新批次号"
+                },
+                {
+                    "name": "pending",
+                    "type": "array",
+                    "desc": "当前代码中存在但台账未记录的迁移 id"
+                },
+                {
+                    "name": "releases",
+                    "type": "array",
+                    "desc": "可回退的版本快照（按时间倒序）"
+                }
+            ],
+            "errors": [
+                40303,
+                42201,
+                50001
+            ],
+            "example_request": "GET /api/v1/release/status",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "version": "0.11.0",
+                    "released_at": "2026-11-09",
+                    "min_php": ">=8.1",
+                    "schema": {
+                        "applied": 12,
+                        "batches": 1,
+                        "latest": 1
+                    },
+                    "pending": [],
+                    "releases": [
+                        {
+                            "version": "0.10.0",
+                            "at": "2026-11-09T14:00:00+08:00"
+                        }
+                    ],
+                    "last": {
+                        "action": "upgrade",
+                        "from": "0.10.0",
+                        "to": "0.11.0",
+                        "result": "ok"
+                    }
+                },
+                "request_id": "9c1f0a7b2d3e4f56",
+                "meta": {
+                    "api": "API-REL-001",
+                    "version": "v1",
+                    "system": "release"
+                }
+            },
+            "notes": "只读接口：不写文件、不动数据库。pending 非空说明代码比台账新，通常在升级前出现。",
+            "changelog": [
+                "0.11.0 初次发布"
+            ],
+            "doc": "docs/api/API-REL-001.md",
+            "permission": "release.read"
+        },
+        {
+            "id": "API-REL-002",
+            "name": "版本历史",
+            "system": "release",
+            "method": "GET",
+            "path": "/api/v1/release/history",
+            "operation": "release.history",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "none",
+            "since": "0.11.0",
+            "summary": "返回最近的升级与回退记录，含每次应用的迁移、批次号与健康检查结果。",
+            "scenario": "排查「哪次升级改了什么」；回退前确认目标版本对应的批次。",
+            "params": [
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "required": false,
+                    "type": "int",
+                    "desc": "返回条数，默认 20"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "history",
+                    "type": "array",
+                    "desc": "按时间倒序的版本操作记录"
+                },
+                {
+                    "name": "history[].migrations",
+                    "type": "array",
+                    "desc": "该次操作应用或回退的迁移 id"
+                },
+                {
+                    "name": "history[].result",
+                    "type": "string",
+                    "desc": "ok / failed"
+                }
+            ],
+            "errors": [
+                40303,
+                42201
+            ],
+            "example_request": "GET /api/v1/release/history?limit=5",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "history": [
+                        {
+                            "at": "2026-11-09T14:00:00+08:00",
+                            "action": "upgrade",
+                            "from": "0.10.0",
+                            "to": "0.11.0",
+                            "batch": 1,
+                            "migrations": [
+                                "release/001_schema_migrations.sql"
+                            ],
+                            "result": "ok"
+                        }
+                    ]
+                },
+                "request_id": "1a2b3c4d5e6f7a8b",
+                "meta": {
+                    "api": "API-REL-002",
+                    "version": "v1",
+                    "system": "release"
+                }
+            },
+            "notes": "历史文件是 append-only 的 storage/releases/history.json；回退时用它确定要撤销哪些迁移。",
+            "changelog": [
+                "0.11.0 初次发布"
+            ],
+            "doc": "docs/api/API-REL-002.md",
+            "permission": "release.read"
+        },
+        {
+            "id": "API-REL-003",
+            "name": "升级预检",
+            "system": "release",
+            "method": "POST",
+            "path": "/api/v1/release/plan",
+            "operation": "release.plan",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "none",
+            "since": "0.11.0",
+            "summary": "只读计算：目标版本是否可升级、会执行哪些迁移、是否存在校验和冲突、迁移是否可逆。",
+            "scenario": "正式升级前先跑一次预检，把风险摆在明面上，避免「点了升级才发现迁移不可逆」。",
+            "params": [
+                {
+                    "name": "source",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "新版本包目录（绝对路径或项目内相对路径）"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "from",
+                    "type": "string",
+                    "desc": "当前版本"
+                },
+                {
+                    "name": "to",
+                    "type": "string",
+                    "desc": "目标版本"
+                },
+                {
+                    "name": "migrations.pending",
+                    "type": "array",
+                    "desc": "本次将执行的迁移 id"
+                },
+                {
+                    "name": "conflicts",
+                    "type": "array",
+                    "desc": "已执行脚本被改动导致的校验和冲突"
+                },
+                {
+                    "name": "reversible",
+                    "type": "bool",
+                    "desc": "本次新增迁移是否全部具备 down 脚本"
+                }
+            ],
+            "errors": [
+                40301,
+                40303,
+                40901,
+                42201
+            ],
+            "example_request": "POST /api/v1/release/plan  {\"source\":\"/srv/packages/wanxiang-0.12.0\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "from": "0.11.0",
+                    "to": "0.12.0",
+                    "migrations": {
+                        "pending": [
+                            "member/002_badges.sql"
+                        ],
+                        "total": 13
+                    },
+                    "conflicts": [],
+                    "reversible": true
+                },
+                "request_id": "2b3c4d5e6f7a8b9c",
+                "meta": {
+                    "api": "API-REL-003",
+                    "version": "v1",
+                    "system": "release"
+                }
+            },
+            "notes": "预检不写文件、不动数据库。reversible=false 时仍可升级，但之后无法自动回退数据库。",
+            "changelog": [
+                "0.11.0 初次发布"
+            ],
+            "doc": "docs/api/API-REL-003.md",
+            "permission": "release.upgrade"
+        },
+        {
+            "id": "API-REL-004",
+            "name": "执行升级",
+            "system": "release",
+            "method": "POST",
+            "path": "/api/v1/release/upgrade",
+            "operation": "release.upgrade",
+            "auth": "admin",
+            "idempotent": false,
+            "side_effects": "filesystem+database",
+            "since": "0.11.0",
+            "summary": "按「迁移 → 换文件 → 健康检查」顺序升级站点程序；任一步失败自动逆向回退并写入历史。",
+            "scenario": "不重装地迭代版本：上传新版本包，执行一次升级，失败自动回到原版本。",
+            "params": [
+                {
+                    "name": "source",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "新版本包目录"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "version",
+                    "type": "string",
+                    "desc": "升级后的版本"
+                },
+                {
+                    "name": "batch",
+                    "type": "int",
+                    "desc": "本次迁移所属批次，回退时按批次定位"
+                },
+                {
+                    "name": "migrations",
+                    "type": "array",
+                    "desc": "已执行的迁移 id"
+                },
+                {
+                    "name": "health",
+                    "type": "object",
+                    "desc": "健康检查逐项结果"
+                }
+            ],
+            "errors": [
+                40301,
+                40303,
+                40901,
+                40904,
+                42201,
+                50002,
+                50003
+            ],
+            "example_request": "POST /api/v1/release/upgrade  {\"source\":\"/srv/packages/wanxiang-0.12.0\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "version": "0.12.0",
+                    "from": "0.11.0",
+                    "batch": 2,
+                    "migrations": [
+                        "member/002_badges.sql"
+                    ],
+                    "health": {
+                        "ok": true,
+                        "checks": [
+                            {
+                                "name": "database",
+                                "ok": true
+                            }
+                        ]
+                    }
+                },
+                "request_id": "3c4d5e6f7a8b9c0d",
+                "meta": {
+                    "api": "API-REL-004",
+                    "version": "v1",
+                    "system": "release"
+                }
+            },
+            "notes": "成功后旧版本以快照形式保留；升级前必须先开启 release.allow_core_update 与 lifecycle.allow_core_update。健康检查失败会自动还原文件并回退已执行的迁移。",
+            "changelog": [
+                "0.11.0 初次发布"
+            ],
+            "doc": "docs/api/API-REL-004.md",
+            "permission": "release.upgrade"
+        },
+        {
+            "id": "API-REL-005",
+            "name": "回退到指定版本",
+            "system": "release",
+            "method": "POST",
+            "path": "/api/v1/release/rollback",
+            "operation": "release.rollback",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "filesystem+database",
+            "since": "0.11.0",
+            "summary": "把站点程序回退到历史版本：先校验迁移可逆，再换回旧文件，最后逆序执行 down 脚本。",
+            "scenario": "新版本上线后发现兼容性问题，回到上一个已知可用版本，且数据库一起回退。",
+            "params": [
+                {
+                    "name": "version",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "目标版本（必须存在快照）"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "version",
+                    "type": "string",
+                    "desc": "回退后的版本"
+                },
+                {
+                    "name": "from",
+                    "type": "string",
+                    "desc": "回退前的版本"
+                },
+                {
+                    "name": "reverted",
+                    "type": "array",
+                    "desc": "已撤销的迁移 id"
+                }
+            ],
+            "errors": [
+                40303,
+                40901,
+                40903,
+                42201,
+                50003,
+                50004
+            ],
+            "example_request": "POST /api/v1/release/rollback  {\"version\":\"0.11.0\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "version": "0.11.0",
+                    "from": "0.12.0",
+                    "reverted": [
+                        "member/002_badges.sql"
+                    ],
+                    "health": {
+                        "ok": true,
+                        "checks": []
+                    }
+                },
+                "request_id": "4d5e6f7a8b9c0d1e",
+                "meta": {
+                    "api": "API-REL-005",
+                    "version": "v1",
+                    "system": "release"
+                }
+            },
+            "notes": "缺少 down 脚本的迁移会让整批回退被拒（40903），绝不出现「代码退了库没退」。回退本身也会先留一份当前版本快照，可再次升回。",
+            "changelog": [
+                "0.11.0 初次发布"
+            ],
+            "doc": "docs/api/API-REL-005.md",
+            "permission": "release.rollback"
+        },
+        {
+            "id": "API-LC-009",
+            "name": "列出可回退版本",
+            "system": "lifecycle",
+            "method": "GET",
+            "path": "/api/v1/lifecycle/releases",
+            "operation": "lifecycle.releases",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.11.0",
+            "summary": "列出一个单元在版本仓库里的全部快照，供回退时选择目标版本。",
+            "scenario": "升级多次后需要回到更早的某个版本，而不是只能退一步。",
+            "params": [
+                {
+                    "name": "type",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元类型"
+                },
+                {
+                    "name": "slug",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "单元标识"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "releases",
+                    "type": "array",
+                    "desc": "按时间倒序的快照列表"
+                },
+                {
+                    "name": "releases[].version",
+                    "type": "string",
+                    "desc": "快照对应的版本"
+                },
+                {
+                    "name": "releases[].bytes",
+                    "type": "int",
+                    "desc": "快照占用字节数"
+                }
+            ],
+            "errors": [
+                40303,
+                40402,
+                42201
+            ],
+            "example_request": "GET /api/v1/lifecycle/releases?type=core&slug=core",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "releases": [
+                        {
+                            "version": "0.11.0",
+                            "at": "2026-11-09T14:00:00+08:00",
+                            "bytes": 184320
+                        },
+                        {
+                            "version": "0.10.0",
+                            "at": "2026-11-08T10:00:00+08:00",
+                            "bytes": 181760
+                        }
+                    ]
+                },
+                "request_id": "5e6f7a8b9c0d1e2f",
+                "meta": {
+                    "api": "API-LC-009",
+                    "version": "v1",
+                    "system": "lifecycle"
+                }
+            },
+            "notes": "快照保留份数由 lifecycle.keep_releases 控制（默认 5）；只读接口，不触发任何文件操作。",
+            "changelog": [
+                "0.11.0 初次发布"
+            ],
+            "doc": "docs/api/API-LC-009.md",
+            "permission": "lifecycle.read"
+        }
+    ]
+}

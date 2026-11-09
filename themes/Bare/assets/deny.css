@@ -1,0 +1,35 @@
+/* deny 布局样式 —— 归主题包所有，框架与独立页不得持有任何 CSS */
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 0 1rem 3rem;
+  font: 15px/1.65 -apple-system, "Segoe UI", "Noto Sans CJK SC", sans-serif;
+  color: #2b2f36; background: #f6f7f9;
+}
+.bar {
+  display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap;
+  padding: 1rem 0; margin-bottom: 1.4rem; border-bottom: 2px solid #b4443c;
+}
+.bar strong { font-size: 1.15rem; color: #8f322c; }
+.hint { color: #7a818c; font-size: .85rem; }
+main { max-width: 760px; margin: 0 auto; }
+.blk {
+  background: #fff; border: 1px solid #e3e6ea; border-left: 3px solid #b4443c;
+  border-radius: 6px; padding: .9rem 1.1rem; margin-bottom: 1rem;
+}
+.blk h2 { margin: 0 0 .6rem; font-size: 1rem; color: #8f322c; }
+.blk p, .blk .hint { margin: .35rem 0; color: #4a515c; }
+.row { display: flex; gap: .5rem; flex-wrap: wrap; }
+.row input, .row textarea {
+  padding: .45rem .6rem; border: 1px solid #ccd2da; border-radius: 4px; font: inherit;
+}
+.row button {
+  padding: .45rem .9rem; border: 0; border-radius: 4px; cursor: pointer;
+  background: #b4443c; color: #fff; font: inherit;
+}
+table { width: 100%; border-collapse: collapse; }
+table th, table td { padding: .35rem .5rem; text-align: left; border-bottom: 1px solid #edf0f3; }
+table th { width: 7rem; color: #6a727e; font-weight: 500; }
+td.warn { color: #b4443c; }
+td.ok { color: #2e7d5b; }
+pre { margin: 0; white-space: pre-wrap; word-break: break-all; }

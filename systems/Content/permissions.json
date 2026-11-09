@@ -1,0 +1,10 @@
+{
+  "system": "content",
+  "permissions": [
+    {"name": "content.read", "description": "读取文章（含受限状态，受资源 ACL 约束）"},
+    {"name": "content.create", "description": "创建文章"},
+    {"name": "content.edit", "description": "编辑文章"},
+    {"name": "content.publish", "description": "发布 / 变更文章状态"},
+    {"name": "content.delete", "description": "删除文章"}
+  ]
+}

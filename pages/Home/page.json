@@ -1,0 +1,17 @@
+{
+    "slug": "home",
+    "class": "Wx\\Pages\\Home\\HomePage",
+    "version": "0.2.0",
+    "priority": 10,
+    "enabled": true,
+    "layout": "site",
+    "routes": [
+        "/"
+    ],
+    "_note": "首页同样是独立页包：只声明 site 布局槽位并产出数据，不持有任何标签或样式；v0.8 起访问策略由 access 段声明，裁决统一走权限契约",
+    "access": {
+        "auth": "public",
+        "deny_layout": "deny",
+        "_note": "公开页：无需身份，策略仍显式声明，避免「漏写就默认公开」"
+    }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "plugin",
+  "class": "Wx\\Systems\\Plugin\\PluginSystem",
+  "version": "0.1.0",
+  "requires": ["log"],
+  "priority": 40,
+  "enabled": true
+}

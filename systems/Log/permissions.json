@@ -1,0 +1,6 @@
+{
+  "system": "log",
+  "permissions": [
+    {"name": "logs.read", "description": "查询系统日志"}
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "system": "page",
+  "permissions": [
+    {"name": "page.console.read", "description": "访问站点控制台页面"},
+    {"name": "page.toolbox.use", "description": "访问工具页"},
+    {"name": "page.install.run", "description": "访问安装向导（另需本机来源）"}
+  ]
+}

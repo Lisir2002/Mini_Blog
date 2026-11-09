@@ -1,0 +1,9 @@
+{
+  "_comment": "业务职权域关键字表。策略是数据而非代码，避免审计器自审时把字面量误判为自身职权。",
+  "persistence": ["->query('", "->query(\"", "->exec('", "->exec(\"", "->pdo()", "select ", "insert into", "update ", "delete from", "create table", "new pdo"],
+  "filesystem": ["copydir", "removedir", "file_put_contents", "realpath", "hash_file", "is_dir(", "glob(", "mkdir(", "unlink(", "scandir("],
+  "rendering": ["<?=", "<html", "<style", "ob_start", "include $this->", "->render("],
+  "security": ["hash_hmac", "hash_equals", "hash('sha256'", "password_", "csrf", "authenticate(", "->escape(", "signature.json", "authorization"],
+  "validation": ["preg_match(", "'required'", "invalid_type", "validateparams", "errors[]"],
+  "http": ["request $request", "response $response", "content-type", "setheader(", "->status(", "->method()", "->path()", "clientip("]
+}

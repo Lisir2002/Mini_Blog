@@ -1,0 +1,18 @@
+{
+    "slug": "toolbox",
+    "class": "Wx\\Pages\\Toolbox\\ToolboxPage",
+    "version": "0.2.0",
+    "priority": 40,
+    "enabled": true,
+    "layout": "tool",
+    "routes": [
+        "/toolbox"
+    ],
+    "_note": "工具页声明 tool 布局槽位；是否呈现、呈现成什么样完全由主题包决定；v0.8 起访问策略由 access 段声明，裁决统一走权限契约",
+    "access": {
+        "auth": "admin",
+        "permission": "page.toolbox.use",
+        "deny_layout": "deny",
+        "_note": "工具页：需管理员级别与独立权限点，级别与权限双重裁决"
+    }
+}

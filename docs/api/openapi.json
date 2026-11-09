@@ -1,0 +1,4770 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "万象 · 博客框架 API",
+        "version": "v1",
+        "description": "由 api/registry.json 生成。统一信封、稳定 operationId、operation 级安全声明、机器可读错误码。"
+    },
+    "servers": [
+        {
+            "url": "/",
+            "description": "当前站点"
+        }
+    ],
+    "paths": {
+        "/api/v1/auth/token": {
+            "post": {
+                "operationId": "auth.token",
+                "summary": "签发访问令牌",
+                "description": "校验用户名与口令后签发落库令牌：库内只存 SHA-256 摘要，明文令牌仅在本次响应中出现一次，并带过期时间与撤销标记。\n\n适用场景：管理后台登录、CLI 运维脚本取得 admin 令牌；后续受保护接口以 Authorization: Bearer 携带。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "user"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "写接口未开放公网访问",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "幂等键重放参数不一致",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "501": {
+                        "description": "接口已登记但执行者未实现",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "username",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "username": {
+                                        "type": "string",
+                                        "description": "用户名"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "description": "明文口令，仅本次请求出现，不落日志"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/comments": {
+            "get": {
+                "operationId": "comments.list",
+                "summary": "查询文章评论",
+                "description": "按文章 slug 返回评论列表（过滤垃圾评论），数据来自 CommentStoreInterface 的 MySQL 或内存实现。\n\n适用场景：文章详情页渲染评论区；Headless 客户端拉取评论。",
+                "tags": [
+                    "comment"
+                ],
+                "parameters": [
+                    {
+                        "name": "post_slug",
+                        "in": "query",
+                        "required": true,
+                        "description": "文章 slug",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "comments.add",
+                "summary": "提交评论",
+                "description": "经 comment.before_save 钩子补时间戳与状态后写入评论，默认待审核（pending）。\n\n适用场景：访客在文章页提交评论；Headless 客户端代提交。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "comment"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "写接口未开放公网访问",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "幂等键重放参数不一致",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "post_slug",
+                                    "body"
+                                ],
+                                "properties": {
+                                    "post_slug": {
+                                        "type": "string",
+                                        "description": "所属文章 slug"
+                                    },
+                                    "body": {
+                                        "type": "string",
+                                        "description": "评论内容，不能为空"
+                                    },
+                                    "author": {
+                                        "type": "string",
+                                        "description": "署名"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/content/posts": {
+            "get": {
+                "operationId": "content.posts",
+                "summary": "查询文章列表（游标分页）",
+                "description": "按 keyset 游标分页返回文章列表，支持状态过滤与关键词检索；数据来自 ContentRepositoryInterface（MySQL 或回退适配器）。\n\n适用场景：博客首页 / 归档页取数据；Headless 站点对外提供文章 API；深翻页用 next_cursor 而非 OFFSET。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "每页条数 1-100，默认取 config.content.per_page",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "上一页返回的 next_cursor（base64 编码的记录 ID）",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "description": "published / draft / any，默认 published",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "keyword",
+                        "in": "query",
+                        "required": false,
+                        "description": "标题或正文模糊匹配",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "content.create",
+                "summary": "创建文章",
+                "description": "经 content.before_save 业务钩子补默认字段后写入文章；slug 缺省时自动生成，非法 slug / 空标题 / 空正文返回 42201。\n\n适用场景：控制台或写作客户端发布新文章；批量导入时配合 Idempotency-Key 防重复提交。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "幂等键重放参数不一致",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "title",
+                                    "body"
+                                ],
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "description": "文章标题"
+                                    },
+                                    "body": {
+                                        "type": "string",
+                                        "description": "文章正文"
+                                    },
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "唯一标识，缺省自动生成 post-时间戳-随机串"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "description": "published / draft，默认 published"
+                                    },
+                                    "author": {
+                                        "type": "string",
+                                        "description": "作者署名"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/content/post": {
+            "get": {
+                "operationId": "content.post",
+                "summary": "查询单篇文章",
+                "description": "按 slug 返回一篇文章的完整正文与元数据。\n\n适用场景：文章详情页；静态生成器按 slug 抓取内容。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "query",
+                        "required": true,
+                        "description": "文章唯一标识（小写字母、数字、连字符）",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/content/stats": {
+            "get": {
+                "operationId": "content.stats",
+                "summary": "查询文章统计",
+                "description": "返回已发布文章数与全部文章数（含草稿）。\n\n适用场景：控制台仪表盘、站点地图生成前的容量评估。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system/info": {
+            "get": {
+                "operationId": "system.info",
+                "summary": "查询站点与内核元信息",
+                "description": "返回框架版本、PHP 版本、已装配系统层数量、当前主题与是否处于零呈现模式。\n\n适用场景：用于健康检查、部署后冒烟验证、以及在无主题 Headless 模式下确认框架仍可用。",
+                "tags": [
+                    "core"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system/contracts": {
+            "get": {
+                "operationId": "system.contracts",
+                "summary": "查询契约绑定清单",
+                "description": "列出当前容器内所有已绑定的契约，以及发生过覆盖替换的记录。\n\n适用场景：排查「某个能力被谁接管了」；验证站长自定义实现是否成功覆盖自带实现。",
+                "tags": [
+                    "core"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system/layers": {
+            "get": {
+                "operationId": "system.layers",
+                "summary": "查询系统层装配顺序",
+                "description": "返回本次启动的拓扑装配顺序与已发现的系统层清单。\n\n适用场景：新增系统层后验证依赖排序是否生效；定位「契约未实现」类故障。",
+                "tags": [
+                    "core"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system/health": {
+            "get": {
+                "operationId": "system.health",
+                "summary": "健康检查与安装环境探测",
+                "description": "返回数据库连通状态、已建表清单、系统层数量与当前主题，供安装向导和控制台使用。\n\n适用场景：部署后冒烟验证；安装向导判断是否已连上 MySQL 并完成建表；控制台展示环境状态。",
+                "tags": [
+                    "core"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/lifecycle/units": {
+            "get": {
+                "operationId": "lifecycle.units",
+                "summary": "列出全部装卸单元",
+                "description": "扫描 core / system / theme / plugin / page 五类目录，返回每个单元的版本、状态与备份情况。\n\n适用场景：升级前盘点全站单元；确认某主题或插件是被停用还是未安装。",
+                "tags": [
+                    "lifecycle"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/lifecycle/install": {
+            "post": {
+                "operationId": "lifecycle.install",
+                "summary": "安装单元",
+                "description": "把源包经暂存区校验后安装到对应类型目录，状态由 absent 转为 installed。\n\n适用场景：上传并接入一个新插件 / 主题 / 独立页 / 系统层；安装后还需调用 activate 才会装载。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "lifecycle"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "type",
+                                    "source"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "description": "system | theme | plugin | page（core 不可安装，只能升级）"
+                                    },
+                                    "source": {
+                                        "type": "string",
+                                        "description": "源包目录，必须位于站点根目录内"
+                                    },
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "单元标识；缺省时取包清单的 slug"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/lifecycle/activate": {
+            "post": {
+                "operationId": "lifecycle.activate",
+                "summary": "启用单元",
+                "description": "把已安装单元状态由 installed 转为 active，使其在下次装配中被装载。\n\n适用场景：安装完插件后启用；重新启用此前被停用的主题或独立页。",
+                "tags": [
+                    "lifecycle"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "装卸单元不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "type",
+                                    "slug"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "description": "单元类型"
+                                    },
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "单元标识"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/lifecycle/deactivate": {
+            "post": {
+                "operationId": "lifecycle.deactivate",
+                "summary": "停用单元",
+                "description": "把 active 单元转为 installed，保留文件与数据但不再装载。\n\n适用场景：临时关闭出问题的插件；排查故障时不删除文件与配置。",
+                "tags": [
+                    "lifecycle"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "装卸单元不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "type",
+                                    "slug"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "description": "单元类型"
+                                    },
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "单元标识"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/lifecycle/upgrade": {
+            "post": {
+                "operationId": "lifecycle.upgrade",
+                "summary": "升级单元",
+                "description": "校验版本递增后备份当前单元，经暂存区替换文件并触发 on_upgrade 迁移钩子。\n\n适用场景：升级插件、主题、独立页、系统层，以及（显式开启后）站点程序 core 本体。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "lifecycle"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "装卸单元不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "type",
+                                    "slug",
+                                    "source"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "description": "单元类型；core 需 config.lifecycle.allow_core_update=true"
+                                    },
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "单元标识"
+                                    },
+                                    "source": {
+                                        "type": "string",
+                                        "description": "新版本源包目录"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/lifecycle/uninstall": {
+            "delete": {
+                "operationId": "lifecycle.uninstall",
+                "summary": "卸载单元",
+                "description": "执行反向依赖检查后触发 on_uninstall 清理钩子并删除单元目录，状态回到 absent。\n\n适用场景：彻底移除不再使用的插件 / 主题 / 独立页，并清理其自建数据表与配置。",
+                "tags": [
+                    "lifecycle"
+                ],
+                "parameters": [
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": true,
+                        "description": "单元类型；core 不可卸载",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "slug",
+                        "in": "query",
+                        "required": true,
+                        "description": "单元标识",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/lifecycle/rollback": {
+            "post": {
+                "operationId": "lifecycle.rollback",
+                "summary": "回滚单元",
+                "description": "把单元恢复到指定版本快照；省略版本时回到最近一个历史快照。\n\n适用场景：升级后出现兼容性问题，快速退回上一版本而不必重装。",
+                "tags": [
+                    "lifecycle"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "type",
+                                    "slug"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "description": "单元类型"
+                                    },
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "单元标识"
+                                    },
+                                    "version": {
+                                        "type": "string",
+                                        "description": "目标版本；省略时回到最近一个非当前版本快照"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/lifecycle/verify": {
+            "get": {
+                "operationId": "lifecycle.verify",
+                "summary": "校验单元完整性",
+                "description": "按包内 manifest.sha256 清单比对单元目录文件的 SHA-256 摘要。\n\n适用场景：升级前后做完整性核对；排查文件被篡改或传输损坏。",
+                "tags": [
+                    "lifecycle"
+                ],
+                "parameters": [
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": true,
+                        "description": "单元类型",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "slug",
+                        "in": "query",
+                        "required": true,
+                        "description": "单元标识",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "装卸单元不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/logs/query": {
+            "get": {
+                "operationId": "logs.query",
+                "summary": "查询日志",
+                "description": "按日期读取日志系统落盘的日志行尾部若干条。\n\n适用场景：在零呈现 / Headless 模式下排查装卸操作与内核 trace，无需登录后台界面。",
+                "tags": [
+                    "log"
+                ],
+                "parameters": [
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "required": false,
+                        "description": "YYYY-MM-DD，默认当天",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "返回条数，1-200，默认 20",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/users/me": {
+            "get": {
+                "operationId": "users.me",
+                "summary": "查询当前调用身份",
+                "description": "返回分发器鉴权后注入的身份信息，用于确认当前令牌对应的用户、角色与令牌来源。\n\n适用场景：控制台确认登录态；排查「令牌有效但角色不足」类权限问题。",
+                "tags": [
+                    "user"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/permission/catalog": {
+            "get": {
+                "operationId": "permission.catalog",
+                "summary": "权限点清单",
+                "description": "汇总各系统层 permissions.json 自报的全部权限点。核心与权限层都不硬编码具体权限名。\n\n适用场景：后台权限配置页、插件开发时查询可声明的操作点。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "501": {
+                        "description": "接口已登记但执行者未实现",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/permission/check": {
+            "get": {
+                "operationId": "permission.check",
+                "summary": "权限决策查询",
+                "description": "对指定主体与动作做一次决策，返回三态结果。匿名或 abstain 一律 allowed=false（fail-closed）。\n\n适用场景：前端预检按钮是否可用、运维排查「为什么这个操作被拒」。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [
+                    {
+                        "name": "action",
+                        "in": "query",
+                        "required": true,
+                        "description": "权限点名称，如 content.delete",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "resource_type",
+                        "in": "query",
+                        "required": false,
+                        "description": "资源类型，如 post",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "resource_id",
+                        "in": "query",
+                        "required": false,
+                        "description": "资源标识，如文章 slug",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "field",
+                        "in": "query",
+                        "required": false,
+                        "description": "资源字段（如 body / title）；留空只应用整资源级 ACL，指定后字段级条目精确匹配",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/permission/roles": {
+            "get": {
+                "operationId": "permission.roles",
+                "summary": "角色与授权清单",
+                "description": "列出角色、直接父角色、祖先链与继承展开后的有效许可。\n\n适用场景：管理员查看当前授权配置。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/permission/grants": {
+            "post": {
+                "operationId": "permission.grant",
+                "summary": "授予角色许可",
+                "description": "给角色追加一条许可。重复授予幂等，不报错。\n\n适用场景：把自定义角色接入新系统层的能力。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "幂等键重放参数不一致",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "role",
+                                    "permission"
+                                ],
+                                "properties": {
+                                    "role": {
+                                        "type": "string",
+                                        "description": "角色名"
+                                    },
+                                    "permission": {
+                                        "type": "string",
+                                        "description": "权限点，支持 * 与 content.* 前缀"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "permission.revoke",
+                "summary": "撤销角色许可",
+                "description": "撤销角色的某条许可，立即影响后续决策。\n\n适用场景：收回误授的权限、撤销 admin 的通配许可。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [
+                    {
+                        "name": "role",
+                        "in": "query",
+                        "required": true,
+                        "description": "角色名",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "permission",
+                        "in": "query",
+                        "required": true,
+                        "description": "要撤销的权限点",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/permission/acl": {
+            "post": {
+                "operationId": "permission.acl.set",
+                "summary": "设置资源 ACL",
+                "description": "对单个资源（或资源的某个字段）设置显式放行或显式拒绝，实现客体级权限。\n\n适用场景：把某篇草稿设为私有、禁止某角色删除某篇文章。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "幂等键重放参数不一致",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "id"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "description": "资源类型，默认 post"
+                                    },
+                                    "id": {
+                                        "type": "string",
+                                        "description": "资源标识，如文章 slug"
+                                    },
+                                    "subject": {
+                                        "type": "string",
+                                        "description": "主体：* / role:admin / user:3，默认 *"
+                                    },
+                                    "capability": {
+                                        "type": "string",
+                                        "description": "能力或权限点，默认 *"
+                                    },
+                                    "allow": {
+                                        "type": "boolean",
+                                        "description": "true 放行 / false 显式拒绝"
+                                    },
+                                    "field": {
+                                        "type": "string",
+                                        "description": "字段级维度（如 body）；留空表示整资源级，对任意请求生效"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "get": {
+                "operationId": "permission.acl.list",
+                "summary": "资源 ACL 清单",
+                "description": "列出资源级授权记录。\n\n适用场景：审计「哪些文章被单独设了权限」。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/permission/decisions": {
+            "get": {
+                "operationId": "permission.decisions",
+                "summary": "权限决策留痕",
+                "description": "读取最近权限决策留痕，用于审计与「为什么被拒」的排查。\n\n适用场景：安全审计、故障复盘。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/permission/role/tree": {
+            "get": {
+                "operationId": "permission.role.tree",
+                "summary": "查询角色继承图",
+                "description": "返回全部角色的直接父角色、祖先链与继承展开后的有效许可，以及继承深度上限与展开告警。\n\n适用场景：后台权限配置页展示角色继承关系；排查「某角色为什么有这个权限」。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/permission/role/parent": {
+            "post": {
+                "operationId": "permission.role.parent",
+                "summary": "设置或移除角色父级",
+                "description": "声明一个角色继承另一个角色；写入前拒绝自环、成环与深度超限，并立即失效决策缓存。\n\n适用场景：让「高级编辑」继承「编辑」再继承「作者」，避免逐角色重复授权。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "幂等键重放参数不一致",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "role",
+                                    "parent"
+                                ],
+                                "properties": {
+                                    "role": {
+                                        "type": "string",
+                                        "description": "子角色名"
+                                    },
+                                    "parent": {
+                                        "type": "string",
+                                        "description": "父角色名"
+                                    },
+                                    "remove": {
+                                        "type": "boolean",
+                                        "description": "true 表示移除该继承关系"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/permission/overrides": {
+            "get": {
+                "operationId": "permission.overrides",
+                "summary": "契约覆盖授权台账对账",
+                "description": "把装配期实际发生的契约覆盖与运行时授权台账逐条对账，标出未授权覆盖。\n\n适用场景：排查「某个契约为什么被替换了」；开启 require_grant 前先确认现有覆盖是否已登记授权。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/permission/override/grant": {
+            "post": {
+                "operationId": "permission.override.grant",
+                "summary": "登记或撤销契约覆盖授权",
+                "description": "以运行时身份登记「允许某 owner 覆盖某契约」的授权，或将其撤销；授权是装配期覆盖放行的前提。\n\n适用场景：站长在启用 require_grant 前，先把主题 / 插件的合法契约替换逐条登记，避免升级后启动失败。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "contract",
+                                    "owner"
+                                ],
+                                "properties": {
+                                    "contract": {
+                                        "type": "string",
+                                        "description": "契约接口全限定名，如 Wx\\Contracts\\LoggerInterface"
+                                    },
+                                    "owner": {
+                                        "type": "string",
+                                        "description": "覆盖者标识，必须与 Container::bind() 的 owner 一致"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "description": "登记原因，写入台账供审计"
+                                    },
+                                    "remove": {
+                                        "type": "boolean",
+                                        "description": "true 表示撤销该授权（active=0，保留记录）"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/auth/session": {
+            "post": {
+                "operationId": "auth.session.create",
+                "summary": "创建页面会话",
+                "description": "校验用户名与口令后签发会话令牌，并以 HttpOnly + SameSite=Lax 的 Cookie 下发；响应体不返回令牌明文。\n\n适用场景：浏览器登录后台：一次登录后页面 GET 自动携带会话，无需前端保存 Bearer 令牌。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "security"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "写接口未开放公网访问",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "501": {
+                        "description": "接口已登记但执行者未实现",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "username",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "username": {
+                                        "type": "string",
+                                        "description": "用户名"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "description": "明文口令，仅本次请求出现，不落日志"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "operationId": "auth.session.current",
+                "summary": "查询当前会话",
+                "description": "返回当前令牌对应的身份与令牌元数据（类型、过期时间、签发时间），不回显令牌本身。\n\n适用场景：后台判断「当前登录是谁、会话还剩多久」；排查某个会话是浏览器会话还是脚本令牌。",
+                "tags": [
+                    "security"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "auth.session.revoke",
+                "summary": "撤销当前会话",
+                "description": "撤销当前请求所用令牌；若它是会话令牌则同时清除 wx_session Cookie。\n\n适用场景：后台退出登录；设备丢失时远程吊销浏览器会话。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "security"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/permission/groups": {
+            "get": {
+                "operationId": "permission.groups",
+                "summary": "列出主体分组",
+                "description": "列出全部分组、每组绑定的角色与成员，用于排查「某人为什么有这个权限」。\n\n适用场景：后台权限页展示用户组；排查组成员关系导致的授权来源。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/permission/group": {
+            "post": {
+                "operationId": "permission.group",
+                "summary": "管理主体分组",
+                "description": "创建 / 删除分组，或增删分组的角色绑定与成员；每次写入立即失效权限缓存。\n\n适用场景：把「运营」组绑定 editor 角色，成员加入后即获得编辑权限；离组即失去。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "permission"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "op",
+                                    "group"
+                                ],
+                                "properties": {
+                                    "op": {
+                                        "type": "string",
+                                        "description": "upsert / delete / add_role / remove_role / add_member / remove_member"
+                                    },
+                                    "group": {
+                                        "type": "string",
+                                        "description": "分组标识，小写字母数字与 ._-"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "description": "显示名（upsert 用）"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "description": "说明（upsert 用）"
+                                    },
+                                    "role": {
+                                        "type": "string",
+                                        "description": "角色名（add_role / remove_role 必填）"
+                                    },
+                                    "color": {
+                                        "type": "string",
+                                        "description": "组颜色，仅用于展示"
+                                    },
+                                    "sort": {
+                                        "type": "integer",
+                                        "description": "展示排序，越小越靠前"
+                                    },
+                                    "subject": {
+                                        "type": "string",
+                                        "description": "成员，形如 user:3（add_member / remove_member 必填）"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/content/post/update": {
+            "post": {
+                "operationId": "content.update",
+                "summary": "按字段更新文章",
+                "description": "按 slug 更新 title / body / status；每个字段单独做一次字段级授权，任一字段非 allow 则整次写入被拒。\n\n适用场景：作者改自己的文章；编辑只能改标题不能改正文这类字段级限制。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "slug"
+                                ],
+                                "properties": {
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "文章唯一标识"
+                                    },
+                                    "title": {
+                                        "type": "string",
+                                        "description": "新标题"
+                                    },
+                                    "body": {
+                                        "type": "string",
+                                        "description": "新正文（同时刷新摘要）"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "description": "published / draft / private / pending"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/member/profile": {
+            "get": {
+                "operationId": "member.profile",
+                "summary": "读取成员档案",
+                "description": "返回指定用户的经验余额、等级、升级进度与头衔；省略 user_id 时读取当前身份。\n\n适用场景：主题在文章页展示作者等级徽章与头衔；控制台展示「我的成长」。",
+                "tags": [
+                    "member"
+                ],
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "required": false,
+                        "description": "用户 ID 或用户名；匿名请求必填，携带身份时可省略",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/member/leaderboard": {
+            "get": {
+                "operationId": "member.leaderboard",
+                "summary": "经验排行榜",
+                "description": "按经验降序返回成员排行，含名次、等级与公开身份字段。\n\n适用场景：站点侧边栏「活跃成员」、独立页的贡献榜。",
+                "tags": [
+                    "member"
+                ],
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "返回条数，默认 20，最大 100",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "description": "偏移量，默认 0",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/member/xp/award": {
+            "post": {
+                "operationId": "member.xp.award",
+                "summary": "发放经验",
+                "description": "为指定用户发放经验：按 event_key 幂等、按动作每日上限截断、跨门槛自动升级。\n\n适用场景：插件在用户完成业务动作后回调发经验；站长手动补发或调整。",
+                "tags": [
+                    "member"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "user_id",
+                                    "action",
+                                    "event_key"
+                                ],
+                                "properties": {
+                                    "user_id": {
+                                        "type": "string",
+                                        "description": "用户 ID 或用户名"
+                                    },
+                                    "action": {
+                                        "type": "string",
+                                        "description": "经验动作，如 post.publish；需匹配经验规则"
+                                    },
+                                    "event_key": {
+                                        "type": "string",
+                                        "description": "业务事件唯一键，重放不会重复加分"
+                                    },
+                                    "amount": {
+                                        "type": "integer",
+                                        "description": "显式经验值；省略时取规则配置，仍受每日上限约束"
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "description": "备注，写入流水"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/member/xp/rules": {
+            "get": {
+                "operationId": "member.xp.rules",
+                "summary": "查看经验规则",
+                "description": "列出全部经验规则：单次经验、每日上限、启停状态与说明。\n\n适用场景：站长在后台核对哪些动作会产生经验、每天最多拿多少。",
+                "tags": [
+                    "member"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/member/xp/rule": {
+            "post": {
+                "operationId": "member.xp.rule",
+                "summary": "定义经验规则",
+                "description": "新增或修改一条经验规则（op=upsert），或删除规则（op=delete）。\n\n适用场景：站长把「发布文章」从 50 调到 80，或关闭评论经验。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "member"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "action"
+                                ],
+                                "properties": {
+                                    "op": {
+                                        "type": "string",
+                                        "description": "upsert（默认）/ delete"
+                                    },
+                                    "action": {
+                                        "type": "string",
+                                        "description": "经验动作标识"
+                                    },
+                                    "amount": {
+                                        "type": "integer",
+                                        "description": "单次经验，upsert 时必填且 > 0"
+                                    },
+                                    "daily_cap": {
+                                        "type": "integer",
+                                        "description": "每日上限，0 表示不限"
+                                    },
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "description": "是否启用，默认 true"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "description": "规则说明"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/member/titles": {
+            "get": {
+                "operationId": "member.titles",
+                "summary": "查看头衔目录",
+                "description": "返回站长定义的头衔目录；默认只含 visible=1 的条目，include_hidden 可查看全部。\n\n适用场景：主题渲染头衔徽章样式表；控制台展示可选头衔。",
+                "tags": [
+                    "member"
+                ],
+                "parameters": [
+                    {
+                        "name": "include_hidden",
+                        "in": "query",
+                        "required": false,
+                        "description": "是否包含隐藏头衔，默认 false",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/member/title": {
+            "post": {
+                "operationId": "member.title",
+                "summary": "定义头衔",
+                "description": "站长自定义头衔：名称、描述、颜色、排序权重、是否展示、自动获得所需等级。\n\n适用场景：新增「年度贡献者」徽章，或把「资深成员」改为 5 级自动获得。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "member"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "title_key"
+                                ],
+                                "properties": {
+                                    "op": {
+                                        "type": "string",
+                                        "description": "upsert（默认）/ delete"
+                                    },
+                                    "title_key": {
+                                        "type": "string",
+                                        "description": "头衔标识，小写字母数字与 . _ -"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "description": "展示名称，upsert 时必填"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "description": "说明"
+                                    },
+                                    "color": {
+                                        "type": "string",
+                                        "description": "颜色值，由主题决定如何用"
+                                    },
+                                    "priority": {
+                                        "type": "integer",
+                                        "description": "展示排序权重，越大越靠前"
+                                    },
+                                    "visible": {
+                                        "type": "integer",
+                                        "description": "1 展示 / 0 隐藏，默认 1"
+                                    },
+                                    "min_level": {
+                                        "type": "integer",
+                                        "description": "达到该等级自动获得；0 表示仅手动授予"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/member/title/grant": {
+            "post": {
+                "operationId": "member.title.grant",
+                "summary": "授予或撤销头衔",
+                "description": "把某个头衔授予用户或撤销；只写头衔关系，不触碰角色与许可。\n\n适用场景：站长手动给某位作者挂上「站长」「贡献者」等身份标签。",
+                "tags": [
+                    "member"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "user_id",
+                                    "title_key"
+                                ],
+                                "properties": {
+                                    "op": {
+                                        "type": "string",
+                                        "description": "grant（默认）/ revoke"
+                                    },
+                                    "user_id": {
+                                        "type": "string",
+                                        "description": "用户 ID 或用户名"
+                                    },
+                                    "title_key": {
+                                        "type": "string",
+                                        "description": "头衔标识"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/member/levels": {
+            "get": {
+                "operationId": "member.levels",
+                "summary": "查看等级表",
+                "description": "返回站长定义的等级门槛表，按经验阈值升序。\n\n适用场景：主题渲染升级进度条刻度；控制台展示等级体系。",
+                "tags": [
+                    "member"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/member/level": {
+            "post": {
+                "operationId": "member.level",
+                "summary": "定义等级",
+                "description": "新增 / 修改等级门槛或删除等级；门槛重复会被拒绝。\n\n适用场景：站长把等级从 5 级改成 8 级，或调整某一级的经验门槛。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "member"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "level"
+                                ],
+                                "properties": {
+                                    "op": {
+                                        "type": "string",
+                                        "description": "upsert（默认）/ delete"
+                                    },
+                                    "level": {
+                                        "type": "integer",
+                                        "description": "等级序号，≥ 1"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "description": "等级名称，upsert 时必填"
+                                    },
+                                    "min_xp": {
+                                        "type": "integer",
+                                        "description": "进入该等级所需经验，≥ 0"
+                                    },
+                                    "color": {
+                                        "type": "string",
+                                        "description": "等级颜色，由主题决定如何用"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/release/status": {
+            "get": {
+                "operationId": "release.status",
+                "summary": "版本状态",
+                "description": "返回当前站点程序版本、迁移台账统计、待执行迁移、可回退快照与最近一次版本操作。\n\n适用场景：升级前确认当前版本与数据库结构状态；回退前确认有哪些历史快照可用。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "release"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/release/history": {
+            "get": {
+                "operationId": "release.history",
+                "summary": "版本历史",
+                "description": "返回最近的升级与回退记录，含每次应用的迁移、批次号与健康检查结果。\n\n适用场景：排查「哪次升级改了什么」；回退前确认目标版本对应的批次。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "release"
+                ],
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "返回条数，默认 20",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/release/plan": {
+            "post": {
+                "operationId": "release.plan",
+                "summary": "升级预检",
+                "description": "只读计算：目标版本是否可升级、会执行哪些迁移、是否存在校验和冲突、迁移是否可逆。\n\n适用场景：正式升级前先跑一次预检，把风险摆在明面上，避免「点了升级才发现迁移不可逆」。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "release"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "source"
+                                ],
+                                "properties": {
+                                    "source": {
+                                        "type": "string",
+                                        "description": "新版本包目录（绝对路径或项目内相对路径）"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/release/upgrade": {
+            "post": {
+                "operationId": "release.upgrade",
+                "summary": "执行升级",
+                "description": "按「迁移 → 换文件 → 健康检查」顺序升级站点程序；任一步失败自动逆向回退并写入历史。\n\n适用场景：不重装地迭代版本：上传新版本包，执行一次升级，失败自动回到原版本。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "release"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "source"
+                                ],
+                                "properties": {
+                                    "source": {
+                                        "type": "string",
+                                        "description": "新版本包目录"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/release/rollback": {
+            "post": {
+                "operationId": "release.rollback",
+                "summary": "回退到指定版本",
+                "description": "把站点程序回退到历史版本：先校验迁移可逆，再换回旧文件，最后逆序执行 down 脚本。\n\n适用场景：新版本上线后发现兼容性问题，回到上一个已知可用版本，且数据库一起回退。",
+                "tags": [
+                    "release"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "状态冲突",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "version"
+                                ],
+                                "properties": {
+                                    "version": {
+                                        "type": "string",
+                                        "description": "目标版本（必须存在快照）"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/lifecycle/releases": {
+            "get": {
+                "operationId": "lifecycle.releases",
+                "summary": "列出可回退版本",
+                "description": "列出一个单元在版本仓库里的全部快照，供回退时选择目标版本。\n\n适用场景：升级多次后需要回到更早的某个版本，而不是只能退一步。",
+                "tags": [
+                    "lifecycle"
+                ],
+                "parameters": [
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": true,
+                        "description": "单元类型",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "slug",
+                        "in": "query",
+                        "required": true,
+                        "description": "单元标识",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "装卸单元不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "description": "由 POST /api/v1/auth/token 签发"
+            }
+        },
+        "schemas": {
+            "Envelope": {
+                "type": "object",
+                "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "request_id"
+                ],
+                "properties": {
+                    "code": {
+                        "type": "integer",
+                        "description": "业务码，0 为成功"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "description": "成功时的业务数据；失败时恒为 null"
+                    },
+                    "request_id": {
+                        "type": "string"
+                    },
+                    "errors": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "detail": {
+                        "type": "string"
+                    },
+                    "meta": {
+                        "type": "object"
+                    }
+                }
+            },
+            "Error": {
+                "type": "object",
+                "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "request_id"
+                ],
+                "properties": {
+                    "code": {
+                        "type": "integer",
+                        "description": "业务码，0 为成功"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "description": "成功时的业务数据；失败时恒为 null"
+                    },
+                    "request_id": {
+                        "type": "string"
+                    },
+                    "errors": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "detail": {
+                        "type": "string"
+                    },
+                    "meta": {
+                        "type": "object"
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,17 @@
+{
+    "slug": "links",
+    "class": "Wx\\Pages\\Links\\LinksPage",
+    "version": "0.2.0",
+    "priority": 20,
+    "enabled": true,
+    "layout": "site",
+    "routes": [
+        "/links"
+    ],
+    "_note": "复用 site 布局；呈现完全跟随当前主题；v0.8 起访问策略由 access 段声明，裁决统一走权限契约",
+    "access": {
+        "auth": "public",
+        "deny_layout": "deny",
+        "_note": "公开页：无需身份"
+    }
+}

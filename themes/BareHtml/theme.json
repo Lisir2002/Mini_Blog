@@ -1,0 +1,9 @@
+{
+  "slug": "bare-html",
+  "class": "Wx\\Themes\\BareHtml\\BareHtmlTheme",
+  "version": "0.2.0",
+  "priority": 10,
+  "enabled": true,
+  "layouts": ["site"],
+  "_note": "只提供 site 零样式布局：admin/tool/install 槽位不存在 → 后台同样退化为纯数据，证明布局权归主题"
+}

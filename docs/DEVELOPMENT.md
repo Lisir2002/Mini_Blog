@@ -126,3 +126,30 @@ git status && git log --oneline -5   # 版本基线
 ```
 
 环境层面的排障顺序：`wx-ssh-setup` → `service mariadb status` → `php -v` → `agent-browser --version`。
+
+---
+
+## 五、版本控制与远程
+
+| 项 | 值 |
+| --- | --- |
+| 远程 | `origin` → <https://github.com/Lisir2002/Mini_Blog.git> |
+| 分支 | `main`，跟踪 `origin/main` |
+| 可见性 | Public |
+| 凭据 | GitHub CLI OAuth（`~/.config/gh/hosts.yml`），git 通过 `gh auth git-credential` 取用 |
+| 当前规模 | 328 个文件 / 3 次提交 |
+
+**不入库的内容**（`.gitignore` 已覆盖）：`storage/` 除骨架外的全部运行时产物、`storage/install.token`、`storage/install.lock`、`config/local.php`、`docs/responsibility-report.json`。
+
+日常推送：
+
+```bash
+git add -A
+git commit -m "type: 说明"
+git push origin main
+```
+
+**凭据说明**：OAuth 令牌保存在沙箱的 `~/.config/gh/hosts.yml`（明文，权限靠目录 0700 保护），不要把它或 `/root/ssh-access/wanxiang_dev` 复制进仓库。换机器时重新执行 `gh auth login` 即可，不要把 `hosts.yml` 当配置分发。
+
+> 仓库是公开的：`admin/admin123` 一类只出现在文档与测试夹具里，**部署前务必改掉默认账号**；真实站点配置写在 `config/local.php`，该文件已被忽略。
+

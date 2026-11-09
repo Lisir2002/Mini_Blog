@@ -3,6 +3,8 @@
 > **高度自定义，万象皆接口**
 > 纯原生 PHP 8.1+ / MySQL 8.0+（PDO）/ 原生 HTML + CSS + JavaScript 自研，**无模板引擎、无第三方框架、无 composer/vendor**。
 > 核心只做装配与调度；一切能力是系统层，一切呈现是承载包，一切交互是接口，一切单元的装卸由元层管辖。
+>
+> 仓库：<https://github.com/Lisir2002/Mini_Blog>（`main`，Public）
 
 ## 快速开始
 

@@ -40,9 +40,14 @@ final class Response
 
     public function send(): void
     {
-        http_response_code($this->status);
-        foreach ($this->headers as $key => $value) {
-            header($key . ': ' . $value);
+        // CLI 没有 HTTP 头；测试里也常有先行输出，此时写头只会产生警告，不影响 body。
+        if (PHP_SAPI !== 'cli') {
+            http_response_code($this->status);
+            if (!headers_sent()) {
+                foreach ($this->headers as $key => $value) {
+                    header($key . ': ' . $value);
+                }
+            }
         }
         echo $this->body;
     }

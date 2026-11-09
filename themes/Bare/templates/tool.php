@@ -14,6 +14,7 @@
 <body data-layout="tool">
 <main class="wx-shell">
   <h1><?= $esc($title) ?></h1>
+<?php include __DIR__ . '/partials/state.php'; ?>
 <?php include __DIR__ . '/partials/blocks.php'; ?>
 </main>
 <script>

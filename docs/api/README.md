@@ -60,5 +60,6 @@
 | `API-REL-004` | `POST` | `/api/v1/release/upgrade` | `release` | `admin` | 否 | [API-REL-004](API-REL-004.md) |
 | `API-REL-005` | `POST` | `/api/v1/release/rollback` | `release` | `admin` | 是 | [API-REL-005](API-REL-005.md) |
 | `API-LC-009` | `GET` | `/api/v1/lifecycle/releases` | `lifecycle` | `admin` | 是 | [API-LC-009](API-LC-009.md) |
+| `API-STATE-001` | `GET` | `/api/v1/state/task` | `state` | `admin` | 是 | [API-STATE-001](API-STATE-001.md) |
 
-共 55 个接口，接口版本 `v1`。
+共 56 个接口，接口版本 `v1`。

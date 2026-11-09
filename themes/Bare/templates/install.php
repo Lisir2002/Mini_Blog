@@ -14,7 +14,13 @@
 <body data-layout="install">
 <main class="wx-shell">
   <h1><?= $esc($title) ?></h1>
+<?php include __DIR__ . '/partials/state.php'; ?>
 <?php include __DIR__ . '/partials/blocks.php'; ?>
 </main>
+<?php if (($js ?? '') !== ''): ?>
+<script>
+<?= $js ?>
+</script>
+<?php endif; ?>
 </body>
 </html>

@@ -7,6 +7,7 @@ use Wx\Contracts\PackageInterface;
 use Wx\Core\Http\Request;
 use Wx\Core\Http\Response;
 use Wx\Core\Kernel;
+use Wx\Systems\State\StateFactory;
 
 /**
  * 安装向导独立页包 —— 标准化五步：环境 → 数据库 → 管理员 → 迁移 → 加锁。
@@ -31,6 +32,7 @@ final class InstallPage implements PackageInterface
                 $response->setStatus(404)->setPayload([
                     'title'  => '已完成安装',
                     'page'   => 'install',
+                    'state'  => self::state($k)?->done('state.install.installed')->toArray(),
                     'blocks' => [[
                         'type'  => 'text',
                         'value' => 'storage/install.lock 已存在，向导已关闭。如需重装，请先手动删除该文件与 config/local.php。',
@@ -54,9 +56,19 @@ final class InstallPage implements PackageInterface
         $env = $probe->rows();
         $facts = $probe->progress();
 
+        $factory = self::state($k);
+        $failed = array_values(array_filter(
+            $preflight['checks'],
+            static fn(array $c): bool => ($c['ok'] ?? true) === false
+        ));
+        $signal = $factory === null ? null : ($failed === []
+            ? $factory->needsInput('state.install.need_input')
+            : $factory->failed(42201, 'state.install.preflight_failed', [
+                'text' => ['message' => '未通过：' . implode('、', array_column($failed, 'name'))],
+            ]));
+
         $blocks = [
-            ['type' => 'table', 'title' => '安装前置检查', 'rows' => array_map(
-                static fn(array $c): array => ['k' => (string) $c['name'], 'v' => $c['ok'] ? 'ok' : 'fail',
+            ['type' => 'table', 'title' => '安装前置检查', 'rows' => array_map(                static fn(array $c): array => ['k' => (string) $c['name'], 'v' => $c['ok'] ? 'ok' : 'fail',
                     'ok' => (bool) $c['ok'], 'note' => (string) $c['detail']],
                 $preflight['checks']
             )],
@@ -84,6 +96,7 @@ final class InstallPage implements PackageInterface
             'steps'     => $state->steps($facts),
             'preflight' => $preflight,
             'next'      => self::nextStep($state, $facts),
+            'state'     => $signal?->toArray(),
             'blocks'    => $blocks,
         ]);
     }
@@ -110,6 +123,7 @@ final class InstallPage implements PackageInterface
             $code = $e->getCode();
             $response->setStatus(self::statusFor($code))->setPayload([
                 'ok' => false, 'step' => $step, 'code' => $code, 'message' => $e->getMessage(),
+                'state' => self::state($k)?->fromThrowable($e)->toArray(),
             ]);
         }
     }
@@ -122,6 +136,14 @@ final class InstallPage implements PackageInterface
     {
         $http = intdiv($code, 100);
         return $http >= 400 && $http < 600 ? $http : 500;
+    }
+
+    /** 状态系统是可选增强：禁用后页面照常工作，只是不携带反馈信封。 */
+    private static function state(Kernel $k): ?StateFactory
+    {
+        return $k->container()->has(StateFactory::class)
+            ? $k->container()->resolve(StateFactory::class)
+            : null;
     }
 
     /** @param array{admin?: bool, migrate?: bool} $facts */

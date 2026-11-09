@@ -64,13 +64,14 @@ check('不可逆迁移：拒绝回退且不留半截状态，补齐 down 后可�
     try {
         $k = isolatedKernel($dir, $prefix);
         $k->boot();
+        $from = relVersion($dir);
         $up = 'CREATE TABLE IF NOT EXISTS wx_probe_ir (id INT PRIMARY KEY)';
         $pkg = relPkg($dir, '9.9.0', '910_probe_ir', $up, null);
         $ok = relPost($k, '/api/v1/release/upgrade', ['source' => $pkg]);
         truthy(($ok['body']['code'] ?? null) === 0, '升级失败：' . json_encode($ok['body'], JSON_UNESCAPED_UNICODE));
         truthy(in_array($prefix . 'probe_ir', relTables($k, $prefix), true), '迁移未建表');
 
-        $blocked = relPost($k, '/api/v1/release/rollback', ['version' => '0.11.0']);
+        $blocked = relPost($k, '/api/v1/release/rollback', ['version' => $from]);
         truthy($blocked['status'] === 409, '缺 down 脚本未返回 409，实际 ' . $blocked['status']);
         truthy(($blocked['body']['code'] ?? 0) === 40903, '不可逆错误码不是 40903');
         truthy(relVersion($dir) === '9.9.0', '被拒绝的回退仍然换了 core 文件');
@@ -79,9 +80,9 @@ check('不可逆迁移：拒绝回退且不留半截状态，补齐 down 后可�
 
         // 运维补上 down 脚本后，同一条回退应当立刻可用 —— 拒绝不等于损坏。
         file_put_contents($dir . '/systems/Release/migrations/910_probe_ir.down.sql', 'DROP TABLE IF EXISTS wx_probe_ir');
-        $retry = relPost($k, '/api/v1/release/rollback', ['version' => '0.11.0']);
+        $retry = relPost($k, '/api/v1/release/rollback', ['version' => $from]);
         truthy(($retry['body']['code'] ?? null) === 0, '补齐 down 后回退失败：' . json_encode($retry['body'], JSON_UNESCAPED_UNICODE));
-        truthy(relVersion($dir) === '0.11.0', '补齐 down 后 core 未回退');
+        truthy(relVersion($dir) === $from, '补齐 down 后 core 未回退');
         truthy(!in_array($prefix . 'probe_ir', relTables($k, $prefix), true), '补齐 down 后表仍在');
     } finally {
         dropTables($prefix);
@@ -96,6 +97,7 @@ check('多份快照：可回退到指定旧版本，keep_releases 只裁最旧�
     try {
         $k = isolatedKernel($dir, $prefix);
         $k->boot();
+        $base = relVersion($dir);
         foreach (['9.9.0', '9.9.1'] as $v) {
             $res = relPost($k, '/api/v1/release/upgrade', ['source' => fakeRelease($dir, $v)]);
             truthy(($res['body']['code'] ?? null) === 0, '升级到 ' . $v . ' 失败：' . json_encode($res['body'], JSON_UNESCAPED_UNICODE));
@@ -124,7 +126,7 @@ check('多份快照：可回退到指定旧版本，keep_releases 只裁最旧�
         $kept = array_column((array) ($after['releases'] ?? []), 'version');
         truthy(count($kept) === 2, 'keep_releases=2 时快照数为 ' . count($kept));
         truthy(in_array('9.9.1', $kept, true), '裁剪把最近一份旧版本也删了');
-        truthy(!in_array('0.11.0', $kept, true), '最旧的快照没有被裁掉');
+        truthy(!in_array($base, $kept, true), '最旧的快照没有被裁掉');
     } finally {
         dropTables($prefix);
         Fs::removeDir($dir);

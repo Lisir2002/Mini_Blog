@@ -18,6 +18,7 @@
 <body>
 <main class="wx-shell">
   <h1><?= $esc($title) ?></h1>
+<?php include __DIR__ . '/partials/state.php'; ?>
 <?php if ($blocks !== []): ?>
 <?php include __DIR__ . '/partials/blocks.php'; ?>
 <?php else: ?>
@@ -28,5 +29,10 @@
   </ul>
 <?php endif; ?>
 </main>
+<?php if (($js ?? '') !== ''): ?>
+<script>
+<?= $js ?>
+</script>
+<?php endif; ?>
 </body>
 </html>

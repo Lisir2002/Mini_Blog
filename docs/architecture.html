@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mini Blog 架构总览（v0.11）</title>
+<title>Mini Blog 架构总览（v0.12）</title>
 <style>
   :root {
     --bg: #f6f5f2; --card: #fff; --ink: #1b1b1f; --muted: #6b6a73;
@@ -77,7 +77,7 @@
 <div class="wrap">
 
 <header>
-  <div class="eyebrow">Architecture Overview · v0.11</div>
+  <div class="eyebrow">Architecture Overview · v0.12</div>
   <h1>Mini Blog</h1>
   <p class="lede">核心只做装配与调度；一切能力是系统层，一切呈现是承载包，一切交互是接口，一切单元的装卸由元层管辖。删光所有系统层与包，框架仍能启动——只是什么都不做，且一个字节的样式都不会输出。</p>
   <div class="principle">第一性原理：高度自定义，万象皆接口</div>
@@ -98,7 +98,7 @@
 </section>
 
 <section>
-  <h2>五层模型（元层 + 14 个系统层，最新为第 14 层 release）</h2>
+  <h2>五层模型（元层 + 15 个系统层，最新为第 15 层 state）</h2>
   <p class="sub">层间只允许通过接口通信，不允许跨层直接 <code>new</code> 具体类。核心甚至不知道「文章」「升级」这两个词的存在。</p>
   <div class="layers">
     <div class="layer">
@@ -156,7 +156,7 @@
     <div class="card"><div class="tag">事件面</div><h3>HookBus</h3><p>流程可拦截：action 广播、filter 链式改值，priority 升序。</p></div>
     <div class="card"><div class="tag">装配面</div><h3>*.json 清单</h3><p>单元可插拔：系统层、主题、插件、独立页统一清单驱动。</p></div>
     <div class="card"><div class="tag">数据面</div><h3>DatabaseInterface</h3><p>21 张表与 SQL 归各系统层自持；无主题时整站即 JSON API。</p></div>
-    <div class="card"><div class="tag">接口面</div><h3>registry.json</h3><p>55 个接口，一个 operation 一个执行者，一个接口一份文档 + OpenAPI 3.1。</p></div>
+    <div class="card"><div class="tag">接口面</div><h3>registry.json</h3><p>56 个接口，一个 operation 一个执行者，一个接口一份文档 + OpenAPI 3.1。</p></div>
   </div>
 </section>
 
@@ -227,7 +227,7 @@ upgrade   备份当前 → staging → 替换
 <section>
   <h2>API 接口系统 · 一个接口一份文档</h2>
   <div class="grid g3">
-    <div class="card"><div class="tag">唯一事实源</div><h3>api/registry.json</h3><p>55 个接口，逐条声明路径 / 方法 / 参数 / 错误码 / 幂等性 / 副作用 / 文档路径；ID、路由、operation 三者全局唯一。</p></div>
+    <div class="card"><div class="tag">唯一事实源</div><h3>api/registry.json</h3><p>56 个接口，逐条声明路径 / 方法 / 参数 / 错误码 / 幂等性 / 副作用 / 文档路径；ID、路由、operation 三者全局唯一。</p></div>
     <div class="card"><div class="tag">统一信封</div><h3>code · data · meta</h3><p><code>code/message/data/request_id/meta</code>；14 个错误码前两位对齐 HTTP 状态；禁止「200 里塞错误」。</p></div>
     <div class="card"><div class="tag">1:1 文档</div><h3>39 份 API-*.md</h3><p>清单 + 模板 → <code>tools/gen-api-docs.php</code>；另有 <code>export-openapi.php</code> 导出 3.1；守卫阻断漂移，禁止手写。</p></div>
   </div>
@@ -235,23 +235,24 @@ upgrade   备份当前 → staging → 替换
 </section>
 
 <section>
-  <h2>v0.4 → v0.11：落地清单</h2>
+  <h2>v0.4 → v0.12：落地清单</h2>
   <div class="grid g2">
     <div class="card"><div class="tag ok">内容</div><h3>第 11 个系统层 <code>content</code></h3><p>契约 + MySQL 实现 + 自有 migrations + 生命周期钩子 + 4 个接口；keyset 游标分页；内核零改动，是对可扩展性的真实检验。</p></div>
     <div class="card"><div class="tag ok">数据</div><h3>MySQL 全量实现</h3><p>用户 / 评论 / 内容从内存占位换成 PDO 实现，真实建立 5 张表并读写；拔掉 DSN 自动回退，框架仍可启动。</p></div>
     <div class="card"><div class="tag ok">安全</div><h3>鉴权从声明变执行</h3><p>令牌落库只存 SHA-256 摘要、带过期与撤销；40101 / 40102 / 40301 / 40302；CSRF 落库一次性；CSP 可配置。</p></div>
     <div class="card"><div class="tag ok">接口</div><h3>幂等 · 限流 · 分页 · OpenAPI</h3><p><code>Idempotency-Key</code> 服务端去重、429 + Retry-After、游标分页、由清单导出标准 OpenAPI 3.1 文档。</p></div>
     <div class="card"><div class="tag ok">承载包</div><h3>后台与独立页</h3><p>可卸载控制台、工具页、只读安装向导、零 CSS 的 bare-html 主题；<strong>v0.6 起全部改由主题提供布局</strong>，独立页不再持有任何 CSS/JS。</p></div>
-    <div class="card"><div class="tag ok">定案</div><h3>命名 / 版本 / 冲突策略</h3><p>「Mini Blog」<code>Wx\</code>（保留的历史命名空间）、v0.11.0、PHP ≥ 8.1；保留显式 priority + fail-fast + 留痕；包签名验签（HMAC-SHA256）落地。</p></div>
+    <div class="card"><div class="tag ok">定案</div><h3>命名 / 版本 / 冲突策略</h3><p>「Mini Blog」<code>Wx\</code>（保留的历史命名空间）、v0.12.0、PHP ≥ 8.1；保留显式 priority + fail-fast + 留痕；包签名验签（HMAC-SHA256）落地。</p></div>
     <div class="card"><div class="tag ok">规矩 H</div><h3>单文件职责预算</h3><p>行数 / 责任主体 / 扇出 / 职权跨度四指标分层预算，<code>audit-responsibility.php</code> 静态审计。上帝类 563 行 → 188 行编排者 + 7 个协作者。</p></div>
     <div class="card"><div class="tag ok">规矩 I</div><h3>协作全方位验证</h3><p>8 类协作矩阵 C1–C8 + 存在性 / 一致性 / 运行时贯通 / 故障注入四维；C9 断言每一类都有实际跑过的守卫。</p></div>
     <div class="card"><div class="tag ok">规矩 J · v0.6</div><h3>呈现权完全归主题</h3><p>后台布局同样过主题系统。独立页只产数据 + 声明 <code>layout</code> 槽位，主题包持有 site / admin / tool / install 全部模板与 CSS/JS；主题缺某布局 → 该页退化为纯 JSON，框架绝不兜底。<code>standalone</code> 绕过主题的后门已拆除。</p></div>
-    <div class="card"><div class="tag ok">规矩 K · v0.6</div><h3>权限系统（第 12 层）</h3><p>用户权限 RBAC / 文章权限资源 ACL / 系统权限各层自报；决策三态 <code>allow·deny·abstain</code>、fail-closed、策略钩子只能收紧不能提权、每次决策留痕。31 个权限点、14 个权限接口（<code>API-PERM-001~014</code>）、9 张权限表（全站 21 张）。</p></div>
+    <div class="card"><div class="tag ok">规矩 K · v0.6</div><h3>权限系统（第 12 层）</h3><p>用户权限 RBAC / 文章权限资源 ACL / 系统权限各层自报；决策三态 <code>allow·deny·abstain</code>、fail-closed、策略钩子只能收紧不能提权、每次决策留痕。31 个权限点、14 个权限接口（<code>API-PERM-001~014</code>）、9 张权限表（全站 22 张）。</p></div>
     <div class="card"><div class="tag ok">v0.7 深化</div><h3>继承 / 缓存 / 字段级</h3><p>角色继承用 <code>permission_role_parents</code> 边表 + 决策时展开，自环 / 成环 / 深度超限写入即拒；决策缓存只缓存基础读取、绝不缓存最终决策，授权变更显式失效；ACL 新增 <code>field</code> 维度，精确拒绝某字段而不剔除整篇。<code>core/</code> 仍 24 个 PHP。</p></div>
     <div class="card"><div class="tag ok">v0.8 规矩 L</div><h3>页面权限 / 覆盖鉴权</h3><p>5 个页面在 <code>page.json</code> 声明分级 <code>access</code>，<code>route.access</code> 统一裁决并短路；与 API 共用认证器与权限决策器，策略钩子只能收紧，拒绝页样式归主题 <code>deny</code> 布局。契约覆盖新增授权台账：<code>require_grant</code> 开启后未授权覆盖 fail-closed，授权必须经运行时身份。<code>core/</code> 未新增文件。</p></div>
     <div class="card"><div class="tag ok">v0.9 规矩 M</div><h3>主体可扩展 / 凭据单一来源</h3><p>用户组只作「角色来源」，主体角色集合 = 自身角色 ∪ 组绑定角色，决策骨架与 deny 优先级一字未改；页面会话与 API 令牌<strong>同表同过期同撤销</strong>，只换 HttpOnly + SameSite=Lax 载体，且会话令牌不得当 Bearer 调普通 API；权限缓存新增可换后端（进程内 / 文件），以 epoch 换代失效；<code>content.update</code> 逐字段裁决、任一被拒整次拒绝，绝不部分写入；契约覆盖默认 <code>require_grant=true</code>，仅已注册系统层自动登记，<code>plugin: / theme: / page:</code> 必须运行时授权。<code>core/</code> 仍 24 个 PHP。</p></div>
     <div class="card"><div class="tag ok">v0.10 规矩 N</div><h3>身份与授权解耦</h3><p>第 13 系统层 <code>member</code>：站长自定义头衔（标识 / 颜色 / 权重 / 自动门槛）、经验规则（单次值 / 每日上限 / 启停）、等级门槛（任意级数与区间）。经验流水 append-only、<code>event_key</code> 幂等、上限截断、写流水与加余额同事务；等级是「经验 + 门槛」的解释结果，可重算、只升不降；头衔手动授予 ∪ 等级自动，<strong>零权限</strong>。用户组补颜色与排序，仍只是角色来源。<code>core/</code> 仍 24 个 PHP。</p></div>
     <div class="card"><div class="tag ok">v0.11 规矩 P</div><h3>标准化安装 · 不重装迭代</h3><p>五步安装向导（环境 / 数据库 / 管理员 / 迁移基线 / 加锁）只写 <code>config/local.php</code> 与 <code>install.lock</code>，写动作须带 0600 一次性令牌且仅本机来源，装完页面整体 404。第 14 系统层 <code>release</code> 用迁移台账 + checksum 校验 + 健康门禁把「升级 → 失败回退」做成一次可回滚事务；快照按版本归档、<code>keep_releases</code> 只裁最旧，可回退到任意装过的版本，回退前还给当前版本留一份。<code>core/</code> 仍 24 个 PHP。</p></div>
+    <div class="card"><div class="tag ok">v0.12 规矩 Q</div><h3>状态系统（第 15 层）</h3><p>五态 <code>pending / running / waiting / done / failed</code>，等待与交互由 <code>held_by=system|user</code> 区分；每个状态带说明、出路、证据三件套。长任务落 <code>state_tasks</code>，<code>revision</code> 乐观锁、终态不可逆；未捕获异常经 <code>kernel.exception</code> 走同一套主题渲染；文案键可覆写，可访问性归主题。<code>core/</code> 仍 24 个 PHP。</p></div>
   </div>
 </section>
 
@@ -291,14 +292,14 @@ upgrade   备份当前 → staging → 替换
     <tr><td><code>ApiAuthenticatorInterface</code></td><td>安全系统 → DbApiAuthenticator（令牌落库 + 角色）</td><td>可换 OAuth / 签名 / SSO</td></tr>
     <tr><td><code>LifecycleManagerInterface</code></td><td>装卸系统 → LifecycleManager</td><td>可换成带远程仓库的实现</td></tr>
     <tr><td><code>ApiRegistryInterface</code></td><td>API 系统 → ApiRegistry</td><td>可换成带额外策略的注册表</td></tr>
-    <tr><td><code>SystemInterface</code> · <code>PackageInterface</code></td><td>14 个系统层 / 全部承载包</td><td>未来任意新单元</td></tr>
+    <tr><td><code>SystemInterface</code> · <code>PackageInterface</code></td><td>15 个系统层 / 全部承载包</td><td>未来任意新单元</td></tr>
   </table>
 </section>
 
 <section>
   <h2>验证结果</h2>
-  <p class="passed">✓ 181 passed, 0 failed（38 组） · 职责审计 0 违规 / 0 孤儿协作</p>
-  <p class="sub" style="margin-top:.6rem"><code>php -l</code> 全量 <strong>201</strong> 个 PHP 文件通过（<code>core/</code> 仅 24 个、0 个 CSS/JS）；最大单文件 185 行；14 个系统层自动装配、13 个契约（其中 10 个在容器中绑定实现，<code>RendererInterface</code> 只由主题实现、<code>SystemInterface</code> / <code>PackageInterface</code> 由单元自身实现）、55 个接口对应 55 份文档、OpenAPI 3.1（49 路径 / 55 操作）。真实 MariaDB 10.11 上建立 21 张表并验证文章 / 评论写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页；拔掉 DSN 自动回退。HTTP 端到端：<code>GET /</code> 纯 JSON 零 HTML，无令牌访问受保护接口 HTTP 401 + <code>40101</code>，用 <code>admin/admin123</code> 换令牌后返回 <code>code=0</code>，<code>/console</code> / <code>/install</code> / <code>/toolbox</code> 无主题时返回纯 JSON，启用主题后由主题布局输出 HTML。所有结论均为<strong>可重跑的文本证据</strong>，未使用截图（规矩 A）。</p>
+  <p class="passed">✓ 200 passed, 0 failed（40 组） · 职责审计 0 违规 / 0 孤儿协作</p>
+  <p class="sub" style="margin-top:.6rem"><code>php -l</code> 全量 <strong>215</strong> 个 PHP 文件通过（<code>core/</code> 仅 24 个、0 个 CSS/JS）；最大单文件 187 行；15 个系统层自动装配、13 个契约（容器运行时绑定 13 个，含状态层 3 个内部契约）、56 个接口对应 56 份文档、OpenAPI 3.1（50 路径 / 56 操作）。真实 MariaDB 10.11 上建立 22 张表并验证文章 / 评论写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进；拔掉 DSN 自动回退。HTTP 端到端：<code>GET /</code> 纯 JSON 零 HTML，未捕获异常经 <code>kernel.exception</code> 渲染为失败态，无令牌访问受保护接口 HTTP 401 + <code>40101</code>，用 <code>admin/admin123</code> 换令牌后返回 <code>code=0</code>，<code>/console</code> / <code>/install</code> / <code>/toolbox</code> 无主题时返回纯 JSON，启用主题后由主题布局输出 HTML。所有结论均为<strong>可重跑的文本证据</strong>，未使用截图（规矩 A）。</p>
   <div class="callout ok" style="margin-top:1.25rem">
     <strong>9 项决策已全部执行：</strong>内容系统、MySQL 全量实现、接口鉴权执行、写接口公网边界、可卸载后台、standalone 独立页、bare-html 主题、幂等/限流/分页/OpenAPI、包签名验签，以及 PHP 8.1+ / 「Mini Blog <code>Wx\</code>」/ 冲突策略定案。逐项兑现记录见 <code>docs/ARCHITECTURE.md</code> 第 16 节。
   </div>
@@ -322,6 +323,15 @@ upgrade   备份当前 → staging → 替换
   </div>
   <div class="callout ok" style="margin-top:.8rem">
     <strong>v0.11 新增：</strong>规矩 P 让「装得进、改得对、退得回」变成可复核的约束。<strong>安装器</strong>从只读探测页升级为五个文件各管一件事：<code>InstallPage</code> 只渲染与分发、<code>Installer</code> 只编排列、<code>InstallerAccount</code> / <code>InstallerMigrate</code> 各做一步、<code>InstallState</code> 只持有 <code>install.lock</code> 与 0600 令牌；配置只写覆盖层 <code>config/local.php</code>，删掉即回默认，带注释的主配置一字不动。<strong>版本系统</strong>成为第 14 系统层：迁移只认台账不认版本号、已执行脚本 checksum 变了直接 <code>40904</code>、全新站点只做基线登记不重跑、升级顺序固定为「迁移 → 单元 → core → 健康门禁」、失败按逆序退回并写历史。回退预检缺 down 即 <code>40903</code> 且不动任何文件；down 脚本在扫描时读入内存，避免「代码退了库没退」。快照从单 <code>backup</code> 字段改为按版本归档（<code>keep_releases</code>），名字带微秒时序戳，否则同一秒内两次快照的「保留最近 N 份」会变成随机结果。过程中修掉四个真实缺陷：领域错误码没穿透到 HTTP（全部表现成 <code>50001</code>）、快照同秒排序不确定、回退时 down 文件已随单元消失、安装步骤进度恒为假。新增 6 个接口、1 个系统层、1 张表、3 个权限点、4 个守卫文件 11 项断言。详见 <code>docs/ARCHITECTURE.md</code> 第 27 节。
+  </div>
+  <div class="callout ok" style="margin-top:.8rem">
+    <strong>v0.12 新增：</strong>规矩 Q 把「错误有码」补成「状态有态」。
+    <strong>五态</strong>不是五个并列枚举，而是 <code>phase + held_by</code> 的组合：<code>waiting</code> 配 <code>system</code> 是等待态、配 <code>user</code> 是交互态，避免「既在进行又在等人」的二选一。
+    <strong>三件套</strong>强制每个状态回答说明、出路、证据：<code>title / message / hint</code>、最多 4 个真实动作、<code>code / trace_id / retryable</code>；异常原文只进日志，界面只给稳定文案与追踪编号。
+    <strong>长任务</strong>落 <code>wx_state_tasks</code>，<code>revision</code> 做 CAS，冲突即 <code>40901</code> 而非静默覆盖，终态拒绝再次推进，过期可清理。
+    <strong>异常边界</strong>补全：<code>Kernel::run()</code> 捕获 <code>Throwable</code> 后发出 <code>kernel.exception</code>，状态层翻译成失败态并继续走主题渲染；无消费者时核心只输出纯文本 500。
+    <strong>呈现</strong>仍归主题：错误 <code>role="alert"</code>、其余 <code>role="status"</code>、进行态 <code>aria-busy</code>，无 JS 也能完成动作。
+    新增 1 个接口、2 个守卫文件 19 项断言、1 张表，<code>core/</code> 仍 24 个 PHP。详见 <code>docs/STATE.md</code>。
   </div>
   <div class="callout" style="margin-top:.8rem">
     <strong>仍需注意的边界：</strong>控制台为只读 + 令牌查询原型；匿名评论尚需验证码与内容审核；演示账号 <code>admin/admin123</code> 与配置中的明文口令 / 空签名密钥仅用于本地原型，投产前必须删除、改密并由环境注入；限流与幂等缓存基于文件存储，多实例部署需换共享存储。权限系统剩余边界：用户组不支持嵌套（等价能力已由角色继承提供）、缓存跨主机共享未做（换 Redis 只改后端实现）、会话无多设备管理界面、字段级写目前只作用于 <code>content.update</code>。<code>require_grant</code> 已默认开启，迁移存量站点前须先对账登记合法覆盖。成员系统剩余边界：经验流水无归档、排行榜为 <code>limit/offset</code>、等级变更不回溯通知、成员层零页面零样式（展示权归主题）、头衔不参与权限是刻意设计。<code>core/</code> 已达 24 个 PHP 上限。包仓库协议、多站点、契约版本协商列入 v1.0。</div>

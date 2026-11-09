@@ -7,6 +7,7 @@ use Wx\Contracts\PackageInterface;
 use Wx\Core\Http\Request;
 use Wx\Core\Http\Response;
 use Wx\Core\Kernel;
+use Wx\Systems\State\StateFactory;
 
 /**
  * 站点控制台 —— 只负责「声明路由 + 产出结构化数据」。
@@ -32,6 +33,13 @@ final class ConsolePage implements PackageInterface
                 'title'      => '站点控制台',
                 'page'       => 'console',
                 'api_prefix' => (string) $k->config()->get('api.prefix', '/api/v1'),
+                'state'      => $k->container()->has(StateFactory::class)
+                    ? $k->container()->resolve(StateFactory::class)->pending('state.pending', ['text' => [
+                        'title'   => '控制台已就绪',
+                        'message' => '页面数据由核心产出；调用受保护接口需要 admin 令牌。',
+                        'hint'    => '在下方填入令牌后点「刷新」，页面不会替你保存它。',
+                    ]])->toArray()
+                    : null,
                 'blocks'     => [
                     ['type' => 'pre', 'title' => '环境状态', 'id' => 'health', 'value' => '读取中…'],
                     ['type' => 'text', 'title' => '受保护数据',

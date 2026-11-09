@@ -17,7 +17,7 @@ namespace Wx\Tools\Audit;
 final class CollaborationGraph
 {
     /** 裁决型事件：缺消费者会让功能静默失效，必须配对；通知型事件允许零监听。 */
-    public const DECISION_EVENTS = ['render.should_render', 'route.resolve', 'package.enabled'];
+    public const DECISION_EVENTS = ['render.should_render', 'route.resolve', 'package.enabled', 'kernel.exception'];
 
     public const MATRIX = [
         ['id' => 'C1', 'guard' => 'C1', 'name' => '契约面：接口 ↔ 实现 ↔ 容器绑定', 'edges' => 'contract', 'runtime' => '逐个 resolve 成功、替换实现后行为一致'],

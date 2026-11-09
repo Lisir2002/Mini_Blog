@@ -17,6 +17,7 @@
   <span class="hint">布局 / 样式 / 脚本由主题包提供 · 页面只产数据</span>
 </header>
 <main>
+<?php include __DIR__ . '/partials/state.php'; ?>
 <?php include __DIR__ . '/partials/blocks.php'; ?>
 </main>
 <script>

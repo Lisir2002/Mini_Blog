@@ -97,7 +97,34 @@ final class Kernel
 
     public function run(): void
     {
-        $this->handle(Request::fromGlobals())->send();
+        $request = Request::fromGlobals();
+        try {
+            $this->handle($request)->send();
+        } catch (\Throwable $e) {
+            // 异常边界：核心只负责「捕获并询问」，翻译成什么样由状态系统决定。
+            // 没有订阅者时退化为纯文本 500 —— 这是唯一允许核心自己写出的内容，且不含任何标签。
+            $response = $this->hooks->apply('kernel.exception', null, $e, $request, $this);
+            if (!$response instanceof Response) {
+                $this->sendBareError();
+                return;
+            }
+            try {
+                if ($response->body() === '') $response = $this->renderStage($response, $request);
+            } catch (\Throwable) {
+                $this->sendBareError();
+                return;
+            }
+            $response->send();
+        }
+    }
+
+    /** 最后一道兜底：不套主题、不猜语言、不输出堆栈。 */
+    private function sendBareError(): void
+    {
+        if (headers_sent()) return;
+        http_response_code(500);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "500 Internal Server Error\n";
     }
 
     /** 内核自身的可观测性出口，交由日志系统订阅；核心不写日志文件。 */

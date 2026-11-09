@@ -20,7 +20,13 @@
   <span class="hint">拒绝页的布局 / 样式同样来自主题包 · 页面只产数据</span>
 </header>
 <main>
+<?php include __DIR__ . '/partials/state.php'; ?>
 <?php include __DIR__ . '/partials/blocks.php'; ?>
 </main>
+<?php if (($js ?? '') !== ''): ?>
+<script>
+<?= $js ?>
+</script>
+<?php endif; ?>
 </body>
 </html>

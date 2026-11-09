@@ -1,0 +1,9 @@
+{
+  "name": "state",
+  "class": "Wx\\Systems\\State\\StateSystem",
+  "version": "0.1.0",
+  "requires": ["log"],
+  "priority": 36,
+  "enabled": true,
+  "_note": "第 15 系统层：五态反馈（错误/进行/完成/等待/交互）+ 文案键 + 长任务状态。数据库可选，无库自动退化为内存"
+}

@@ -1,9 +1,9 @@
 # Mini Blog _(Mini_Blog)_
 
-![version](https://img.shields.io/badge/version-0.11.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.12.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
-![tests](https://img.shields.io/badge/tests-181%20passing-2ea44f)
+![tests](https://img.shields.io/badge/tests-200%20passing-2ea44f)
 ![dependencies](https://img.shields.io/badge/dependencies-0-2ea44f)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)
@@ -63,7 +63,7 @@ Mini Blog 的出发点是相反的：**内核只保留「装配 + 调度」两�
 | 呈现不是框架的一部分 | 零主题时输出纯 JSON；HTML/CSS/JS 只允许存在于 `themes/` |
 | 扩展不是改代码 | 新建目录 + `system.json`，内核零改动；接口在清单登记后自动生成文档 |
 | 升级不是重装 | 迁移台账 + checksum 校验 + 版本快照 + 健康门禁，可升级也可回退 |
-| 质量不是口头承诺 | 181 项自动化守卫 + 单文件职责审计，违规即失败 |
+| 质量不是口头承诺 | 200 项自动化守卫 + 单文件职责审计，违规即失败 |
 
 **它不做什么**：不内置页面构建器，不绑定某个前端框架，不提供多站点与云托管，不在核心里写 SQL。
 
@@ -186,11 +186,27 @@ TOKEN=$(curl -s -X POST -H 'Content-Type: application/json' \
 curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/lifecycle/units
 ```
 
-统一信封 `code / message / data / request_id / meta`，错误额外带 `errors`。**55 个接口 = 55 份文档 = 55 个 operation**，全部由 `api/registry.json` 单向生成，不手写。
+统一信封 `code / message / data / request_id / meta`，错误额外带 `errors`。**56 个接口 = 56 份文档 = 56 个 operation**，全部由 `api/registry.json` 单向生成，不手写。
+
+### 状态与反馈
+
+错误有业务码，但用户看到的应该是**态**。v0.12 把反馈统一成五态；「等待」与「交互」不是两个并列相位，而是 `waiting` 的两种持有者：
+
+| 状态 | `phase` | `held_by` | 说明 |
+| --- | --- | --- | --- |
+| 进行态 | `running` | — | 正在执行，不要重复提交 |
+| 完成态 | `done` | — | 已结束且成功 |
+| 错误态 | `failed` | — | 已结束且失败，带 4xx / 5xx 业务码 |
+| 等待态 | `waiting` | `system` | 等队列、网络或第三方回调 |
+| 交互态 | `waiting` | `user` | 等人确认、授权或补输入 |
+
+每个状态都带三件套：**说明**（`title / message / hint`）、**出路**（`actions`，最多 4 个真实链接或表单）、**证据**（`code / trace_id / retryable`）。页面级与动作级状态随响应返回；安装、迁移、发布这类长任务落 `wx_state_tasks`，用 `revision` 做乐观锁，终态不可回退。未捕获异常由 `kernel.exception` 接住，走同一套状态与主题渲染；状态系统被停用时，核心只输出纯文本 500。
+
+文案是「键 + 默认中文」，主题可经 `state.copy` 钩子覆写；可访问性由主题负责（错误 `role="alert"`、其余 `role="status"`、进行态 `aria-busy`）。细节见 [`docs/STATE.md`](docs/STATE.md)。
 
 ### 两个扩展动作
 
-**新增系统层**：建 `systems/<X>/`，写 `system.json`（`name / class / requires / priority`）和一个 `extends AbstractSystem` 的类。内核零改动——`Database`、`Lifecycle`、`Api`、`Content`、`Release` 都是这样接进来的。
+**新增系统层**：建 `systems/<X>/`，写 `system.json`（`name / class / requires / priority`）和一个 `extends AbstractSystem` 的类。内核零改动——`Database`、`Lifecycle`、`Api`、`Content`、`Release`、`State` 都是这样接进来的。
 
 **新增接口**：在 `api/registry.json` 追加定义 → 系统层 `boot()` 里 `registerOperation()` → 跑 `tools/gen-api-docs.php` 与 `tools/export-openapi.php` → `php tests/run.php`。缺任何一环，守卫会失败。
 
@@ -207,7 +223,7 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/lifecycle
 | 层 | 内容 | 约束 |
 | --- | --- | --- |
 | **L0 系统核心** | `Kernel / Container / HookBus / SystemRegistry / PackageLoader / Router / Config` | 24 个 PHP，已达上限；0 个 CSS/JS、0 条 SQL |
-| **L1 系统层** | 日志、数据库、安全、装卸、用户、权限、接口、插件、成员、内容、版本、主题、评论、页面 | 每层自带 `system.json`，按 `priority` 装配 |
+| **L1 系统层** | 日志、数据库、安全、装卸、用户、权限、接口、状态、插件、成员、内容、版本、主题、评论、页面 | 每层自带 `system.json`，按 `priority` 装配 |
 | **L2 承载包** | 主题包、插件包、独立页包 | 全部资源（CSS/JS/模板）只允许出现在这里 |
 | **L3 数据与呈现** | MySQL 表、主题布局、主题资源 | 表归各系统层自持；呈现归主题 |
 
@@ -215,7 +231,7 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/lifecycle
 
 | 网 | 载体 | 作用 |
 | --- | --- | --- |
-| 契约面 | `core/Contracts/*`（13 个） | 系统层之间唯一可见的类型；容器运行时绑定 10 个实现 |
+| 契约面 | `core/Contracts/*`（13 个） | 系统层之间唯一可见的类型；容器运行时绑定 13 个实现（含状态层 3 个内部契约） |
 | 事件面 | `HookBus` | 优先级 + 可中断；插件只能改数据，不能改装配 |
 | 装配面 | `*/system.json`、`page.json`、`theme.json` | 声明依赖、优先级、路由、权限、布局槽位 |
 | 数据面 | `DatabaseInterface` | 核心不认识 MySQL；无 DSN 时各层自动回退内存实现 |
@@ -223,7 +239,7 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/lifecycle
 实测装配顺序：
 
 ```
-log → database → security → lifecycle → user → permission → api → plugin
+log → database → security → lifecycle → user → permission → api → state → plugin
     → member → content → release → theme → comment → page
 ```
 
@@ -243,23 +259,24 @@ log → database → security → lifecycle → user → permission → api → 
 | v0.9 | 144 | +23 | 用户组、页面会话、可换缓存后端 |
 | v0.10 | 170 | +26 | 头衔 / 经验 / 等级，身份与授权解耦 |
 | v0.11 | 181 | +11 | 五步安装向导、不重装升级与回退 |
+| v0.12 | 200 | +19 | 五态状态系统、长任务与异常边界 |
 
 | 指标 | 当前值 | 验证方式 |
 | --- | ---: | --- |
-| 守卫 / 分组 | **181 / 38** | `php tests/run.php` |
-| PHP 文件 / 有效行 | **201 / 12,160** | `php tools/audit-responsibility.php` |
-| 最大单文件 | **185 行** | 同上（预算 190，超限即失败） |
+| 守卫 / 分组 | **200 / 40** | `php tests/run.php` |
+| PHP 文件 / 有效行 | **215 / 13,283** | `php tools/audit-responsibility.php` |
+| 最大单文件 | **187 行** | 同上（预算 190，超限即失败） |
 | 职责违规 / 孤儿协作 | **0 / 0** | 同上，非 0 退出 |
-| 系统层 | **14** | 装配顺序断言 |
-| 接口 / 文档 / operation | **55 / 55 / 55** | 清单四方 1:1 比对 |
-| 数据表 | **21** | 各系统层 migrations |
+| 系统层 | **15** | 装配顺序断言 |
+| 接口 / 文档 / operation | **56 / 56 / 56** | 清单四方 1:1 比对 |
+| 数据表 | **22** | 各系统层 migrations |
 | 权限点 | **31** | 各层 `permissions.json` 自报 |
 | 运行时依赖 | **0** | 无 composer / vendor |
 
 ```bash
-php tests/run.php                    # 181 项守卫，38 个文件
+php tests/run.php                    # 200 项守卫，40 个文件
 php tools/audit-responsibility.php   # 单文件职责审计
-php tools/gen-api-docs.php           # 重新生成 55 份接口文档
+php tools/gen-api-docs.php           # 重新生成 56 份接口文档
 php tools/export-openapi.php         # 导出 OpenAPI 3.1
 php tools/sign-package.php <目录> <密钥>   # 源包签名
 ```
@@ -306,7 +323,7 @@ php tools/sign-package.php <目录> <密钥>   # 源包签名
 Mini_Blog/
 ├── public/index.php          唯一入口：引导 + run()
 ├── core/                     系统核心 24 个 PHP：Kernel / Container / HookBus / Router / 13 个契约
-├── systems/                  14 个系统层，每层自带 system.json + migrations + lifecycle
+├── systems/                  15 个系统层，每层自带 system.json + migrations + lifecycle
 │   ├── Log/ Database/ Security/ User/ Permission/     （能力）
 │   ├── Content/ Comment/ Member/ Release/             （业务与版本）
 │   ├── Theme/ Plugin/ Page/                           （承载）
@@ -342,15 +359,18 @@ Mini_Blog/
 | [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | 工程规矩 A–P 全文与运行记录 |
 | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | 本机环境、SSH 接入、浏览器配置 |
 | [`docs/api/SPEC.md`](docs/api/SPEC.md) | 接口规范：信封、错误码、鉴权、分页、幂等 |
-| [`docs/api/README.md`](docs/api/README.md) | 55 个接口索引 |
-| [`docs/api/openapi.json`](docs/api/openapi.json) | OpenAPI 3.1（49 路径 / 55 操作） |
+| [`docs/STATE.md`](docs/STATE.md) | 状态系统：五态、文案、长任务与可访问性 |
+| [`docs/api/README.md`](docs/api/README.md) | 56 个接口索引 |
+| [`docs/api/openapi.json`](docs/api/openapi.json) | OpenAPI 3.1（50 路径 / 56 操作） |
 | [`docs/architecture.html`](docs/architecture.html) | 可视化架构总览 |
 
 ---
 
 ## 路线图
 
-**v0.11 已完成**：五步安装向导、迁移台账、checksum 校验、安装基线、健康门禁、按版本快照回退。
+**v0.12 已完成**：第 15 系统层 `state`——五态反馈（进行 / 完成 / 错误 / 等待 / 交互）、文案键与主题覆写、长任务乐观锁、未捕获异常边界。
+
+**v0.11**：五步安装向导、迁移台账、checksum 校验、安装基线、健康门禁、按版本快照回退。
 
 **v1.0 之前**：
 

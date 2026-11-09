@@ -1,0 +1,41 @@
+/* 状态反馈样式 —— 归属主题包；核心不持有任何颜色、圆角或动画。 */
+.state {
+  display: flex; gap: .75rem; align-items: flex-start;
+  padding: .85rem 1rem; margin: 0 0 1.25rem;
+  border: 1px solid #dfe4ea; border-left: 4px solid #6b7280; border-radius: 8px;
+  background: #fff; color: #1f2937;
+}
+.state__mark { flex: 0 0 auto; width: .7rem; height: .7rem; margin-top: .5rem; border-radius: 50%; background: #6b7280; }
+.state__body { min-width: 0; }
+.state__title { margin: 0; font-weight: 600; }
+.state__message { margin: .2rem 0 0; }
+.state__hint { margin: .35rem 0 0; font-size: .85em; opacity: .75; }
+
+.state--failed { border-left-color: #c0392b; background: #fdf5f4; }
+.state--failed .state__mark { background: #c0392b; }
+.state--done { border-left-color: #137a45; background: #f4fbf7; }
+.state--done .state__mark { background: #137a45; }
+.state--running, .state--pending { border-left-color: #8b5cf6; background: #faf7ff; }
+.state--running .state__mark, .state--pending .state__mark { background: #8b5cf6; animation: state-pulse 1.4s ease-in-out infinite; }
+.state--waiting { border-left-color: #b25a09; background: #fffaf2; }
+.state--waiting .state__mark { background: #b25a09; }
+
+.state__progress { display: flex; align-items: center; gap: .6rem; margin-top: .5rem; font-size: .85em; }
+.state__progress progress { flex: 1; height: .5rem; accent-color: #8b5cf6; }
+.state__actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .7rem; }
+.state__form { margin: 0; }
+.state__action {
+  display: inline-block; padding: .35rem .8rem; cursor: pointer;
+  border: 1px solid #cfd6df; border-radius: 6px; background: #fff; color: inherit;
+  font: inherit; line-height: 1.4; text-decoration: none;
+}
+.state__action:hover { opacity: .88; }
+.state__action--primary { background: #1c2430; border-color: #1c2430; color: #fff; }
+.state__action--danger { background: #c0392b; border-color: #c0392b; color: #fff; }
+.state__evidence { margin-top: .6rem; font-size: .82em; opacity: .75; }
+.state__evidence code { padding: .05rem .3rem; border-radius: 4px; background: #eef1f5; }
+
+@keyframes state-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) {
+  .state__mark { animation: none !important; }
+}

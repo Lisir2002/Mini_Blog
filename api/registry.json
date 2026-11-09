@@ -638,13 +638,13 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.11.0",
+                    "core_version": "0.12.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
-                    "systems": 14,
-                    "contracts": 10,
-                    "api_operations": 55,
+                    "systems": 15,
+                    "contracts": 13,
+                    "api_operations": 56,
                     "database": "mysql",
                     "theme_active": null,
                     "headless": true
@@ -4340,6 +4340,144 @@
             ],
             "doc": "docs/api/API-LC-009.md",
             "permission": "lifecycle.read"
+        },
+        {
+            "id": "API-STATE-001",
+            "name": "查询长任务状态",
+            "system": "state",
+            "method": "GET",
+            "path": "/api/v1/state/task",
+            "operation": "state.task.status",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.12.0",
+            "summary": "按任务 id 读取跨请求的长任务状态：五态相位、持有者、进度、可执行动作与追踪编号。",
+            "scenario": "后台轮询安装、迁移、发布等长任务的进度；自动化脚本在提交异步任务后确认它卡在系统还是人手里。",
+            "params": [
+                {
+                    "name": "id",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "任务 id，1–64 位字母、数字、下划线或短横线"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "phase",
+                    "type": "string",
+                    "desc": "pending / running / waiting / done / failed"
+                },
+                {
+                    "name": "held_by",
+                    "type": "string|null",
+                    "desc": "waiting 时取 system（等待态）或 user（交互态）；其余相位为 null"
+                },
+                {
+                    "name": "scope",
+                    "type": "string",
+                    "desc": "固定为 task"
+                },
+                {
+                    "name": "id",
+                    "type": "string",
+                    "desc": "任务 id"
+                },
+                {
+                    "name": "code",
+                    "type": "int",
+                    "desc": "失败时的业务码；非失败态恒为 0"
+                },
+                {
+                    "name": "key",
+                    "type": "string",
+                    "desc": "文案键，供主题覆写与模型分支"
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "desc": "面向人的标题"
+                },
+                {
+                    "name": "message",
+                    "type": "string",
+                    "desc": "发生了什么"
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "desc": "下一步该怎么做"
+                },
+                {
+                    "name": "progress",
+                    "type": "object|null",
+                    "desc": "{done,total,unit,label}；无进度时为 null"
+                },
+                {
+                    "name": "actions",
+                    "type": "array",
+                    "desc": "可执行动作，最多 4 个：{key,label,kind,href,method}"
+                },
+                {
+                    "name": "evidence",
+                    "type": "object",
+                    "desc": "{trace_id,at,retryable}：追踪编号、发生时间、能否重试"
+                },
+                {
+                    "name": "revision",
+                    "type": "int",
+                    "desc": "乐观锁版本，每次推进 +1"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40403,
+                42201,
+                50001
+            ],
+            "example_request": "GET /api/v1/state/task?id=install-20261109",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "phase": "running",
+                    "held_by": null,
+                    "scope": "task",
+                    "id": "install-20261109",
+                    "code": 0,
+                    "key": "state.running",
+                    "title": "正在处理",
+                    "message": "操作正在进行，请不要重复提交。",
+                    "hint": "完成后本页会自动更新。",
+                    "progress": {
+                        "done": 3,
+                        "total": 5,
+                        "unit": "步",
+                        "label": "建表与迁移基线"
+                    },
+                    "actions": [],
+                    "evidence": {
+                        "trace_id": "9f1c2a7b4e6d8013",
+                        "at": "2026-11-09T18:30:00+08:00",
+                        "retryable": false
+                    },
+                    "revision": 2
+                },
+                "request_id": "9f1c2a7b4e6d8013",
+                "meta": {
+                    "api": "API-STATE-001",
+                    "version": "v1",
+                    "system": "state"
+                }
+            },
+            "notes": "只读接口。任务不存在返回 40403；鉴权与权限仍由 api / permission 层裁决，本接口不自行判断身份。状态存储无数据库时退化为内存，跨进程不可见。",
+            "changelog": [
+                "0.12.0 初次发布"
+            ],
+            "doc": "docs/api/API-STATE-001.md"
         }
     ]
 }

@@ -1,4 +1,4 @@
-# Mini Blog 架构设计（v0.11）
+# Mini Blog 架构设计（v0.12）
 
 > 第一性原理：**高度自定义，万象皆接口**
 > 技术栈：**纯原生** PHP 8.1+ / MySQL 8.0+（PDO，实测 MariaDB 10.11）/ 原生 HTML + CSS + JavaScript
@@ -85,7 +85,7 @@ flowchart TB
     end
     subgraph L1["L1 · 能力型系统层（只提供契约与操作）"]
         LOG["日志"]; USR["用户"]; SEC["安全"]; CMT["评论"]; DB["数据库"]
-        CNT["内容（第 11 层）"]; API["API 接口"]
+        CNT["内容（第 11 层）"]; API["API 接口"]; ST["状态（第 15 层）"]
     end
     subgraph LM["LM · 元层（管理其余所有单元的生命周期）"]
         LC["装卸系统<br/>install / activate / upgrade / rollback / uninstall / verify / 验签"]
@@ -95,7 +95,7 @@ flowchart TB
     end
     T --> TS; P --> PS; G --> GS
     TS --> K; PS --> K; GS --> K
-    LOG --> K; USR --> K; SEC --> K; CMT --> K; DB --> K; CNT --> K; API --> K
+    LOG --> K; USR --> K; SEC --> K; CMT --> K; DB --> K; CNT --> K; API --> K; ST --> K
     LC -->|LifecycleManagerInterface| K
     LC -.->|"package.enabled 裁决装载权"| L2
     LC -.->|"登记 operation"| API
@@ -147,7 +147,7 @@ flowchart TB
 
 | 契约 | 默认实现 | 谁可覆盖 |
 | --- | --- | --- |
-| `SystemInterface` | 14 个系统层 | 未来任意新系统层 |
+| `SystemInterface` | 15 个系统层 | 未来任意新系统层 |
 | `PackageInterface` | 主题 / 插件 / 独立页包 | 任意包 |
 | `RendererInterface` | **仅主题包**（核心无实现） | 高 priority 主题 / 插件 |
 | `LoggerInterface` | 日志系统 → `FileLogger` | 任意系统层 / 插件 |
@@ -322,7 +322,7 @@ return [
 
 ### 10.1 清单是唯一事实源
 
-`api/registry.json` 定义 **55 个接口**：`API-CORE-001~004`、`API-LOG-001`、`API-LC-001~009`、`API-AUTH-001~004`、`API-USER-001`、`API-CONTENT-001~005`、`API-COMMENT-001~002`、`API-PERM-001~014`、`API-MEMBER-001~010`、`API-REL-001~005`。每条必须声明 `id / name / system / method / path / operation / auth / idempotent / side_effects / since / summary / scenario / params / response_fields / errors / example_request / example_response / notes / changelog / doc`。
+`api/registry.json` 定义 **56 个接口**：`API-CORE-001~004`、`API-LOG-001`、`API-LC-001~009`、`API-AUTH-001~004`、`API-USER-001`、`API-CONTENT-001~005`、`API-COMMENT-001~002`、`API-PERM-001~014`、`API-MEMBER-001~010`、`API-REL-001~005`、`API-STATE-001`。每条必须声明 `id / name / system / method / path / operation / auth / idempotent / side_effects / since / summary / scenario / params / response_fields / errors / example_request / example_response / notes / changelog / doc`。
 
 `ApiRegistry` 构造时强校验：ID 唯一、`method+path` 唯一、`operation` 唯一；`registerOperation` 拒绝重复执行者。
 
@@ -415,7 +415,7 @@ return [
 │   ├── Kernel.php              生命周期 + renderStage + render.should_render
 │   ├── Container.php / HookBus.php / SystemRegistry.php / PackageLoader.php
 │   ├── Router.php / Config.php / AbstractSystem.php / bootstrap.php
-├── systems/                    14 个系统层，每目录 = 一个系统层 + system.json + permissions.json（可选）
+├── systems/                    15 个系统层，每目录 = 一个系统层 + system.json + permissions.json（可选）
 │   ├── Log/ User/ Security/ Comment/ Database/ Content/   （能力型）
 │   │   └── migrations/*.sql + lifecycle.php               （自己的表与清理钩子）
 │   ├── Theme/ Plugin/ Page/                              （承载型）
@@ -434,7 +434,7 @@ return [
 ├── tools/                      gen-api-docs.php / export-openapi.php / sign-package.php / audit-responsibility.php + audit/(Policy|CollaborationGraph|Auditor|concerns.json)
 ├── config/app.php              装配清单（核心不解释键的含义）
 ├── .gitignore                  版本控制兜底：脚本 / 临时 / 日志 / 转储不入库（规矩 O）
-├── tests/                     run.php（引导）+ helpers.php / fixtures*.php（夹具）+ groups/*.php（38 个分组，181 项守卫）
+├── tests/                     run.php（引导）+ helpers.php / fixtures*.php（夹具）+ groups/*.php（40 个分组，200 项守卫）
 ├── storage/lifecycle/          装卸状态 / 暂存 / 备份（运行时产物）
 ├── storage/api/                幂等缓存 / 限流计数（运行时产物）
 ├── storage/cache/permission/   权限决策基础数据缓存（epoch 失效，运行时产物）
@@ -546,19 +546,20 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | **v0.8** | **规矩 L 页面身份权限清单化 + 装配期契约覆盖运行时身份鉴权：`route.access` 可编程裁决点、5 页分级策略、拒绝页归主题 `deny` 布局、契约覆盖授权台账与 2 个受保护接口；新增 4 组守卫，`core/` 未新增文件（仅 `Router.php` 加一个询问点）；当时 121 项守卫全绿** |
 | **v0.9** | **规矩 M 主体可扩展 + 凭据单一来源：用户组（角色来源扩展）、页面会话（HttpOnly Cookie，与 API 令牌同表同撤销）、可换权限缓存后端（file + epoch 跨请求共享）、字段级写校验（`content.update` 逐字段裁决）、契约覆盖默认安全（`require_grant=true` + 系统层自动登记）；新增 6 个接口 / 5 组守卫，`core/` 未新增文件** |
 | **v0.10** | **规矩 N 身份与授权解耦：第 13 系统层 `member`（站长自定义头衔 / 经验规则 / 等级门槛）、经验流水幂等 + 每日上限 + 事务、等级按门槛重解释且只升不降、头衔手动与等级自动两源且**零权限**；用户组补颜色 / 排序展示属性；`content.created` / `comment.created` / `user.lookup` / `user.profile.enrich` 四个装配点；新增 10 个接口 / 5 组 21 项守卫，`core/` 未新增文件** |
-| **v0.11（当前）** | **规矩 P 安装与版本可逆：标准化五步安装向导（`config/local.php` 覆盖层 + 一次性令牌 + `install.lock`）；第 14 系统层 `release`（迁移台账 + checksum 校验 + 安装基线 + 健康门禁 + 版本历史）；不重装升级与按版本快照回退（`keep_releases`）；新增 6 个接口 / 4 个守卫文件 11 项断言，`core/` 未新增文件** |
+| **v0.11** | **规矩 P 安装与版本可逆：标准化五步安装向导（`config/local.php` 覆盖层 + 一次性令牌 + `install.lock`）；第 14 系统层 `release`（迁移台账 + checksum 校验 + 安装基线 + 健康门禁 + 版本历史）；不重装升级与按版本快照回退（`keep_releases`）；新增 6 个接口 / 4 个守卫文件 11 项断言，`core/` 未新增文件** |
+| **v0.12（当前）** | **第 15 系统层 `state`：五态反馈（进行 / 完成 / 错误 / 等待 / 交互）、`held_by` 区分「等系统」与「等人」、文案键 + 主题覆写、长任务 `wx_state_tasks` 乐观锁与终态不可逆、`kernel.exception` 异常边界；新增 1 个接口 / 2 个守卫文件 19 项断言，`core/` 未新增文件** |
 | v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略 |
 
 ---
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **201 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.8 只在 `core/Router.php` 增加一个访问裁决点；v0.9 / v0.10 / v0.11 均未改动 `core/` 的任何文件。
-- `php tests/run.php` → **181 passed, 0 failed**（38 个守卫文件：…、**协作全方位验证**、**权限模型与协作**、**角色继承**、**缓存与字段级权限**、**页面访问分级**、**页面策略与呈现**、**契约覆盖鉴权**、**身份载体同源**、**组自定义**、**头衔**、**经验**、**等级**、**成员层贯通**、**项目树纪律**、**版本升级 / 回退**、**版本安全边界**、**安装窗口**、**安装步骤**）。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；201 个文件共 12154 有效代码行，最大单文件 185 行（`ReleaseManager`），55 个 operation 全部绑定执行者。
-- **14 个系统层**自动装配：`log → database → security → lifecycle → user → permission → api → plugin → member → content → release → theme → comment → page`；**13 个契约接口文件**（容器运行时绑定 10 个）、**55 个接口 / 55 份文档**、OpenAPI 3.1（49 路径 / 55 操作）、**22 个承载单元**（14 系统层 + 2 主题 + 5 独立页 + 1 插件）、**31 个权限点**。
-- 真实 MariaDB 上建立 21 张系统层自建表（含 `schema_migrations`），验证文章 / 评论写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页；拔掉 DSN 后自动回退且首页仍有数据。
-- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=14, contracts=10, api_operations=55, core_version=0.11.0, headless=true`）；无令牌访问 `/api/v1/lifecycle/units` 返回 HTTP 401 + `40101`；`POST /api/v1/auth/token` 用 `admin/admin123` 换令牌后同一接口返回 `code=0`；`/console` `/install` `/toolbox` 现在需 admin 令牌：匿名返回 HTTP 401 + `access_denied` 结构化数据，主题提供 `deny` 布局时渲染拒绝页、`bare-html` 缺该布局时退化为纯 JSON；带令牌时无主题返回纯数据、启用 `bare` 主题时由主题 admin/tool/install 布局输出 `text/html`。
+- `php -l` 全量 **215 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 / v0.10 / v0.11 未新增核心文件；v0.12 只在 `core/Kernel.php` 补上异常边界、在 `Response::send()` 加 CLI 保护，文件数不变。
+- `php tests/run.php` → **200 passed, 0 failed**（40 个守卫文件；v0.12 新增 `19a-state-model` 与 `19b-state-runtime`）。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；215 个文件共 13,283 有效代码行，最大单文件 187 行，56 个 operation 全部绑定执行者。
+- **15 个系统层**自动装配：`log → database → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → comment → page`；**13 个契约接口文件**（容器运行时绑定 13 个，含状态层 3 个内部契约）、**56 个接口 / 56 份文档**、OpenAPI 3.1（50 路径 / 56 操作）、**23 个承载单元**（15 系统层 + 2 主题 + 5 独立页 + 1 插件）、**31 个权限点**。
+- 真实 MariaDB 上建立 **22 张**系统层自建表（含 `schema_migrations` 与 `state_tasks`），验证文章 / 评论写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进；拔掉 DSN 后自动回退且首页仍有数据。
+- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=15, contracts=13, api_operations=56, core_version=0.12.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
 - 装卸全链路与签名验签实测：安装 → 启用 → 升级（留备份）→ 回滚 → 停用 → 完整性校验 → 卸载；重复安装、版本未递增、反向依赖、路径穿越、源包越界、篡改签名、强制缺签名均被正确拒绝。
 - 所有验证均为**可重跑的文本证据**，未使用截图（规矩 A）。
 
@@ -1245,7 +1246,7 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 
 第 1 条与第 2 条都不是「测试写错了」，而是守卫逼出来的产品缺陷——这正是规矩 E 的意义。
 
-### 27.8 验证与数字
+### 27.8 验证与数字（v0.11 当时）
 
 - 新增第 14 系统层 `release`（`system.json` / `permissions.json` / `lifecycle.php` / 1 条迁移 / 9 个单一职责类）与 `pages/Install` 五个文件；`core/` 仍 24 个 PHP。
 - 接口 49 → **55**（新增 `API-REL-001~005`、`API-LC-009`；`API-LC-007` 增加可选 `version`）；权限点 28 → **31**（`release.read` / `release.upgrade` / `release.rollback`）；表 20 → **21**（`schema_migrations`）。
@@ -1254,6 +1255,66 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 - 真实 HTTP 冒烟：`system/info` → `core_version=0.11.0 / systems=14 / api_operations=55`；`release/status` 返回 `schema.applied=12`；`lifecycle/releases` 与 `release/status.releases` 看到同一批快照。
 
 **边界（诚实标注）**：`source` 必须是已就位的目录，不做在线下载；不做灰度分批；不做升级并发锁（同一时刻只应有一次升级）；不支持跨大版本跳版（`assertUpgradable` 要求逐版递增）；健康门禁不含业务数据一致性校验。
+
+---
+
+## 28. 状态系统（第 15 层，v0.12）
+
+状态系统补的不是「错误码」，而是**用户对一次操作的完整认知**：现在到哪一步、卡在谁手里、为什么、下一步能做什么。
+
+### 28.1 五态不是五个枚举
+
+`phase` 有五个取值，但「等待」与「交互」共用 `waiting`，靠 `held_by` 区分：
+
+| 状态 | `phase` | `held_by` | 语义 | HTTP |
+| --- | --- | --- | --- | --- |
+| 进行态 | `running` | — | 正在执行 | 202 |
+| 完成态 | `done` | — | 已成功结束 | 200 |
+| 错误态 | `failed` | — | 已失败结束，带 4xx / 5xx 业务码 | 4xx / 5xx |
+| 等待态 | `waiting` | `system` | 等队列 / 网络 / 第三方 | 202 |
+| 交互态 | `waiting` | `user` | 等人确认 / 授权 / 补输入 | 202 |
+
+如果做成五个并列枚举，遇到「正在跑但停下来等人确认」就必须二选一，迟早出现「既在进行又在等人」的脏数据。拆成两个字段后，这个组合天然成立，且 `held_by=user` 可以直接驱动「待办」语义。
+
+三条硬不变量在值对象构造时裁决：只有失败态能带业务码；只有等待态能带 `held_by`；只有失败态能标记 `retryable`。另加完成态进度必须走满、`scope=task` 必须有 `id`、动作最多 4 个且只允许站内链接。
+
+### 28.2 三件套：说明、出路、证据
+
+| 组成 | 字段 | 回答 |
+| --- | --- | --- |
+| 说明 | `title` / `message` / `hint` | 发生了什么、为什么、我该知道什么 |
+| 出路 | `actions[]` | 我现在能做什么（重试 / 取消 / 返回 / 登录） |
+| 证据 | `code` / `trace_id` / `at` / `retryable` | 凭什么这么说，能不能重试 |
+
+只有颜色和图标、没有这三样的是装饰，不是状态。文案采用「键 + 默认中文 + 主题覆写」：键（`state.error.permission`）是稳定契约，供模型与日志分支；中文是开箱兜底；`state.copy` 钩子让主题改措辞而不改语义。
+
+`fromThrowable()` 刻意不把异常原文放进界面：SQL、路径、令牌片段只进日志，界面给稳定文案与 `trace_id`，靠编号关联现场。
+
+### 28.3 三种作用域与长任务
+
+| 作用域 | 载体 | 生命周期 |
+| --- | --- | --- |
+| `page` | `payload.state` | 一次渲染，刷新即重算 |
+| `action` | `payload.state` / 接口信封 | 一次提交 |
+| `task` | `wx_state_tasks` | 跨请求，需持久化 |
+
+只有 `task` 落库。表由状态层自持，`revision` 做乐观锁：`UPDATE … WHERE id=? AND revision=?` 命中 0 行即 `40901`。终态（`done` / `failed`）由 `StateTasks` 拒绝再次推进；`expires_at` + `sweep()` 负责过期清理；无数据库时自动退化为内存实现，同进程可见、跨进程不可见。
+
+并发语义是「宁可报冲突，也不静默覆盖」：两个 worker 同时推进同一任务，后到的必须重新读取最新状态再决定。
+
+### 28.4 异常边界与呈现
+
+`Kernel::run()` 捕获 `Throwable` 后发出 `kernel.exception`：状态系统把它翻译成失败态并返回 `Response`，核心继续走主题渲染，异常页与普通页共用同一套布局。没有消费者时（状态系统被停用），核心只输出纯文本 `500 Internal Server Error`；渲染阶段再次抛异常也退回纯文本，避免递归。
+
+主题必须提供可访问性语义：错误 `role="alert"` + `assertive`，其余 `role="status"` + `polite`，进行态 `aria-busy="true"`，进度用 `<progress>` 或 `aria-valuenow`，动作是真实链接或表单（无 JS 也能完成），失败后焦点归位。参考实现见 `themes/Bare/templates/partials/state.php` 与 `assets/state.{css,js}`。
+
+### 28.5 与装卸状态机的区别
+
+`systems/Lifecycle/StateMachine` 管单元的 `absent → installed → active`，是元层的**生命周期裁决**；状态系统管**交互反馈**。两者共享「状态机」思路，但语义、持久化位置、消费者完全不同，刻意不合并：把交互态塞进装卸状态机会让元层同时承担「能不能装」和「用户看到什么」。
+
+### 28.6 验证
+
+`19a-state-model` 覆盖五态组合、业务码约束、动作白名单、进度边界、不可变、文案覆写、异常 / 信封翻译；`19b-state-runtime` 覆盖长任务创建 / 推进 / 终态拒绝、CAS 冲突、TTL、安装页真实状态、无主题降级、主题片段可访问性、异常出口、停用降级与只读接口。`11` 组把 `kernel.exception` 纳入裁决型事件，缺消费者即报孤儿。
 
 ---
 

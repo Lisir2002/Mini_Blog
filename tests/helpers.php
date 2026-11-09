@@ -9,6 +9,7 @@ require dirname(__DIR__) . '/core/bootstrap.php';
 
 use Wx\Core\Kernel;
 use Wx\Systems\Lifecycle\Fs;
+use Wx\Systems\State\StateFactory;
 
 $root = dirname(__DIR__);
 $passed = 0;
@@ -119,6 +120,14 @@ function resetStorage(string $sub): void
     mkdir($dir, 0775, true);
     // 目录骨架随仓库提交，清空内容时不能把占位文件一起删掉
     touch($dir . '/.gitkeep');
+}
+
+/** 状态系统夹具：默认内核已装配；传入内核时复用它，避免重复 boot。 */
+function stateFactory(?Kernel $k = null): StateFactory
+{
+    $k ??= kernel(null);
+    $k->boot();
+    return $k->container()->resolve(StateFactory::class);
 }
 
 /** 造一个带 SHA-256 清单的源包，可选自带原生 PHP 生命周期钩子。 */

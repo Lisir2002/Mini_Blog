@@ -21,6 +21,7 @@ check('版本升级：迁移、单元与 core 同步前进，旧版本留快照'
         $k = isolatedKernel($dir, $prefix);
         $k->boot();
         $from = relVersion($dir);
+        $GLOBALS['wx_rel_fixture']['from'] = $from;
         $pkg = fakeRelease($dir, '9.9.0');
         writeMigration(
             $pkg, '900_probe_18a',
@@ -71,9 +72,11 @@ check('版本回退：撤销迁移、回退单元与 core，并再次留快照',
     try {
         $k = isolatedKernel($dir, $prefix);
         $k->boot();
-        $rb = relPost($k, '/api/v1/release/rollback', ['version' => '0.11.0']);
+        $from = (string) ($fixture['from'] ?? '');
+        truthy($from !== '', '升级前版本未记录');
+        $rb = relPost($k, '/api/v1/release/rollback', ['version' => $from]);
         truthy(($rb['body']['code'] ?? null) === 0, '回退失败：' . json_encode($rb['body'], JSON_UNESCAPED_UNICODE));
-        truthy(relVersion($dir) === '0.11.0', '回退后 core 版本未恢复');
+        truthy(relVersion($dir) === $from, '回退后 core 版本未恢复');
         truthy(!in_array($prefix . 'probe_18a', relTables($k, $prefix), true), '回退后迁移建的表仍然存在');
         truthy(in_array('release/900_probe_18a.sql', (array) ($rb['body']['data']['reverted'] ?? []), true), '回退未撤销迁移');
 

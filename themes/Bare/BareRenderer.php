@@ -30,6 +30,7 @@ final class BareRenderer implements RendererInterface
         $title     = (string) ($payload['title'] ?? '未命名站点');
         $items     = (array)  ($payload['items'] ?? []);
         $blocks    = (array)  ($payload['blocks'] ?? []);
+        $state     = is_array($payload['state'] ?? null) ? $payload['state'] : null;
         $apiPrefix = (string) ($payload['api_prefix'] ?? '');
         $esc       = static fn(string $value): string => $guard->escape($value);
 

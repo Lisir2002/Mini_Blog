@@ -19,7 +19,7 @@ function hygieneRel(string $root, string $path): string
 
 check('项目树纪律：根目录只允许已登记的条目', function () use ($root): void {
     $allowed = [
-        'README.md', '.gitignore',
+        'README.md', '.gitignore', '.git',
         'api', 'config', 'core', 'docs', 'pages',
         'plugins', 'public', 'storage', 'systems', 'tests', 'themes', 'tools',
     ];

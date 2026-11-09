@@ -1,4 +1,4 @@
-# 万象 · 博客框架（v0.10 内核原型）
+# 万象 · 博客框架（v0.11 内核原型）
 
 > **高度自定义，万象皆接口**
 > 纯原生 PHP 8.1+ / MySQL 8.0+（PDO）/ 原生 HTML + CSS + JavaScript 自研，**无模板引擎、无第三方框架、无 composer/vendor**。
@@ -35,7 +35,9 @@ php -S 127.0.0.1:8080 -t public public/index.php
 
 **没接 MySQL 也能启动**：把 `config/app.php` 的 `database.dsn` 留空，各系统层自动回退内存 / 会话适配器，站点仍可运行（这是「契约与实现可分离」的验证点）。
 
-**身份与授权是两件事**：头衔、经验、等级由第 13 个系统层 `member` 管理，站长可自定义头衔样式与自动门槛、经验规则、等级名称与经验区间；它们**不产生任何权限**，授权入口仍只有权限系统一个（见规矩 N）。
+**身份与授权是两件事**：头衔、经验、等级由第 13 个系统层 `member` 管理（共 14 层，第 14 层 `release` 管版本），站长可自定义头衔样式与自动门槛、经验规则、等级名称与经验区间；它们**不产生任何权限**，授权入口仍只有权限系统一个（见规矩 N）。
+
+**本机环境、SSH 接入与浏览器配置**见 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)：PHP 8.3 / MariaDB 10.11 / Node 22 已就绪，SSH 仅公钥登录（`wx-ssh-setup` 一键恢复），模型操作用 `agent-browser`（Chrome 151），脚本回归用 Playwright（Chromium 145），真实 Chrome 环境用系统 Chrome 144 + 同版 chromedriver。
 
 ### 接入主题
 

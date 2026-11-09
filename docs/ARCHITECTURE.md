@@ -338,7 +338,7 @@ return [
 }
 ```
 
-错误码 5 位，前两位对齐 HTTP 状态；错误响应带 `errors` 字段级明细，`data` 恒为 `null`，**禁止 200 里塞错误**。表定义在 `systems/Api/Envelope.php`（14 个码），文档表格与 OpenAPI 响应由生成器读同一张表，不会多处漂移。完整规范见 [`docs/api/SPEC.md`](api/SPEC.md)。
+错误码 5 位，前两位对齐 HTTP 状态；错误响应带 `errors` 字段级明细，`data` 恒为 `null`，**禁止 200 里塞错误**。表定义在 `systems/Api/Envelope.php`（20 个码），文档表格与 OpenAPI 响应由生成器读同一张表，不会多处漂移。完整规范见 [`docs/api/SPEC.md`](api/SPEC.md)。
 
 ### 10.3 鉴权从声明变成执行（v0.4）
 
@@ -361,7 +361,7 @@ return [
 | 幂等键 | `IdempotencyStore`（文件 JSON） | 同键同参数重放首次结果并回 `Idempotency-Replayed: true`；同键不同参数 `40902`；参数校验失败不写缓存；429 不被缓存 |
 | 429 限流 | `RateLimiter`（固定窗口） | `Retry-After` + `X-RateLimit-Limit/Remaining/Reset`；CLI 用 PID 隔离避免跨轮累积 |
 | 游标分页 | `content.posts` | `limit + cursor`，cursor 为 base64 编码的记录 ID，走 `id > cursor` 的 keyset 分页，避免 OFFSET 深翻页 |
-| OpenAPI 3.1 | `tools/export-openapi.php` | 由清单导出 `docs/api/openapi.json`（19 条路径 / 21 个 operation，同路径多方法合并），含 `bearerAuth` 安全声明与统一 schema |
+| OpenAPI 3.1 | `tools/export-openapi.php` | 由清单导出 `docs/api/openapi.json`（49 条路径 / 55 个 operation，同路径多方法合并），含 `bearerAuth` 安全声明与统一 schema |
 
 ### 10.5 一个接口 = 一份规范化操作文档
 
@@ -369,7 +369,7 @@ return [
 | --- | --- |
 | 1:1 | 清单每条接口 → 且仅 → 一份 `docs/api/<ID>.md`；任何 `API-*.md` 必须能对应清单条目 |
 | 8 节固定 | 接口标识 / 功能与适用场景 / 请求规范 / 响应规范 / 错误码 / 调用示例 / 幂等性与副作用 / 变更记录 |
-| 生成 | `php tools/gen-api-docs.php` 依据清单 + `docs/api/_TEMPLATE.md` 生成 49 份文档与索引 |
+| 生成 | `php tools/gen-api-docs.php` 依据清单 + `docs/api/_TEMPLATE.md` 生成 55 份文档与索引 |
 | 禁止手改 | 先改清单 → 重新生成 → 跑守卫测试；直接手写文档视为破坏单一事实源 |
 | 守卫 | `tests/run.php` 第 6、10 组逐条检查 1:1、章节、编号与路径一致、无孤儿、无重复、OpenAPI 与清单一致 |
 
@@ -422,7 +422,7 @@ return [
 │   ├── Api/       ApiRegistry / Dispatcher / RequestGuard / SystemIntrospection / Envelope / IdempotencyStore / RateLimiter
 │   ├── Release/   版本层：ReleaseManager（编排）+ MigrationRunner / MigrationStore / HealthProbe / ReleaseLog / ReleaseManifest / ReleaseUnits
 │   ├── Database/  连接 + Schema + SqlScript（迁移脚本解析与校验和）
-│   └── Lifecycle/ 元层：LifecycleManager（编排）+ 8 协作者（StateMachine / UnitCatalog / DependencyGraph / PackageVerifier / FileTransaction / HookRunner / StateStore / Fs / ReleaseArchive / VersionSwitcher）
+│   └── Lifecycle/ 元层：LifecycleManager（编排）+ 10 协作者（StateMachine / UnitCatalog / DependencyGraph / PackageVerifier / FileTransaction / HookRunner / StateStore / Fs / ReleaseArchive / VersionSwitcher）
 ├── themes/Bare/ · themes/BareHtml/        主题包（后者零 CSS）
 ├── plugins/Hello/                          插件包（只通过钩子改数据）
 ├── pages/Home/ Links/ Console/ Toolbox/ Install/   独立页包（后三者 standalone；Install 拆为 InstallPage / Installer / InstallerAccount / InstallerMigrate / InstallState / InstallProbe）
@@ -430,14 +430,16 @@ return [
 ├── docs/api/                   SPEC.md + 55 份 API-*.md + openapi.json + 模板 + 索引
 ├── docs/CONVENTIONS.md         工程规矩 A–P
 ├── docs/responsibility-report.json   职责与协作审计报告（每次测试自动刷新）
+├── docs/DEVELOPMENT.md         本机环境、SSH 接入与浏览器配置
 ├── tools/                      gen-api-docs.php / export-openapi.php / sign-package.php / audit-responsibility.php + audit/(Policy|CollaborationGraph|Auditor|concerns.json)
 ├── config/app.php              装配清单（核心不解释键的含义）
 ├── .gitignore                  版本控制兜底：脚本 / 临时 / 日志 / 转储不入库（规矩 O）
-├── tests/                     run.php（引导）+ helpers.php（共享辅助）+ groups/*.php（34 个分组，170 项守卫）
+├── tests/                     run.php（引导）+ helpers.php / fixtures*.php（夹具）+ groups/*.php（38 个分组，181 项守卫）
 ├── storage/lifecycle/          装卸状态 / 暂存 / 备份（运行时产物）
 ├── storage/api/                幂等缓存 / 限流计数（运行时产物）
 ├── storage/cache/permission/   权限决策基础数据缓存（epoch 失效，运行时产物）
 ├── storage/logs/               日志
+├── storage/releases/           版本历史（append-only JSON，运行时产物）
 └── docs/ARCHITECTURE.md · docs/architecture.html
 ```
 

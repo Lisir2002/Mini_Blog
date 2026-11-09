@@ -117,6 +117,8 @@ function resetStorage(string $sub): void
     $dir = $root . '/storage/api/' . $sub;
     if (is_dir($dir)) Fs::removeDir($dir);
     mkdir($dir, 0775, true);
+    // 目录骨架随仓库提交，清空内容时不能把占位文件一起删掉
+    touch($dir . '/.gitkeep');
 }
 
 /** 造一个带 SHA-256 清单的源包，可选自带原生 PHP 生命周期钩子。 */

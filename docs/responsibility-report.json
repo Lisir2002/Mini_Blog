@@ -1,5 +1,5 @@
 {
-    "generated_at": "2026-11-09T08:08:43+00:00",
+    "generated_at": "2026-11-09T08:32:59+00:00",
     "tool": "tools/audit-responsibility.php",
     "policy": {
         "budgets": {
@@ -57,7 +57,7 @@
     },
     "summary": {
         "php_files": 201,
-        "total_sloc": 12159,
+        "total_sloc": 12160,
         "max_sloc": 185,
         "violation_count": 0,
         "orphan_count": 0
@@ -2717,7 +2717,7 @@
         {
             "path": "tests/helpers.php",
             "layer": "脚本",
-            "sloc": 118,
+            "sloc": 119,
             "sloc_limit": 240,
             "classes": 0,
             "public_methods": 0,

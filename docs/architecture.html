@@ -98,7 +98,7 @@
 </section>
 
 <section>
-  <h2>五层模型（元层 + 第 13 层 member）</h2>
+  <h2>五层模型（元层 + 14 个系统层，最新为第 14 层 release）</h2>
   <p class="sub">层间只允许通过接口通信，不允许跨层直接 <code>new</code> 具体类。核心甚至不知道「文章」「升级」这两个词的存在。</p>
   <div class="layers">
     <div class="layer">
@@ -124,9 +124,9 @@
       <div class="chips">
         <span class="chip">日志</span><span class="chip">用户</span><span class="chip">安全</span>
         <span class="chip">评论</span><span class="chip">数据库</span><span class="chip">权限（第 12 层）</span>
-        <span class="chip carrier">内容（第 11 层）</span><span class="chip carrier">成员（第 13 层）</span><span class="chip">API 接口</span><span class="chip">…未来任意新系统</span>
+        <span class="chip carrier">内容（第 11 层）</span><span class="chip carrier">成员（第 13 层）</span><span class="chip carrier">版本（第 14 层）</span><span class="chip">API 接口</span><span class="chip">…未来任意新系统</span>
       </div>
-      <div class="layer-note">全部实现 <code>SystemInterface</code>，与官方系统完全对等；新增 = 丢目录 + 写 <code>system.json</code>，内核零改动。实测 13 层顺序：log → database → security → lifecycle → user → permission → api → plugin → member → content → theme → comment → page。</div>
+      <div class="layer-note">全部实现 <code>SystemInterface</code>，与官方系统完全对等；新增 = 丢目录 + 写 <code>system.json</code>，内核零改动。实测 14 层顺序：log → database → security → lifecycle → user → permission → api → plugin → member → content → release → theme → comment → page。</div>
     </div>
     <div class="layer">
       <div class="lv">LM<small>元层 · 装卸系统</small></div>
@@ -246,7 +246,7 @@ upgrade   备份当前 → staging → 替换
     <div class="card"><div class="tag ok">规矩 H</div><h3>单文件职责预算</h3><p>行数 / 责任主体 / 扇出 / 职权跨度四指标分层预算，<code>audit-responsibility.php</code> 静态审计。上帝类 563 行 → 188 行编排者 + 7 个协作者。</p></div>
     <div class="card"><div class="tag ok">规矩 I</div><h3>协作全方位验证</h3><p>8 类协作矩阵 C1–C8 + 存在性 / 一致性 / 运行时贯通 / 故障注入四维；C9 断言每一类都有实际跑过的守卫。</p></div>
     <div class="card"><div class="tag ok">规矩 J · v0.6</div><h3>呈现权完全归主题</h3><p>后台布局同样过主题系统。独立页只产数据 + 声明 <code>layout</code> 槽位，主题包持有 site / admin / tool / install 全部模板与 CSS/JS；主题缺某布局 → 该页退化为纯 JSON，框架绝不兜底。<code>standalone</code> 绕过主题的后门已拆除。</p></div>
-    <div class="card"><div class="tag ok">规矩 K · v0.6</div><h3>权限系统（第 12 层）</h3><p>用户权限 RBAC / 文章权限资源 ACL / 系统权限各层自报；决策三态 <code>allow·deny·abstain</code>、fail-closed、策略钩子只能收紧不能提权、每次决策留痕。28 个权限点、14 个权限接口（<code>API-PERM-001~014</code>）、9 张权限表（全站 20 张）。</p></div>
+    <div class="card"><div class="tag ok">规矩 K · v0.6</div><h3>权限系统（第 12 层）</h3><p>用户权限 RBAC / 文章权限资源 ACL / 系统权限各层自报；决策三态 <code>allow·deny·abstain</code>、fail-closed、策略钩子只能收紧不能提权、每次决策留痕。31 个权限点、14 个权限接口（<code>API-PERM-001~014</code>）、9 张权限表（全站 21 张）。</p></div>
     <div class="card"><div class="tag ok">v0.7 深化</div><h3>继承 / 缓存 / 字段级</h3><p>角色继承用 <code>permission_role_parents</code> 边表 + 决策时展开，自环 / 成环 / 深度超限写入即拒；决策缓存只缓存基础读取、绝不缓存最终决策，授权变更显式失效；ACL 新增 <code>field</code> 维度，精确拒绝某字段而不剔除整篇。<code>core/</code> 仍 24 个 PHP。</p></div>
     <div class="card"><div class="tag ok">v0.8 规矩 L</div><h3>页面权限 / 覆盖鉴权</h3><p>5 个页面在 <code>page.json</code> 声明分级 <code>access</code>，<code>route.access</code> 统一裁决并短路；与 API 共用认证器与权限决策器，策略钩子只能收紧，拒绝页样式归主题 <code>deny</code> 布局。契约覆盖新增授权台账：<code>require_grant</code> 开启后未授权覆盖 fail-closed，授权必须经运行时身份。<code>core/</code> 未新增文件。</p></div>
     <div class="card"><div class="tag ok">v0.9 规矩 M</div><h3>主体可扩展 / 凭据单一来源</h3><p>用户组只作「角色来源」，主体角色集合 = 自身角色 ∪ 组绑定角色，决策骨架与 deny 优先级一字未改；页面会话与 API 令牌<strong>同表同过期同撤销</strong>，只换 HttpOnly + SameSite=Lax 载体，且会话令牌不得当 Bearer 调普通 API；权限缓存新增可换后端（进程内 / 文件），以 epoch 换代失效；<code>content.update</code> 逐字段裁决、任一被拒整次拒绝，绝不部分写入；契约覆盖默认 <code>require_grant=true</code>，仅已注册系统层自动登记，<code>plugin: / theme: / page:</code> 必须运行时授权。<code>core/</code> 仍 24 个 PHP。</p></div>

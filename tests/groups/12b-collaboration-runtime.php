@@ -5,7 +5,7 @@ use Wx\Core\HookBus;
 use Wx\Core\Http\Request;
 use Wx\Core\Kernel;
 use Wx\Systems\Content\MemoryContentRepository;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 use Wx\Systems\Lifecycle\Fs;
 use Wx\Systems\Lifecycle\LifecycleManager;
 use Wx\Systems\Lifecycle\PackageVerifier;

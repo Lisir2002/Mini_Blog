@@ -18,7 +18,7 @@ final class PdoStateStore implements StateStoreInterface
 
     public function ensureSchema(): void
     {
-        \Wx\Systems\Database\Schema::apply($this->db, __DIR__ . '/migrations');
+        \Wx\Systems\Data\Schema::apply($this->db, __DIR__ . '/migrations');
     }
 
     public function put(State $state, string $kind = '', string $owner = '', int $ttl = 0): State
@@ -68,7 +68,12 @@ final class PdoStateStore implements StateStoreInterface
     public function find(string $id): ?State
     {
         $pdo = $this->db->pdo();
-        $stmt = $pdo->prepare('SELECT * FROM ' . $this->table() . ' WHERE id = ?');
+        // 显式列：状态行的字段就是对外契约，新增内部列不应自动出现在读回结果里。
+        $stmt = $pdo->prepare(
+            'SELECT id, kind, owner, phase, held_by, scope, code, copy_key, title, message, hint,'
+            . ' progress, actions, trace_id, happened_at, retryable, revision, created_at, updated_at, expires_at'
+            . ' FROM ' . $this->table() . ' WHERE id = ?'
+        );
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row === false ? null : $this->hydrate($row);

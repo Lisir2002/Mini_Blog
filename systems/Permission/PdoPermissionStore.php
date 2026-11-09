@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace Wx\Systems\Permission;
 
 use Wx\Contracts\DatabaseInterface;
-use Wx\Systems\Database\Schema;
+use Wx\Systems\Data\Schema;
 
 /**
  * 权限数据的 MySQL 实现 —— 表与 SQL 全部归本系统层。

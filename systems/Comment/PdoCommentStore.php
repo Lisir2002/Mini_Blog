@@ -4,7 +4,7 @@ namespace Wx\Systems\Comment;
 
 use Wx\Contracts\CommentStoreInterface;
 use Wx\Contracts\DatabaseInterface;
-use Wx\Systems\Database\Schema;
+use Wx\Systems\Data\Schema;
 
 /** 评论系统的 MySQL / PDO 实现；与 MemoryCommentStore 实现同一契约，可整体替换。 */
 final class PdoCommentStore implements CommentStoreInterface

@@ -19,6 +19,45 @@ final class EmojiParser
     /** @return list<array{type: string, value?: string, code?: string, kind?: string, alt?: string}> */
     public function parse(string $text): array
     {
+        return $this->tokenize($text, $this->catalog->findMany($this->codes($text)));
+    }
+
+    /**
+     * 批量解析：整页文章 / 整串评论只查一次目录。
+     *
+     * 这是列表页唯一的正确用法。逐条 parse() 的代价不是「多几条 SQL」，而是
+     * 「页面条数 × 短码种类」——条数一涨，延迟就线性劣化，且无法用固定预算守住。
+     * @param list<string> $texts
+     * @return list<list<array<string, mixed>>>
+     */
+    public function parseMany(array $texts): array
+    {
+        $all = [];
+        foreach ($texts as $text) {
+            foreach ($this->codes((string) $text) as $code) $all[] = $code;
+        }
+        $found = $this->catalog->findMany($all);
+        $out = [];
+        foreach ($texts as $text) $out[] = $this->tokenize((string) $text, $found);
+        return $out;
+    }
+
+    /** @return list<string> 文本里出现过的短码（小写，含重复，交由目录去重） */
+    private function codes(string $text): array
+    {
+        if ($text === '' || !str_contains($text, ':')) return [];
+        if (preg_match_all(self::PATTERN, $text, $all) === false) return [];
+        $codes = [];
+        foreach ($all[1] as $captured) $codes[] = strtolower((string) $captured);
+        return $codes;
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $found
+     * @return list<array<string, mixed>>
+     */
+    private function tokenize(string $text, array $found): array
+    {
         if ($text === '' || !str_contains($text, ':')) {
             return [['type' => 'text', 'value' => $text]];
         }
@@ -30,7 +69,7 @@ final class EmojiParser
         }
         foreach ($all[0] as $index => [$literal, $position]) {
             $code = strtolower((string) $all[1][$index][0]);
-            $emoji = $this->catalog->find($code);
+            $emoji = $found[$code] ?? null;
             if ($emoji === null) continue;
             if ($position > $offset) {
                 $tokens[] = ['type' => 'text', 'value' => substr($text, $offset, $position - $offset)];

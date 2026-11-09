@@ -7,7 +7,7 @@ use Wx\Contracts\SecurityGuardInterface;
 use Wx\Core\AbstractSystem;
 use Wx\Core\Http\Response;
 use Wx\Core\Kernel;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 
 /**
  * 安全系统：提供防护契约与鉴权契约，通过钩子注入 HTTP 安全头（不涉及任何样式）。

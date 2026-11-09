@@ -1,9 +1,9 @@
 # Mini Blog _(Mini_Blog)_
 
-![version](https://img.shields.io/badge/version-0.13.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.14.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
-![tests](https://img.shields.io/badge/tests-226%20passing-2ea44f)
+![tests](https://img.shields.io/badge/tests-240%20passing-2ea44f)
 ![dependencies](https://img.shields.io/badge/dependencies-0-2ea44f)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)
@@ -63,7 +63,7 @@ Mini Blog 的出发点是相反的：**内核只保留「装配 + 调度」两�
 | 呈现不是框架的一部分 | 零主题时输出纯 JSON；HTML/CSS/JS 只允许存在于 `themes/` |
 | 扩展不是改代码 | 新建目录 + `system.json`，内核零改动；接口在清单登记后自动生成文档 |
 | 升级不是重装 | 迁移台账 + checksum 校验 + 版本快照 + 健康门禁，可升级也可回退 |
-| 质量不是口头承诺 | 226 项自动化守卫 + 单文件职责审计，违规即失败 |
+| 质量不是口头承诺 | 240 项自动化守卫 + 单文件职责审计，违规即失败 |
 
 **它不做什么**：不内置页面构建器，不绑定某个前端框架，不提供多站点与云托管，不在核心里写 SQL。
 
@@ -223,9 +223,21 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/lifecycle
 
 `pages/Post` 是第一个同时消费三者的页面：正文 + 评论树 + 评论表单，走「表单 → 同页 POST → 303」的 PRG 路径，**无 JavaScript 也能评论与回复**。细节见 [`docs/CONTENT.md`](docs/CONTENT.md)。
 
+### 数据层：第 8 层原位升级（v0.14）
+
+用户问「数据系统是否单独写一个」。核查发现升级前 `systems/Database` 只有 194 行、4 个方法，是插座不是系统；而数据平面约 1,522 行分散在 12 个仓储。**答案不是再开第 18 层，而是把第 8 层 `database` 原位升级为 `data`**——系统层仍 17 个、`core/` 仍 24 个文件、业务表仍 24 张。
+
+| 边界 | 落地 |
+| --- | --- |
+| 物理列不出站 | `present()` 显式白名单，`ip_hash` / `path` 等内部字段永不出站 |
+| 多语句必进事务 | `DataSession` 事务 / 嵌套 savepoint / `afterCommit`，评论「插入 + 路径回填」同生共死 |
+| 列表查询必须有上限且必须批量 | 表情 `findMany` / `parseMany` 消除 N+1，`QueryProfiler` 让「几条 SQL」可断言 |
+
+另有显式 `sql_mode` 严格模式、关系登记 + 只读孤儿巡检（`php tools/data.php verify`）、结构指纹冷启动去重。规矩 **S** 与四个维度的反例列见 [`docs/DATA.md`](docs/DATA.md)。
+
 ### 两个扩展动作
 
-**新增系统层**：建 `systems/<X>/`，写 `system.json`（`name / class / requires / priority`）和一个 `extends AbstractSystem` 的类。内核零改动——`Database`、`Lifecycle`、`Api`、`Content`、`Release`、`State` 都是这样接进来的。
+**新增系统层**：建 `systems/<X>/`，写 `system.json`（`name / class / requires / priority`）和一个 `extends AbstractSystem` 的类。内核零改动——`Data`、`Lifecycle`、`Api`、`Content`、`Release`、`State` 都是这样接进来的。
 
 **新增接口**：在 `api/registry.json` 追加定义 → 系统层 `boot()` 里 `registerOperation()` → 跑 `tools/gen-api-docs.php` 与 `tools/export-openapi.php` → `php tests/run.php`。缺任何一环，守卫会失败。
 
@@ -253,12 +265,12 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/lifecycle
 | 契约面 | `core/Contracts/*`（13 个） | 系统层之间唯一可见的类型；容器运行时绑定 13 个实现（含状态层 3 个内部契约） |
 | 事件面 | `HookBus` | 优先级 + 可中断；插件只能改数据，不能改装配 |
 | 装配面 | `*/system.json`、`page.json`、`theme.json` | 声明依赖、优先级、路由、权限、布局槽位 |
-| 数据面 | `DatabaseInterface` | 核心不认识 MySQL；无 DSN 时各层自动回退内存实现 |
+| 数据面 | `DatabaseInterface` | 事务 / 观测 / 严格模式 / 巡检归 `data` 层；核心不认识 MySQL，无 DSN 时各层自动回退内存实现 |
 
 实测装配顺序：
 
 ```
-log → database → security → lifecycle → user → permission → api → state → plugin
+log → data → security → lifecycle → user → permission → api → state → plugin
     → member → content → release → theme → comment → page
 ```
 
@@ -280,11 +292,12 @@ log → database → security → lifecycle → user → permission → api → 
 | v0.11 | 181 | +11 | 五步安装向导、不重装升级与回退 |
 | v0.12 | 200 | +19 | 五态状态系统、长任务与异常边界 |
 | v0.13 | 226 | +26 | 评论树、附件内容寻址、表情 token |
+| v0.14 | 240 | +14 | 数据层原位升级（事务 / 批量 / 出站裁剪 / 巡检）、规矩 S |
 
 | 指标 | 当前值 | 验证方式 |
 | --- | ---: | --- |
-| 守卫 / 分组 | **226 / 43** | `php tests/run.php` |
-| PHP 文件 / 有效行 | **245 / 15,390** | `php tools/audit-responsibility.php` |
+| 守卫 / 分组 | **240 / 47** | `php tests/run.php` |
+| PHP 文件 / 有效行 | **259 / 16,207** | `php tools/audit-responsibility.php` |
 | 最大单文件 | **187 行** | 同上（预算 190，超限即失败） |
 | 职责违规 / 孤儿协作 | **0 / 0** | 同上，非 0 退出 |
 | 系统层 | **17** | 装配顺序断言 |
@@ -294,8 +307,9 @@ log → database → security → lifecycle → user → permission → api → 
 | 运行时依赖 | **0** | 无 composer / vendor |
 
 ```bash
-php tests/run.php                    # 226 项守卫，43 个文件
+php tests/run.php                    # 240 项守卫，47 个文件
 php tools/audit-responsibility.php   # 单文件职责审计
+php tools/data.php verify            # 只读孤儿巡检 / stats 表体量
 php tools/gen-api-docs.php           # 重新生成 67 份接口文档
 php tools/export-openapi.php         # 导出 OpenAPI 3.1
 php tools/sign-package.php <目录> <密钥>   # 源包签名
@@ -307,7 +321,7 @@ php tools/sign-package.php <目录> <密钥>   # 源包签名
 
 ## 工程规矩
 
-18 条规矩全部配有可执行守卫，完整文本见 [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)。核心几条：
+19 条规矩全部配有可执行守卫，完整文本见 [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)。核心几条：
 
 | 规矩 | 内容 |
 | --- | --- |
@@ -344,7 +358,7 @@ Mini_Blog/
 ├── public/index.php          唯一入口：引导 + run()
 ├── core/                     系统核心 24 个 PHP：Kernel / Container / HookBus / Router / 13 个契约
 ├── systems/                  17 个系统层，每层自带 system.json + migrations + lifecycle
-│   ├── Log/ Database/ Security/ User/ Permission/     （能力）
+│   ├── Log/ Data/ Security/ User/ Permission/         （能力）
 │   ├── Content/ Comment/ Member/ Release/             （业务与版本）
 │   ├── Theme/ Plugin/ Page/                           （承载）
 │   ├── Api/                                           （接口面）
@@ -375,12 +389,13 @@ Mini_Blog/
 
 | 文档 | 内容 |
 | --- | --- |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 29 章架构设计与每个版本的决策记录 |
-| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | 工程规矩 A–R 全文与运行记录 |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 30 章架构设计与每个版本的决策记录 |
+| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | 工程规矩 A–S 全文与运行记录 |
 | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | 本机环境、SSH 接入、浏览器配置 |
-| [`docs/api/SPEC.md`](docs/api/SPEC.md) | 接口规范：信封、错误码、鉴权、分页、幂等、二进制通道例外 |
+| [`docs/api/SPEC.md`](docs/api/SPEC.md) | 接口规范：信封、错误码、鉴权、分页、幂等、二进制通道例外、出站字段裁剪 |
 | [`docs/STATE.md`](docs/STATE.md) | 状态系统：五态、文案、长任务与可访问性 |
 | [`docs/CONTENT.md`](docs/CONTENT.md) | 评论树、附件内容寻址、表情 token 的边界与安全取舍 |
+| [`docs/DATA.md`](docs/DATA.md) | 数据层：四个维度、三道边界、关系巡检与明确不做 |
 | [`docs/api/README.md`](docs/api/README.md) | 67 个接口索引 |
 | [`docs/api/openapi.json`](docs/api/openapi.json) | OpenAPI 3.1（60 路径 / 67 操作） |
 | [`docs/architecture.html`](docs/architecture.html) | 可视化架构总览 |
@@ -389,7 +404,9 @@ Mini_Blog/
 
 ## 路线图
 
-**v0.13 已完成**：第 16 / 17 系统层 `attachment` 与 `emoji`，评论升级为评论树（回评 / 软删 / 审核），附件按 SHA-256 内容寻址，表情只产出 token。
+**v0.14 已完成**：第 8 层 `database` 原位升级为 `data`——事务会话、查询观测、严格模式、孤儿巡检；表情批量取数消除 N+1，评论写入事务包裹与出站白名单；新增规矩 S 与 4 组守卫。
+
+**v0.13**：第 16 / 17 系统层 `attachment` 与 `emoji`，评论升级为评论树（回评 / 软删 / 审核），附件按 SHA-256 内容寻址，表情只产出 token。
 
 **v0.12**：第 15 系统层 `state`——五态反馈（进行 / 完成 / 错误 / 等待 / 交互）、文案键与主题覆写、长任务乐观锁、未捕获异常边界。
 

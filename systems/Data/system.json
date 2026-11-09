@@ -1,0 +1,9 @@
+{
+  "name": "data",
+  "class": "Wx\\Systems\\Data\\DataSystem",
+  "version": "0.2.0",
+  "requires": ["log"],
+  "priority": 15,
+  "enabled": true,
+  "_note": "第 8 个系统层（v0.14 由 database 升格）：连接与严格模式、事务会话、查询观测、孤儿巡检；不认识任何业务表"
+}

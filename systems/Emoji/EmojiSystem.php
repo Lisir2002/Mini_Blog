@@ -6,7 +6,8 @@ use Wx\Contracts\ApiRegistryInterface;
 use Wx\Core\AbstractSystem;
 use Wx\Core\Kernel;
 use Wx\Systems\Attachment\AttachmentRepositoryInterface;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
+use Wx\Systems\Data\RelationRegistry;
 
 /**
  * 表情系统 —— 第 17 个系统层。
@@ -43,6 +44,13 @@ final class EmojiSystem extends AbstractSystem
             $parser = $kernel->container()->resolve(EmojiParser::class);
             return $parser->parse($text);
         }, 10);
+
+        // 列表专用：整页只查一次目录，避免「条数 × 短码」的查询放大。
+        $kernel->hooks()->filter('emoji.parse_many', static function (array $defaults, array $texts) use ($kernel): array {
+            /** @var EmojiParser $parser */
+            $parser = $kernel->container()->resolve(EmojiParser::class);
+            return $parser->parseMany(array_values($texts));
+        }, 10);
     }
 
     public function boot(Kernel $kernel): void
@@ -50,6 +58,13 @@ final class EmojiSystem extends AbstractSystem
         /** @var EmojiCatalogInterface $catalog */
         $catalog = $kernel->container()->resolve(EmojiCatalogInterface::class);
         if ($catalog instanceof PdoEmojiCatalog) $catalog->ensureSchema();
+
+        // 自定义表情引用本站附件；附件被彻底删除后，这条引用就是孤儿。
+        if ($kernel->container()->has(RelationRegistry::class)) {
+            $kernel->container()->resolve(RelationRegistry::class)
+                ->declare('emoji.attachment', 'emojis', 'attachment_id', 'attachments', 'id', true);
+        }
+
         if (!$kernel->container()->has(ApiRegistryInterface::class)) return;
 
         $attachments = $kernel->container()->has(AttachmentRepositoryInterface::class)

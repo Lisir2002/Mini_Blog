@@ -4,7 +4,7 @@ namespace Wx\Pages\Install;
 
 use RuntimeException;
 use Wx\Core\Kernel;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 use Wx\Systems\Release\MigrationRunner;
 use Wx\Systems\Release\PdoMigrationStore;
 

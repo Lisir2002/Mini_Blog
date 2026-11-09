@@ -2,7 +2,7 @@
   "name": "content",
   "class": "Wx\\Systems\\Content\\ContentSystem",
   "version": "0.1.0",
-  "requires": ["log", "database", "security"],
+  "requires": ["log", "data", "security"],
   "priority": 45,
   "enabled": true,
   "_note": "第 11 个系统层：博客正文数据模型。接入路径与日志系统完全相同，内核零改动，是对「可接入新系统层」的第一次真实检验"

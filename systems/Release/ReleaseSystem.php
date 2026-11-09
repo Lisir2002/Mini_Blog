@@ -6,8 +6,8 @@ use Wx\Contracts\ApiRegistryInterface;
 use Wx\Contracts\LifecycleManagerInterface;
 use Wx\Core\AbstractSystem;
 use Wx\Core\Kernel;
-use Wx\Systems\Database\Db;
-use Wx\Systems\Database\Schema;
+use Wx\Systems\Data\Db;
+use Wx\Systems\Data\Schema;
 
 /**
  * 版本系统 —— 站点程序的版本清单、迁移台账、健康门禁与升降级编排。

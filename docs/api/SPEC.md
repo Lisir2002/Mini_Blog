@@ -33,6 +33,7 @@
 | 页面访问（v0.8） | 页面不是 API，但复用同一套身份与授权契约：`page.json` 的 `access.auth` 使用同一组 `public` / `user` / `admin` 级别与同一个 `ApiAuthenticatorInterface`；`access.permission` 由同一个 `AccessControlInterface` 裁决。裁决在 `route.access` 询问点完成并短路，拒绝只产结构化数据 + `deny` 布局槽位（样式归主题），不输出 HTML。详见 `docs/ARCHITECTURE.md` 第 24 节 |
 | 写接口边界 | 所有非 GET/HEAD/OPTIONS 操作默认仅本机来源可调用（`config.api.expose_write=false`），公网来源返回 `40302` |
 | 二进制通道（v0.13） | `/attach/upload` 与 `/attach/download` **是唯一不经 JSON 信封的路径**：请求体即字节、响应体即字节。守卫与 JSON 接口同一套且顺序相同（限流 → 写边界 → 鉴权 → 权限 → 参数），下载每次请求都重新做授权判定，不得用「拿到过链接」代替授权。响应必须带 `X-Content-Type-Options: nosniff` + `Content-Security-Policy: default-src 'none'; sandbox`，下载用 RFC 5987 `Content-Disposition: attachment; filename*=UTF-8''…`，文件名永不参与落盘路径。失败时才回退 JSON 信封（`Content-Type: application/json`），并**不得**回显字节 |
+| 出站字段（v0.14） | 响应字段集必须**恰好等于**清单 `response_fields` 声明。仓储返回的是物理行（含 `ip_hash` / `author_id` / `path` 等内部列），operation 必须用**显式白名单**裁剪后再出站，不得 `return $row` 原样透传；新增内部列不得改变接口形状。守卫 `21c` 逐字段比对 | `return $row;` 直接透传；或用 `unset` 删敏感字段（加列时默认泄漏） |
 | 幂等 | 每个接口必须声明 `idempotent` 与 `side_effects`；写操作建议携带 `Idempotency-Key` |
 | 限流 | 每次 API 请求计数，响应回带 `X-RateLimit-*`；超阈值返回 `42901` + `Retry-After` |
 | 追踪 | 客户端可传 `X-Request-Id`，服务端回填 `request_id` |
@@ -93,6 +94,7 @@
 - 演示账号 `admin/admin123` 仅用于本地原型，投产前必须删除或改密；数据库口令与签名密钥应由环境注入。
 - 限流与幂等缓存当前基于文件存储，多实例部署需换成共享存储（可通过替换对应实现完成，不影响核心）。
 - 附件已落地四道校验（字节上限 / 扩展名白名单 / 魔数比对 / 单作者配额）与内容寻址落盘，但**不含病毒扫描与图片二次编码**——`image/*` 仍可能携带畸形负载，生产化应在网关上补一层杀毒与重编码。
+- v0.14 出站改为显式白名单，物理列不再透传；但白名单**需人工维护**——新增契约字段时若清单与 `present()` 同步漏写，`21c` 只保证「字段集恰好等于清单声明」，无法自动发现「清单本身漏了字段」。
 - 契约版本协商、灰度发布列入 v1.0。
 
 ## 7. 分发执行顺序（安全口径）

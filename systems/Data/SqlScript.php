@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace Wx\Systems\Database;
+namespace Wx\Systems\Data;
 
 use Wx\Contracts\DatabaseInterface;
 

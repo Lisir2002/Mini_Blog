@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace Wx\Systems\Emoji;
 
 use Wx\Contracts\DatabaseInterface;
-use Wx\Systems\Database\Schema;
+use Wx\Systems\Data\Schema;
 
 /**
  * 表情目录的 MySQL 实现：内置表在代码里，自定义表在库里。
@@ -31,6 +31,34 @@ final class PdoEmojiCatalog implements EmojiCatalogInterface
         $stmt->execute([':code' => $code]);
         $row = $stmt->fetch();
         return is_array($row) ? $this->hydrate($row) : null;
+    }
+
+    public function findMany(array $codes): array
+    {
+        $codes = array_values(array_unique(array_map('strtolower', $codes)));
+        if ($codes === []) return [];
+        $out = [];
+        $missing = [];
+        foreach ($codes as $code) {
+            $builtin = BuiltinEmoji::find($code);
+            if ($builtin === null) {
+                $missing[] = $code;
+                continue;
+            }
+            $out[$code] = ['code' => $code, 'kind' => $builtin['kind'], 'value' => $builtin['value'],
+                'attachment_id' => 0, 'custom' => false];
+        }
+        if ($missing === []) return $out;
+        $rows = $this->db->query(
+            'SELECT code,kind,value,attachment_id FROM ' . $this->table()
+            . ' WHERE code IN (' . implode(',', array_fill(0, count($missing), '?')) . ')',
+            $missing
+        );
+        foreach ($rows as $row) {
+            $emoji = $this->hydrate($row);
+            $out[(string) $emoji['code']] = $emoji;
+        }
+        return $out;
     }
 
     public function all(): array

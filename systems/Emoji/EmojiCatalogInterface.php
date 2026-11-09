@@ -13,6 +13,14 @@ interface EmojiCatalogInterface
     /** @return array{code: string, kind: string, value: string, attachment_id: int}|null */
     public function find(string $code): ?array;
 
+    /**
+     * 批量取：一次调用返回所有命中的短码，未命中的不出现在结果里。
+     * 存在的理由：解析一段正文会命中多个短码，逐个 find() 就是 N+1。
+     * @param list<string> $codes
+     * @return array<string, array<string, mixed>> code => 条目
+     */
+    public function findMany(array $codes): array;
+
     /** 内置 + 自定义的全部条目，按短码排序 @return array<string, array<string, mixed>> */
     public function all(): array;
 

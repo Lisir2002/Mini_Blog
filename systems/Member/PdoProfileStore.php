@@ -4,7 +4,7 @@ namespace Wx\Systems\Member;
 
 use PDOException;
 use Wx\Contracts\DatabaseInterface;
-use Wx\Systems\Database\Schema;
+use Wx\Systems\Data\Schema;
 
 /**
  * 成长档案的 MySQL / PDO 实现。

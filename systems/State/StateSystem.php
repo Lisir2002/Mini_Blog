@@ -8,7 +8,7 @@ use Wx\Core\AbstractSystem;
 use Wx\Core\Http\Request;
 use Wx\Core\Http\Response;
 use Wx\Core\Kernel;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 
 /**
  * 第 15 系统层 —— 状态与反馈。

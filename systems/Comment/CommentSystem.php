@@ -6,7 +6,8 @@ use Wx\Contracts\ApiRegistryInterface;
 use Wx\Contracts\CommentStoreInterface;
 use Wx\Core\AbstractSystem;
 use Wx\Core\Kernel;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
+use Wx\Systems\Data\RelationRegistry;
 
 /**
  * 评论系统：评论数据的存取、树形规则与业务钩子。
@@ -49,6 +50,14 @@ final class CommentSystem extends AbstractSystem
         /** @var CommentStoreInterface $store */
         $store = $kernel->container()->resolve(CommentStoreInterface::class);
         if ($store instanceof PdoCommentStore) $store->ensureSchema();
+
+        // 关系由表的归属系统登记：data 层只负责执行孤儿巡检，不知道「评论」是什么。
+        if ($kernel->container()->has(RelationRegistry::class)) {
+            $relations = $kernel->container()->resolve(RelationRegistry::class);
+            $relations->declare('comment.parent', 'comments', 'parent_id', 'comments', 'id', true);
+            $relations->declare('comment.root', 'comments', 'root_id', 'comments', 'id', true);
+        }
+
         if (!$kernel->container()->has(ApiRegistryInterface::class)) return;
 
         $guard = new CommentGuard(

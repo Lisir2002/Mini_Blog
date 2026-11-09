@@ -6,7 +6,7 @@ use Throwable;
 use Wx\Contracts\DatabaseInterface;
 use Wx\Contracts\RendererInterface;
 use Wx\Core\Kernel;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 
 /**
  * 内核只读盘点协作者 —— 系统信息、健康检查、契约清单、装配顺序、日志查询。

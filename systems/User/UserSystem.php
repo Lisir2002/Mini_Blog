@@ -8,7 +8,7 @@ use Wx\Contracts\UserProviderInterface;
 use Wx\Core\AbstractSystem;
 use Wx\Core\Kernel;
 use Wx\Systems\Api\ApiOperationException;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 
 /**
  * 用户系统：只提供身份契约与业务钩子，不含登录页、不含任何 HTML。

@@ -119,8 +119,9 @@ php -S 127.0.0.1:8090 -t docs
 ## 四、日常命令
 
 ```bash
-php tests/run.php                    # 全量守卫（当前 226 项 / 43 组）
+php tests/run.php                    # 全量守卫（当前 240 项 / 47 组）
 php tools/audit-responsibility.php   # 单文件职责审计，非 0 退出即失败
+php tools/data.php verify            # 只读孤儿巡检（stats 看表体量）
 php tools/gen-api-docs.php           # 重新生成 67 份接口文档
 git status && git log --oneline -5   # 版本基线
 ```

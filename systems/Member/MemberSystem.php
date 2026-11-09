@@ -5,7 +5,8 @@ namespace Wx\Systems\Member;
 use Wx\Contracts\ApiRegistryInterface;
 use Wx\Core\AbstractSystem;
 use Wx\Core\Kernel;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
+use Wx\Systems\Data\RelationRegistry;
 
 /**
  * 成员系统 —— 第 13 个系统层：头衔 / 经验 / 等级。
@@ -64,6 +65,13 @@ final class MemberSystem extends AbstractSystem
         $this->profiles->ensureSchema();   // 内存实现为空操作
         $this->levels->seed();             // 只补基线，不覆盖站长修改
         $this->titles->seed();
+
+        // 档案归属于账号：账号被删而档案留下，就是没人能认领的孤儿。
+        if ($kernel->container()->has(RelationRegistry::class)) {
+            $kernel->container()->resolve(RelationRegistry::class)
+                ->declare('member.profile_user', 'member_profiles', 'user_id', 'user_accounts', 'id');
+        }
+
         if (!$kernel->container()->has(ApiRegistryInterface::class)) return;
 
         /** @var ApiRegistryInterface $registry */

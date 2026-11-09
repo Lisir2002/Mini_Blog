@@ -19,6 +19,16 @@ final class MemoryEmojiCatalog implements EmojiCatalogInterface
         return self::$rows[$code] ?? null;
     }
 
+    public function findMany(array $codes): array
+    {
+        $out = [];
+        foreach (array_unique(array_map('strtolower', $codes)) as $code) {
+            $found = $this->find($code);
+            if ($found !== null) $out[$code] = $found;
+        }
+        return $out;
+    }
+
     public function all(): array
     {
         $out = [];

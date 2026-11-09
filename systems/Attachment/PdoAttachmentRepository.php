@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace Wx\Systems\Attachment;
 
 use Wx\Contracts\DatabaseInterface;
-use Wx\Systems\Database\Schema;
+use Wx\Systems\Data\Schema;
 
 /** 附件元数据的 MySQL / PDO 实现；与内存实现共享同一契约，可整体替换。 */
 final class PdoAttachmentRepository implements AttachmentRepositoryInterface

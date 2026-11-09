@@ -2,7 +2,7 @@
     "name": "release",
     "class": "Wx\\Systems\\Release\\ReleaseSystem",
     "version": "0.1.0",
-    "requires": ["log", "database", "lifecycle", "api"],
+    "requires": ["log", "data", "lifecycle", "api"],
     "priority": 46,
     "enabled": true,
     "_note": "站点程序版本层：版本清单、迁移台账、健康门禁、升级与回退编排；文件装卸本身仍归 lifecycle"

@@ -5,7 +5,7 @@ namespace Wx\Systems\Security;
 use RuntimeException;
 use Wx\Contracts\ApiAuthenticatorInterface;
 use Wx\Contracts\DatabaseInterface;
-use Wx\Systems\Database\Schema;
+use Wx\Systems\Data\Schema;
 
 /**
  * 接口鉴权的默认实现 —— auth 从声明式标记变成真实执行。

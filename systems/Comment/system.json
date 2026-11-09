@@ -2,7 +2,12 @@
   "name": "comment",
   "class": "Wx\\Systems\\Comment\\CommentSystem",
   "version": "0.2.0",
-  "requires": ["log", "security", "content"],
+  "requires": [
+    "log",
+    "data",
+    "security",
+    "content"
+  ],
   "priority": 60,
   "enabled": true,
   "_note": "v0.13：相邻表 + 物化路径的评论树，回评 / 软删 / 审核三件事共用一条写入路径；表情解析走 emoji.parse 钩子，缺席时退化为纯文本"

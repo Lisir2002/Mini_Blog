@@ -1,4 +1,4 @@
-# Mini Blog 架构设计（v0.13）
+# Mini Blog 架构设计（v0.14）
 
 > 第一性原理：**高度自定义，万象皆接口**
 > 技术栈：**纯原生** PHP 8.1+ / MySQL 8.0+（PDO，实测 MariaDB 10.11）/ 原生 HTML + CSS + JavaScript
@@ -117,7 +117,7 @@ flowchart TB
 | **契约面** | `Container` + `core/Contracts/*`（12 个） | 实现可替换 | 用更高 `priority` 重新绑定任意契约，把日志换 Syslog、用户换 LDAP、鉴权换 SSO |
 | **事件面** | `HookBus`（action 广播 / filter 链式改值） | 流程可拦截 | 在任何内核节点插入逻辑；业务钩子由系统层自己声明，核心不管 |
 | **装配面** | `system.json` / `theme.json` / `plugin.json` / `page.json` | 单元可插拔 | 丢一个目录即接入新系统层；改配置即可停用任意自带系统 |
-| **数据面** | `DatabaseInterface` + Headless JSON | 数据可读写 | 表结构与 SQL 归各系统层自持；无主题时整站就是一套 JSON API |
+| **数据面** | `DatabaseInterface` + Headless JSON | 数据可读写 | 连接与严格模式 / 事务 / 观测 / 巡检归 `data` 层，表结构与 SQL 归各系统层自持；无主题时整站就是一套 JSON API |
 | **接口面** | `api/registry.json` + `ApiRegistry` + 统一信封 | 操作可规范化 | 21 个操作各有编号与文档；替换执行者只需重新 `registerOperation` |
 
 核心只定义内核级钩子（`kernel.*` / `route.*` / `system.*` / `render.should_render`），像 `comment.before_save`、`theme.context`、`content.before_save`、`lifecycle.before_upgrade` 这类业务钩子全部由对应系统层自行声明。核心的钩子清单不会因为新增业务而膨胀。
@@ -157,12 +157,12 @@ flowchart TB
 | `SecurityGuardInterface` | 安全系统 → `DefaultGuard`（CSRF 落库 + 过期） | 任意系统层 / 插件 |
 | `CommentStoreInterface` | 评论系统 → **`PdoCommentStore`**（无库回退 `MemoryCommentStore`） | 换实现只改一行绑定 |
 | **`ContentRepositoryInterface`** | **内容系统 → `PdoContentRepository`**（无库回退 `MemoryContentRepository`） | 任意系统层 / 插件 |
-| `DatabaseInterface` | 数据库系统 → `PdoDatabase` | 可换其它 PDO 数据源 |
+| `DatabaseInterface` | 数据系统 `data` → `PdoDatabase` | 可换其它 PDO 数据源 |
 | **`ApiAuthenticatorInterface`** | **安全系统 → `DbApiAuthenticator`**（令牌落库 + 角色） | 可换 OAuth / 签名 / 企业 SSO |
 | `LifecycleManagerInterface` | 装卸系统 → `LifecycleManager` | 可换成带远程仓库的实现 |
 | `ApiRegistryInterface` | API 系统 → `ApiRegistry` | 可换成带额外策略的注册表 |
 
-**双实现是刻意的**：`systems/Database/Db::connected()` 惰性探测 MySQL，接上库走 PDO 实现，拔掉库自动回退内存 / 会话适配器。主题、插件、首页包、核心四者零改动——这就是「契约与实现可分离」的兑现，也由守卫测试逐条验证。
+**双实现是刻意的**：`systems/Data/Db::connected()` 惰性探测 MySQL，接上库走 PDO 实现，拔掉库自动回退内存 / 会话适配器。主题、插件、首页包、核心四者零改动——这就是「契约与实现可分离」的兑现，也由守卫测试逐条验证。
 
 ---
 
@@ -180,7 +180,7 @@ boot() × 11             契约已全部就绪，安全地建表、装载包、�
 ```
 
 两阶段保证了「系统 A 在启动时能用到系统 B 的契约」，同时避免装配顺序耦合。实测顺序：
-`log → database → security → lifecycle → user → api → plugin → content → theme → comment → page`。
+`log → data → security → lifecycle → user → api → plugin → content → theme → comment → page`。
 
 **请求期**
 
@@ -418,12 +418,12 @@ return [
 │   ├── Container.php / HookBus.php / SystemRegistry.php / PackageLoader.php
 │   ├── Router.php / Config.php / AbstractSystem.php / bootstrap.php
 ├── systems/                    17 个系统层，每目录 = 一个系统层 + system.json + permissions.json（可选）
-│   ├── Log/ User/ Security/ Comment/ Database/ Content/   （能力型）
+│   ├── Log/ User/ Security/ Comment/ Data/ Content/       （能力型）
 │   │   └── migrations/*.sql + lifecycle.php               （自己的表与清理钩子）
 │   ├── Theme/ Plugin/ Page/                              （承载型）
 │   ├── Api/       ApiRegistry / Dispatcher / RequestGuard / SystemIntrospection / Envelope / IdempotencyStore / RateLimiter
 │   ├── Release/   版本层：ReleaseManager（编排）+ MigrationRunner / MigrationStore / HealthProbe / ReleaseLog / ReleaseManifest / ReleaseUnits
-│   ├── Database/  连接 + Schema + SqlScript（迁移脚本解析与校验和）
+│   ├── Data/      连接与严格模式 / 事务会话 / 查询观测 / 孤儿巡检 + Schema / SqlScript
 │   └── Lifecycle/ 元层：LifecycleManager（编排）+ 10 协作者（StateMachine / UnitCatalog / DependencyGraph / PackageVerifier / FileTransaction / HookRunner / StateStore / Fs / ReleaseArchive / VersionSwitcher）
 ├── themes/Bare/ · themes/BareHtml/        主题包（后者零 CSS）
 ├── plugins/Hello/                          插件包（只通过钩子改数据）
@@ -459,7 +459,7 @@ return [
 | `wx_csrf_tokens` | `systems/Security/migrations/` | CSRF 令牌（摘要、过期、一次性 `used`） |
 | `wx_comments` | `systems/Comment/migrations/` | 评论（`idx_post` 支持按文章查询） |
 
-`systems/Database` 是最初清单之外的第 8 个系统层，`Lifecycle` / `Api` / `Content` 是第 9、10、11 个——它们和日志系统走完全相同的接入路径，内核零改动、其它系统层零改动。建表由各系统层 `boot()` 幂等执行（`CREATE TABLE IF NOT EXISTS`），核心完全不知道「建表」这件事。
+第 8 个系统层最初叫 `database`（`systems/Database`），只负责连接；v0.14 原位升级为 `data`（`systems/Data`），补上事务会话、查询观测、严格模式与孤儿巡检，但**没有新增第 18 层**——`Lifecycle` / `Api` / `Content` 仍是第 9、10、11 个。它们和日志系统走完全相同的接入路径，内核零改动、其它系统层零改动。建表由各系统层 `boot()` 幂等执行（`CREATE TABLE IF NOT EXISTS`），核心完全不知道「建表」这件事；结构指纹让内容未变时冷启动不再重放 DDL。四件事的归属判据与反例见 [`docs/DATA.md`](DATA.md) 与第 30 节。
 
 **真实踩过的坑**：PHP CLI 默认 UTC、MySQL 使用系统时区（GMT+8），若用 SQL 的 `NOW()` 与 PHP 写入的 `expires_at` 比较，令牌会永远判定为过期。修复口径是**所有时间统一由 PHP 生成并作为参数比较**（`expires_at > :now`），不让两个时钟同时参与判定。守卫测试已覆盖 CSRF 令牌「首次通过 / 二次拒绝」。
 
@@ -472,7 +472,7 @@ return [
 `content` 是需求清单里原本缺位的「文章 / 正文数据模型」，也是**对「可接入新系统层能力」的第一次真实检验**：
 
 ```
-systems/Content/system.json       name=content, requires=[log,database,security], priority=45
+systems/Content/system.json       name=content, requires=[log,data,security], priority=45
 systems/Content/ContentSystem.php 绑定契约 + 声明 content.before_save + 登记 4 个 operation
 systems/Content/PdoContentRepository.php    keyset 游标分页 / 建表 / seed / 读写
 systems/Content/MemoryContentRepository.php 无库回退
@@ -550,19 +550,20 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | **v0.10** | **规矩 N 身份与授权解耦：第 13 系统层 `member`（站长自定义头衔 / 经验规则 / 等级门槛）、经验流水幂等 + 每日上限 + 事务、等级按门槛重解释且只升不降、头衔手动与等级自动两源且**零权限**；用户组补颜色 / 排序展示属性；`content.created` / `comment.created` / `user.lookup` / `user.profile.enrich` 四个装配点；新增 10 个接口 / 5 组 21 项守卫，`core/` 未新增文件** |
 | **v0.11** | **规矩 P 安装与版本可逆：标准化五步安装向导（`config/local.php` 覆盖层 + 一次性令牌 + `install.lock`）；第 14 系统层 `release`（迁移台账 + checksum 校验 + 安装基线 + 健康门禁 + 版本历史）；不重装升级与按版本快照回退（`keep_releases`）；新增 6 个接口 / 4 个守卫文件 11 项断言，`core/` 未新增文件** |
 | v0.12 | 第 15 系统层 `state`：五态反馈（进行 / 完成 / 错误 / 等待 / 交互）、`held_by` 区分「等系统」与「等人」、文案键 + 主题覆写、长任务 `wx_state_tasks` 乐观锁与终态不可逆、`kernel.exception` 异常边界；新增 1 个接口 / 2 个守卫文件 19 项断言，`core/` 未新增文件 |
-| **v0.13（当前）** | **第 16 / 17 系统层 `attachment` 与 `emoji`，并把 `comment` 从「两张表两个接口」补成评论树：邻接表 + 物化路径、深度上限、tombstone 软删、审核状态机、own/any 删除授权；附件元数据与字节分离、SHA-256 内容寻址、四道类型校验、二进制通道复用 RequestGuard、下载强制授权；表情只产出 token、图片只引用本站附件、删除不改写历史；新增 11 个接口 / 3 个守卫文件 26 项断言、1 个独立页 `pages/Post`、1 个主题布局 `post`，`core/` 未新增文件** |
+| **v0.13** | **第 16 / 17 系统层 `attachment` 与 `emoji`，并把 `comment` 从「两张表两个接口」补成评论树：邻接表 + 物化路径、深度上限、tombstone 软删、审核状态机、own/any 删除授权；附件元数据与字节分离、SHA-256 内容寻址、四道类型校验、二进制通道复用 RequestGuard、下载强制授权；表情只产出 token、图片只引用本站附件、删除不改写历史；新增 11 个接口 / 3 个守卫文件 26 项断言、1 个独立页 `pages/Post`、1 个主题布局 `post`，`core/` 未新增文件** |
+| **v0.14（当前）** | **第 8 层 `database` 原位升级为 `data`（不加第 18 层）：显式 `sql_mode` 严格模式、`DataSession` 事务 / 嵌套 savepoint / `afterCommit`、`QueryProfiler` 查询计数与慢查询留样、关系登记 + 只读孤儿巡检 + `tools/data.php`；表情 `findMany` / `parseMany` 消除 N+1；评论写入事务包裹、出站显式白名单、父隐藏则整枝隐藏；两处 `SELECT *` 改显式列、结构指纹作废与冷启动去重；新增 4 个容器注册项（3 接口 + 关系登记簿，18→22）/ 4 组守卫 14 项断言、`docs/DATA.md` 与规矩 S；`core/` 未新增文件、系统层仍 17 个、业务表仍 24 张** |
 | v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略 |
 
 ---
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **245 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址，文件数不变。
-- `php tests/run.php` → **226 passed, 0 failed**（43 个守卫文件；v0.13 新增 `20a-comment-tree`、`20b-attachment`、`20c-emoji`）。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；245 个文件共 15,390 有效代码行，最大单文件 187 行，67 个 operation 全部绑定执行者。
-- **17 个系统层**自动装配：`log → database → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → page`；**13 个契约接口文件**（容器运行时绑定 18 个，含状态层 3 个、附件层 1 个、表情层 1 个内部契约）、**67 个接口 / 67 份文档**、OpenAPI 3.1（60 路径 / 67 操作）、**26 个承载单元**（17 系统层 + 2 主题 + 6 独立页 + 1 插件）、**44 个权限点**。
-- 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`），验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
-- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=18, api_operations=67, core_version=0.13.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
+- `php -l` 全量 **259 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 连 `core/` 一个文件都没碰，文件数不变。
+- `php tests/run.php` → **240 passed, 0 failed**（47 个守卫文件；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`）。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；259 个文件共 16,207 有效代码行，最大单文件 187 行，67 个 operation 全部绑定执行者。
+- **17 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → page`；**13 个契约接口文件**（容器运行时绑定 22 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个内部注册项）、**67 个接口 / 67 份文档**、OpenAPI 3.1（60 路径 / 67 操作）、**26 个承载单元**（17 系统层 + 2 主题 + 6 独立页 + 1 插件）、**44 个权限点**。
+- 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
+- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=22, api_operations=67, core_version=0.14.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
 - 装卸全链路与签名验签实测：安装 → 启用 → 升级（留备份）→ 回滚 → 停用 → 完整性校验 → 卸载；重复安装、版本未递增、反向依赖、路径穿越、源包越界、篡改签名、强制缺签名均被正确拒绝。
 - 所有验证均为**可重跑的文本证据**，未使用截图（规矩 A）。
 
@@ -604,7 +605,7 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | 编号 | 协作面 | 两端 | 运行时 / 故障注入证据 |
 | --- | --- | --- | --- |
 | C1 | 契约面 | 接口 ↔ 实现 ↔ 容器 | 全部 `resolve()`；把内容契约换成内存实现后首页数据仍贯通；覆盖留痕 |
-| C2 | 装配面 | `system.json` requires ↔ 拓扑 | 停用被依赖的 `database` → 明确报「依赖未满足」 |
+| C2 | 装配面 | `system.json` requires ↔ 拓扑 | 停用被依赖的 `data` → 明确报「依赖未满足」 |
 | C3 | 事件面 | emit/apply ↔ on/filter | 3 个裁决型事件必有消费者；自定义 filter 确实被 `renderStage` 询问 |
 | C4 | 接口面 | operation ↔ 执行者 ↔ 文档 ↔ OpenAPI | 55 条四方 1:1；未注册执行者 → `50101` |
 | C5 | 装卸面 | 磁盘清单 ↔ 状态 ↔ 装载裁决 ↔ 验签 | 单元路径存在、版本对账、`package.enabled` 存在、`core` 不可卸载 |
@@ -930,7 +931,7 @@ Bearer、`X-Api-Token`、`Cookie: wx_token=` 三种载体只是**取令牌的方
 
 - 新增 `PagePolicy` / `PageAccessGuard` / `ContractOverrideLedger` / `ContractOverrideOperations` 4 个单一职责协作者、`deny` 布局 2 个主题文件、1 份增量 migration、3 个页面权限点、2 个接口 + 2 份操作文档。
 - `14a`（6 项）/ `14b`（6 项）/ `14c`（8 项）/ `14d`（3 项）共 **23 项守卫**，覆盖存在性、一致性、运行时贯通、故障注入（撤销许可、未授权覆盖、拔 DSN、无效令牌、非本机来源）。
-- 职责审计 0 违规 / 0 孤儿协作；67 个 operation 全绑定执行者；`php tests/run.php` → **226 passed, 0 failed**（43 组）。
+- 职责审计 0 违规 / 0 孤儿协作；67 个 operation 全绑定执行者；`php tests/run.php` → **240 passed, 0 failed**（47 组）。
 
 过程中修掉一个真实缺陷：台账 upsert 里 `:now` 占位符出现两次，MySQL 原生 prepare 报 `HY093 Invalid parameter number`；拆成 `:created` / `:updated` 后修复。另有一次审计器把测试文件里的 `'Authorization'` / `'<html'` 字面量误判为职权域，按规矩 H **不放宽预算而是拆分**成 `14d`，而非给审计器开例外。
 
@@ -1342,6 +1343,25 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 `pages/Post` 是第一个同时消费三者的承载包：正文 + 评论树 + 评论表单，走「表单 → 同页 POST → 303」的 PRG 路径，无 JavaScript 也能完成评论与回复。主题侧只新增 `post` 布局与一个共享的 `comment.css`。
 
 细节与安全边界见 [`docs/CONTENT.md`](CONTENT.md)。
+
+---
+
+## 30. 数据层原位升级（v0.14 / 规矩 S）
+
+用户问「数据系统是否单独写一个，还是有什么对接写什么」。核查结论：升级前 `systems/Database` 只有 **194 行、4 个方法**，是插座不是系统；数据平面约 **1,522 行**分散在 12 个仓储——**1 : 8 的比例说明四件事没有主人**。四个维度逐一体检：
+
+| 维度 | 缺口 | 落地 |
+| --- | --- | --- |
+| 数据加固 | `sql_mode` 依赖服务器默认值、2 处 `SELECT *`、0 外键 0 CHECK | 显式严格模式、显式列、结构指纹 + 登记巡检替代外键 |
+| 传输效率 | 表情逐 token `find()` 的 N+1、无查询计数器 | `findMany` / `parseMany` 一次取全、`QueryProfiler` 可断言 |
+| 数据安全 | 物理列直接出站（`ip_hash` 泄漏且文档未声明） | `present()` 显式白名单，`21c` 守「字段集恰好等于声明」 |
+| 数据操作 | 全项目仅 1 处事务；`add + update(path)` 在事务外 | `DataSession` 事务 / savepoint / `afterCommit`；父隐藏整枝隐藏 |
+
+按「独立生命周期 / 跨系统被依赖 / 可整体替换」三问筛，把数据拆成三类：**A 该进层**（事务、批量、计数、巡检、连接）、**B 不该进层**（列白名单、软删过滤、SQL 拼接——抽成通用仓储即上帝对象）、**C 不进热路径**（备份导出放 `tools/`）。
+
+因此答案不是「再开第 18 层」，而是**把第 8 层原位升级**：`database → data`。新增 4 个容器注册项（3 个接口 + `RelationRegistry`），`DatabaseInterface` 保持不变、**12 个业务仓储零改动**，系统层仍 17 个、`core/` 仍 24 个文件、业务表仍 24 张。四条关系由归属系统在 `boot()` 登记，`data` 层只执行巡检、只报告不修复。
+
+规矩 **S · 数据三不** 把结论固化成可执行断言：物理列不出站、多语句必进事务、列表查询必须有上限且必须批量。四个维度、逐条反例与明确不做的事见 [`docs/DATA.md`](DATA.md)。
 
 ---
 

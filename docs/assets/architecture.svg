@@ -61,7 +61,7 @@
 
   <rect class="box-accent" x="95" y="406" width="710" height="72" rx="10"/>
   <text class="t t-title" x="450" y="432" text-anchor="middle">系统层 ×17</text>
-  <text class="t t-sub" x="450" y="452" text-anchor="middle">log · database · security · lifecycle · user · permission · api · state · plugin</text>
+  <text class="t t-sub" x="450" y="452" text-anchor="middle">log · data · security · lifecycle · user · permission · api · state · plugin</text>
   <text class="t t-sub" x="450" y="468" text-anchor="middle">member · content · release · theme · attachment · emoji · comment · page</text>
 
   <line class="edge" x1="450" y1="478" x2="450" y2="504"/>

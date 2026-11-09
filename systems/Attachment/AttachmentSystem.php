@@ -7,7 +7,7 @@ use Wx\Core\AbstractSystem;
 use Wx\Core\Http\Request;
 use Wx\Core\Http\Response;
 use Wx\Core\Kernel;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 
 /**
  * 附件系统 —— 第 16 个系统层。

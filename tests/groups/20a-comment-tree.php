@@ -45,7 +45,11 @@ check('发表根评论：深度 0、路径回填、公开条数 +1', function ()
     $list = json_decode($k->handle(new Request('GET', '/api/v1/comments', ['post_slug' => 'first-post']))->body(), true);
     truthy(($list['data']['total'] ?? 0) >= 1, '公开条数未更新');
     $node = array_values(array_filter($list['data']['items'], static fn(array $i): bool => $i['id'] === $id))[0] ?? null;
-    truthy($node !== null && $node['path'] === '/' . $id . '/', '路径未回填');
+    truthy($node !== null, '列表中找不到刚发的评论');
+    // 路径是内部结构，接口不输出；直接问存储，避免「为了让测试通过而泄漏内部字段」。
+    $stored = $k->container()->resolve(\Wx\Contracts\CommentStoreInterface::class)->find($id);
+    truthy(($stored['path'] ?? '') === '/' . $id . '/', '路径未回填');
+    truthy(!isset($node['path']) && !isset($node['ip_hash']) && !isset($node['author_id']), '出站不应携带内部字段');
     $GLOBALS['wx_cm_root'] = $id;
 });
 
@@ -147,6 +151,27 @@ check('内容守卫：空正文 / 超长 / 链接过多被拒，未知文章返�
     $orphan = json_decode($k->handle(new Request('POST', '/api/v1/comments', [], $admin, [],
         json_encode(['post_slug' => 'no-such-post', 'body' => '孤儿评论'])))->body(), true);
     truthy(($orphan['code'] ?? null) === 40403, '文章不存在时应返回 40403');
+});
+
+check('父评论被隐藏：回复整枝隐藏，不被提升为根', function () use ($k, $admin): void {
+    $parent = json_decode($k->handle(new Request('POST', '/api/v1/comments', [], $admin, [],
+        json_encode(['post_slug' => 'first-post', 'body' => '将被隐藏的父评论'])))->body(), true);
+    $pid = (int) ($parent['data']['id'] ?? 0);
+    $reply = json_decode($k->handle(new Request('POST', '/api/v1/comments/reply', [], $admin, [],
+        json_encode(['post_slug' => 'first-post', 'parent_id' => $pid, 'body' => '挂在隐藏父下的回复'])))->body(), true);
+    $rid = (int) ($reply['data']['id'] ?? 0);
+    truthy($pid > 0 && $rid > 0, '未能造出父评论与回复：' . json_encode([$parent['message'] ?? '', $reply['message'] ?? '']));
+
+    $hidden = json_decode($k->handle(new Request('POST', '/api/v1/comments/moderate', [], $admin, [],
+        json_encode(['id' => $pid, 'status' => 'hidden'])))->body(), true);
+    truthy(($hidden['code'] ?? null) === 0, '隐藏父评论失败');
+
+    // 匿名视角：父不可见，回复也必须一起消失；不能以「孤儿」身份出现在根层。
+    $anon = json_decode($k->handle(new Request('GET', '/api/v1/comments', ['post_slug' => 'first-post']))->body(), true);
+    $ids = array_map(static fn(array $i): int => (int) $i['id'], (array) ($anon['data']['items'] ?? []));
+    truthy(!in_array($rid, $ids, true), '父评论隐藏后，回复仍出现在列表里');
+    $roots = array_map(static fn(array $n): int => (int) $n['id'], (array) ($anon['data']['tree'] ?? []));
+    truthy(!in_array($rid, $roots, true), '回复被错误地提升为根节点');
 });
 
 dropTables($prefix);

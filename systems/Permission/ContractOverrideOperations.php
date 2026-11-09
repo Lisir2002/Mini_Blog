@@ -6,7 +6,7 @@ use Wx\Contracts\AccessControlInterface;
 use Wx\Contracts\ApiRegistryInterface;
 use Wx\Core\Kernel;
 use Wx\Systems\Api\ApiOperationException;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 
 /**
  * 契约覆盖的两个规范化 operation —— 运行时身份鉴权的入口。

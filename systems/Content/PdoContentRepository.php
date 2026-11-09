@@ -19,7 +19,7 @@ final class PdoContentRepository implements ContentRepositoryInterface
     /** 幂等建表：装载本系统层 migrations/*.sql，占位前缀替换为实际配置值。 */
     public function ensureSchema(): void
     {
-        \Wx\Systems\Database\Schema::apply($this->db, __DIR__ . '/migrations');
+        \Wx\Systems\Data\Schema::apply($this->db, __DIR__ . '/migrations');
     }
 
     /** 空库时写入两篇示例文章，保证首页开箱有内容；已有数据则不触碰。 */
@@ -86,7 +86,11 @@ final class PdoContentRepository implements ContentRepositoryInterface
 
     public function findBySlug(string $slug): ?array
     {
-        $stmt = $this->db->pdo()->prepare('SELECT * FROM ' . $this->table() . ' WHERE slug = :slug LIMIT 1');
+        // 显式列：SELECT * 会让「加一列」直接变成「改一次接口形状」，且新列默认出站。
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT id, slug, title, body, excerpt, status, author, created_at, updated_at'
+            . ' FROM ' . $this->table() . ' WHERE slug = :slug LIMIT 1'
+        );
         $stmt->execute([':slug' => $slug]);
         $row = $stmt->fetch();
         return $row === false ? null : $this->normalize($row);

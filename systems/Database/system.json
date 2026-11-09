@@ -1,9 +1,0 @@
-{
-  "name": "database",
-  "class": "Wx\\Systems\\Database\\DatabaseSystem",
-  "version": "0.1.0",
-  "requires": ["log"],
-  "priority": 15,
-  "enabled": true,
-  "_note": "第 8 个系统层：用于演示「新增系统层 = 丢目录 + 清单，零改动内核」"
-}

@@ -6,7 +6,7 @@ use Throwable;
 use Wx\Contracts\ApiRegistryInterface;
 use Wx\Contracts\DatabaseInterface;
 use Wx\Core\Kernel;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 
 /**
  * 安装向导的环境探测协作者 —— 只读盘点，不写配置、不建表、不改状态。

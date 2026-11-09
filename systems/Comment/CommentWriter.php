@@ -5,6 +5,7 @@ namespace Wx\Systems\Comment;
 use InvalidArgumentException;
 use Wx\Contracts\CommentStoreInterface;
 use Wx\Contracts\ContentRepositoryInterface;
+use Wx\Systems\Data\DataSessionInterface;
 use Wx\Core\Kernel;
 use Wx\Systems\Api\ApiOperationException;
 
@@ -51,15 +52,20 @@ final class CommentWriter
             'ip_hash'   => self::ipHash($this->kernel, (string) ($in['_ip'] ?? '')),
         ]);
 
-        $id = $this->store->add($draft);
         // 路径依赖自增 id，只能落库后补写；root_id 决定「取整棵子树」只需一次前缀查询。
-        $this->store->update($id, [
-            'path'    => CommentTree::pathFor($parent, $id),
-            'root_id' => $parent === null ? $id : (int) ($parent['root_id'] ?? $parent['id']),
-        ]);
+        // 两句必须同生共死：补写失败却留下 path='' 的行，等于往树里塞一个永远找不到的节点。
+        $persist = function () use ($draft, $parent): array {
+            $id = $this->store->add($draft);
+            $this->store->update($id, [
+                'path'    => CommentTree::pathFor($parent, $id),
+                'root_id' => $parent === null ? $id : (int) ($parent['root_id'] ?? $parent['id']),
+            ]);
+            return $this->store->find($id) ?? $draft + ['id' => $id];
+        };
+        $session = $this->session();
+        $row = $session === null ? $persist() : $session->transaction($persist);
 
-        $row = $this->store->find($id) ?? $draft + ['id' => $id];
-        $this->kernel->hooks()->emit('comment.created', $id, $row, $identity);
+        $this->kernel->hooks()->emit('comment.created', (int) ($row['id'] ?? 0), $row, $identity);
         return $row;
     }
 
@@ -98,5 +104,13 @@ final class CommentWriter
     private static function ipHash(Kernel $kernel, string $ip): string
     {
         return $ip === '' ? '' : substr(hash('sha256', $ip . '|' . $kernel->root()), 0, 32);
+    }
+
+    /** 数据层缺席时退化为「无事务」：内核可以没有 database，但写入路径不能因此直接崩。 */
+    private function session(): ?DataSessionInterface
+    {
+        $container = $this->kernel->container();
+        return $container->has(DataSessionInterface::class)
+            ? $container->resolve(DataSessionInterface::class) : null;
     }
 }

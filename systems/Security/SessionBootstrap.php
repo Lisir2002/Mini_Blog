@@ -6,7 +6,7 @@ use Wx\Contracts\ApiAuthenticatorInterface;
 use Wx\Contracts\ApiRegistryInterface;
 use Wx\Contracts\UserProviderInterface;
 use Wx\Core\Kernel;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 
 /**
  * 页面会话的装配器 —— 从 SecuritySystem 拆出的单一职责协作者（规矩 H）。

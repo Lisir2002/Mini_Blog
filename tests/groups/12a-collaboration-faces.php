@@ -75,10 +75,10 @@ check('C2 装配面：清单 requires 逐条对账拓扑顺序，停用被依赖
                 "{$name} 声明依赖 {$dep}，但拓扑顺序未排在其之前");
         }
     }
-    // 断链注入：停掉被依赖的 database，必须报出依赖未满足，不能静默装配
+    // 断链注入：停掉被依赖的 data，必须报出依赖未满足，不能静默装配
     $threw = false;
     try {
-        (new Kernel($root, ['systems' => ['disabled' => ['database']]]))->boot();
+        (new Kernel($root, ['systems' => ['disabled' => ['data']]]))->boot();
     } catch (RuntimeException $e) {
         $threw = str_contains($e->getMessage(), '依赖');
     }

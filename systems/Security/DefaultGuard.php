@@ -4,7 +4,7 @@ namespace Wx\Systems\Security;
 
 use Wx\Contracts\DatabaseInterface;
 use Wx\Contracts\SecurityGuardInterface;
-use Wx\Systems\Database\Schema;
+use Wx\Systems\Data\Schema;
 
 /**
  * 默认防护实现：输出转义 + CSRF 令牌。

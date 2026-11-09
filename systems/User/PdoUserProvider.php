@@ -4,7 +4,7 @@ namespace Wx\Systems\User;
 
 use Wx\Contracts\DatabaseInterface;
 use Wx\Contracts\UserProviderInterface;
-use Wx\Systems\Database\Schema;
+use Wx\Systems\Data\Schema;
 
 /**
  * 用户系统的 MySQL / PDO 实现。

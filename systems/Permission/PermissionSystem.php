@@ -7,7 +7,7 @@ use Wx\Contracts\ApiRegistryInterface;
 use Wx\Core\AbstractSystem;
 use Wx\Core\Kernel;
 use Wx\Systems\Api\ApiOperationException;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 
 /**
  * 权限系统 —— 第 12 个系统层，横切所有系统层的授权决策面。

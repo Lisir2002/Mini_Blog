@@ -8,7 +8,7 @@ use Wx\Contracts\ContentRepositoryInterface;
 use Wx\Core\AbstractSystem;
 use Wx\Core\Kernel;
 use Wx\Systems\Api\ApiOperationException;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 
 /**
  * 内容系统 —— 第 11 个系统层，博客的正文数据模型。
@@ -71,9 +71,7 @@ final class ContentSystem extends AbstractSystem
             ]);
             // 文章权限是可编程裁决点：内容层不认识权限层，只把列表交给钩子过滤
             $result['items'] = (array) $kernel->hooks()->apply('content.visible', $result['items'], $in, $kernel);
-            foreach ($result['items'] as $index => $item) {
-                $result['items'][$index] = self::present($item, $kernel);
-            }
+            $result['items'] = self::presentMany((array) $result['items'], $kernel);
             return $result;
         });
 
@@ -163,5 +161,24 @@ final class ContentSystem extends AbstractSystem
             'emoji.parse', [['type' => 'text', 'value' => $body]], $body
         );
         return $post;
+    }
+
+    /**
+     * 列表批量呈现：表情解析一次取全，避免每篇文章一条 SQL。
+     * 缺少表情系统时钩子不注册，$defaults 原样返回，行为与单篇一致。
+     * @param list<array<string, mixed>> $posts
+     * @return list<array<string, mixed>>
+     */
+    private static function presentMany(array $posts, Kernel $kernel): array
+    {
+        $texts = [];
+        foreach ($posts as $post) $texts[] = (string) ($post['body'] ?? '');
+        $defaults = array_map(static fn(string $text): array => [['type' => 'text', 'value' => $text]], $texts);
+        $tokenLists = (array) $kernel->hooks()->apply('emoji.parse_many', $defaults, $texts);
+        foreach ($posts as $index => $post) {
+            $post['body_tokens'] = $tokenLists[$index] ?? ($defaults[$index] ?? []);
+            $posts[$index] = $post;
+        }
+        return $posts;
     }
 }

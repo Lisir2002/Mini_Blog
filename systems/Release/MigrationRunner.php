@@ -4,7 +4,8 @@ namespace Wx\Systems\Release;
 
 use Wx\Contracts\DatabaseInterface;
 use Wx\Core\HookBus;
-use Wx\Systems\Database\SqlScript;
+use Wx\Systems\Data\Schema;
+use Wx\Systems\Data\SqlScript;
 
 /**
  * 迁移执行者 —— 版本系统的核心事实来源。
@@ -103,6 +104,8 @@ final class MigrationRunner
             $applied[] = (string) $script['id'];
             $this->hooks->emit('release.migration.applied', $script['id'], $batch);
         }
+        // 结构已经被迁移改过，启动兜底的指纹必须作废，否则下次会误判「没变化」。
+        Schema::invalidate($db);
         return $applied;
     }
 
@@ -137,6 +140,7 @@ final class MigrationRunner
             $this->store->forget((string) $script['id']);
             $this->hooks->emit('release.migration.reverted', $script['id']);
         }
+        Schema::invalidate($db);
         return ['reverted' => array_column($plan, 'id'), 'batch' => $batch];
     }
 

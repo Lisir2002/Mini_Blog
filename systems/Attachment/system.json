@@ -2,7 +2,7 @@
   "name": "attachment",
   "class": "Wx\\Systems\\Attachment\\AttachmentSystem",
   "version": "0.1.0",
-  "requires": ["log", "database", "security", "api", "content"],
+  "requires": ["log", "data", "security", "api", "content"],
   "priority": 52,
   "enabled": true,
   "_note": "第 16 个系统层：元数据入库、字节按 SHA-256 内容寻址落盘；上传 / 下载走二进制通道并复用 RequestGuard，不给文件开第二条守卫路径"

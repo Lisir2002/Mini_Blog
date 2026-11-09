@@ -5,7 +5,7 @@ namespace Wx\Pages\Install;
 use RuntimeException;
 use Wx\Contracts\DatabaseInterface;
 use Wx\Core\Kernel;
-use Wx\Systems\Database\Db;
+use Wx\Systems\Data\Db;
 
 /** 安装步骤 · 管理员账号：只做「创建一个可登录的 admin」，不碰配置与建表。 */
 final class InstallerAccount

@@ -29,10 +29,10 @@ final class CommentOperations
             $slug = (string) ($in['post_slug'] ?? $in['slug'] ?? '');
             $acl  = $this->acl();
             $identity = $in['_identity'] ?? null;
-            $rows = array_values(array_filter(
+            $rows = $this->pruneHidden(array_values(array_filter(
                 $this->store->forPost($slug),
                 static fn(array $row): bool => CommentPolicy::visible($identity, $row, $acl)
-            ));
+            )));
             $items = array_map(fn(array $row): array => $this->present($row, $identity, $acl), $rows);
             return [
                 'post_slug' => $slug,
@@ -126,18 +126,27 @@ final class CommentOperations
     private function present(array $row, ?array $identity, ?AccessControlInterface $acl): array
     {
         $body = (string) ($row['body'] ?? '');
-        $row['id']        = (int) ($row['id'] ?? 0);
-        $row['parent_id'] = (int) ($row['parent_id'] ?? 0);
-        $row['depth']     = (int) ($row['depth'] ?? 0);
-        $row['deleted']   = CommentPolicy::isDeleted($row);
-        $row['own']       = CommentPolicy::ownedBy($identity, $row);
-        $row['editable']  = $row['own'] && !$row['deleted'];
-        $row['deletable'] = CommentPolicy::canDelete($identity, $row, $acl);
-        $row['moderatable'] = CommentPolicy::canModerate($identity, $acl);
-        $row['tokens']    = $this->kernel->hooks()->apply(
-            'emoji.parse', [['type' => 'text', 'value' => $body]], $body
-        );
-        return $row;
+        $deleted = CommentPolicy::isDeleted($row);
+        $own = CommentPolicy::ownedBy($identity, $row);
+        // 显式白名单，不是 unset：仓储给的是物理行（含 ip_hash / path / author_id），
+        // 出站必须按契约裁剪。用「列出允许的」而不是「删掉敏感的」，加列时才不会默认泄漏。
+        return [
+            'id'         => (int) ($row['id'] ?? 0),
+            'parent_id'  => (int) ($row['parent_id'] ?? 0),
+            'depth'      => (int) ($row['depth'] ?? 0),
+            'author'     => (string) ($row['author'] ?? ''),
+            'body'       => $body,
+            'status'     => (string) ($row['status'] ?? ''),
+            'created_at' => (string) ($row['created_at'] ?? ''),
+            'deleted'    => $deleted,
+            'own'        => $own,
+            'editable'   => $own && !$deleted,
+            'deletable'  => CommentPolicy::canDelete($identity, $row, $acl),
+            'moderatable' => CommentPolicy::canModerate($identity, $acl),
+            'tokens'     => $this->kernel->hooks()->apply(
+                'emoji.parse', [['type' => 'text', 'value' => $body]], $body
+            ),
+        ];
     }
 
     private function acl(): ?AccessControlInterface
@@ -145,5 +154,31 @@ final class CommentOperations
         $container = $this->kernel->container();
         return $container->has(AccessControlInterface::class)
             ? $container->resolve(AccessControlInterface::class) : null;
+    }
+
+    /**
+     * 父评论存在但不可见时，整枝隐藏 —— 而不是让树构建把回复「提升为根」。
+     *
+     * 两种缺失必须分开：父行根本不存在是脏数据，提升为根是合理的兜底；
+     * 父行存在只是被隐藏 / 待审，说明这条回复不该出现在当前视角，
+     * 提升会让用户看到一条「凭空出现、没有上文」的评论。
+     *
+     * @param list<array<string, mixed>> $rows
+     * @return list<array<string, mixed>>
+     */
+    private function pruneHidden(array $rows): array
+    {
+        $visible = [];
+        foreach ($rows as $row) $visible[(int) ($row['id'] ?? 0)] = true;
+        $memo = [];
+
+        return array_values(array_filter($rows, function (array $row) use ($visible, &$memo): bool {
+            $parent = (int) ($row['parent_id'] ?? 0);
+            if ($parent === 0) return true;
+            if (isset($visible[$parent])) return true;
+            if (!array_key_exists($parent, $memo)) $memo[$parent] = $this->store->find($parent);
+            // 父行不存在：脏数据，交给 CommentTree::build 提升为根，不在这里丢内容。
+            return $memo[$parent] === null;
+        }));
     }
 }

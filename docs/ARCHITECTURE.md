@@ -426,11 +426,12 @@ return [
 │   ├── Data/      连接与严格模式 / 事务会话 / 查询观测 / 孤儿巡检 + Schema / SqlScript
 │   └── Lifecycle/ 元层：LifecycleManager（编排）+ 10 协作者（StateMachine / UnitCatalog / DependencyGraph / PackageVerifier / FileTransaction / HookRunner / StateStore / Fs / ReleaseArchive / VersionSwitcher）
 ├── themes/Bare/ · themes/BareHtml/        主题包（后者零 CSS）
-├── plugins/Hello/                          插件包（只通过钩子改数据）
+├── plugins/Hello/ · plugins/Performance/   插件包（示例；可选性能治理包，默认关闭）
 ├── pages/Home/ Links/ Console/ Toolbox/ Install/   独立页包（后三者 standalone；Install 拆为 InstallPage / Installer / InstallerAccount / InstallerMigrate / InstallState / InstallProbe）
-├── api/registry.json           接口清单（唯一事实源，55 条）
+├── api/registry.json           接口清单（唯一事实源，67 条）
 ├── docs/api/                   SPEC.md + 67 份 API-*.md + openapi.json + 模板 + 索引
-├── docs/CONVENTIONS.md         工程规矩 A–P
+├── docs/CONVENTIONS.md         工程规矩 A–T（含规矩 T 性能三不）
+├── docs/PERFORMANCE.md         性能治理：判断、部署清单、对比数据与明确不做
 ├── docs/responsibility-report.json   职责与协作审计报告（每次测试自动刷新）
 ├── docs/DEVELOPMENT.md         本机环境、SSH 接入与浏览器配置
 ├── tools/                      gen-api-docs.php / export-openapi.php / sign-package.php / audit-responsibility.php + audit/(Policy|CollaborationGraph|Auditor|concerns.json)
@@ -551,19 +552,21 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | **v0.11** | **规矩 P 安装与版本可逆：标准化五步安装向导（`config/local.php` 覆盖层 + 一次性令牌 + `install.lock`）；第 14 系统层 `release`（迁移台账 + checksum 校验 + 安装基线 + 健康门禁 + 版本历史）；不重装升级与按版本快照回退（`keep_releases`）；新增 6 个接口 / 4 个守卫文件 11 项断言，`core/` 未新增文件** |
 | v0.12 | 第 15 系统层 `state`：五态反馈（进行 / 完成 / 错误 / 等待 / 交互）、`held_by` 区分「等系统」与「等人」、文案键 + 主题覆写、长任务 `wx_state_tasks` 乐观锁与终态不可逆、`kernel.exception` 异常边界；新增 1 个接口 / 2 个守卫文件 19 项断言，`core/` 未新增文件 |
 | **v0.13** | **第 16 / 17 系统层 `attachment` 与 `emoji`，并把 `comment` 从「两张表两个接口」补成评论树：邻接表 + 物化路径、深度上限、tombstone 软删、审核状态机、own/any 删除授权；附件元数据与字节分离、SHA-256 内容寻址、四道类型校验、二进制通道复用 RequestGuard、下载强制授权；表情只产出 token、图片只引用本站附件、删除不改写历史；新增 11 个接口 / 3 个守卫文件 26 项断言、1 个独立页 `pages/Post`、1 个主题布局 `post`，`core/` 未新增文件** |
-| **v0.14（当前）** | **第 8 层 `database` 原位升级为 `data`（不加第 18 层）：显式 `sql_mode` 严格模式、`DataSession` 事务 / 嵌套 savepoint / `afterCommit`、`QueryProfiler` 查询计数与慢查询留样、关系登记 + 只读孤儿巡检 + `tools/data.php`；表情 `findMany` / `parseMany` 消除 N+1；评论写入事务包裹、出站显式白名单、父隐藏则整枝隐藏；两处 `SELECT *` 改显式列、结构指纹作废与冷启动去重；新增 4 个容器注册项（3 接口 + 关系登记簿，18→22）/ 4 组守卫 14 项断言、`docs/DATA.md` 与规矩 S；`core/` 未新增文件、系统层仍 17 个、业务表仍 24 张** |
-| v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略 |
+| **v0.14** | **第 8 层 `database` 原位升级为 `data`（不加第 18 层）：显式 `sql_mode` 严格模式、`DataSession` 事务 / 嵌套 savepoint / `afterCommit`、`QueryProfiler` 查询计数与慢查询留样、关系登记 + 只读孤儿巡检 + `tools/data.php`；表情 `findMany` / `parseMany` 消除 N+1；评论写入事务包裹、出站显式白名单、父隐藏则整枝隐藏；两处 `SELECT *` 改显式列、结构指纹作废与冷启动去重；新增 4 个容器注册项（3 接口 + 关系登记簿，18→22）/ 4 组守卫 14 项断言、`docs/DATA.md` 与规矩 S；`core/` 未新增文件、系统层仍 17 个、业务表仍 24 张** |
+| **v0.15（当前）** | **性能治理不新增第 18 层**：三问法判定「动态分配核心 / CPU 调度 / 线程调度」归部署层与内核，参数只写进 `docs/PERFORMANCE.md` 清单；可选包 `plugins/Performance/` 默认关闭，挂在 `kernel.shutdown` 做 ETag / 304 / gzip、`Server-Timing` 与预算留痕；`tools/bench.php` 给出应用层开关与部署层 opcache / CPU 核数的可重跑对比；规矩 T「不越界 / 不猜 / 不隐形」+ 3 组守卫 10 项断言；`core/` 零改动、系统层仍 17、业务表仍 24 张 |
+| v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略、跨请求共享缓存、把 `request_id` 移到 `X-Request-Id` 响应头 |
 
 ---
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **259 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 连 `core/` 一个文件都没碰，文件数不变。
-- `php tests/run.php` → **240 passed, 0 failed**（47 个守卫文件；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`）。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；259 个文件共 16,207 有效代码行，最大单文件 187 行，67 个 operation 全部绑定执行者。
-- **17 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → page`；**13 个契约接口文件**（容器运行时绑定 22 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个内部注册项）、**67 个接口 / 67 份文档**、OpenAPI 3.1（60 路径 / 67 操作）、**26 个承载单元**（17 系统层 + 2 主题 + 6 独立页 + 1 插件）、**44 个权限点**。
+- `php -l` 全量 **268 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 与 v0.15 连 `core/` 一个文件都没碰，文件数不变。
+- `php tests/run.php` → **250 passed, 0 failed**（50 个守卫文件；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`）。
+- `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；268 个文件共 16,747 有效代码行，最大单文件 187 行，67 个 operation 全部绑定执行者。
+- **17 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → page`；**13 个契约接口文件**（容器运行时绑定 22 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个内部注册项）、**67 个接口 / 67 份文档**、OpenAPI 3.1（60 路径 / 67 操作）、**27 个承载单元**（17 系统层 + 2 主题 + 6 独立页 + 2 插件）、**44 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
-- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=22, api_operations=67, core_version=0.14.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
+- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=22, api_operations=67, core_version=0.15.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
 - 装卸全链路与签名验签实测：安装 → 启用 → 升级（留备份）→ 回滚 → 停用 → 完整性校验 → 卸载；重复安装、版本未递增、反向依赖、路径穿越、源包越界、篡改签名、强制缺签名均被正确拒绝。
 - 所有验证均为**可重跑的文本证据**，未使用截图（规矩 A）。
 
@@ -607,7 +610,7 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | C1 | 契约面 | 接口 ↔ 实现 ↔ 容器 | 全部 `resolve()`；把内容契约换成内存实现后首页数据仍贯通；覆盖留痕 |
 | C2 | 装配面 | `system.json` requires ↔ 拓扑 | 停用被依赖的 `data` → 明确报「依赖未满足」 |
 | C3 | 事件面 | emit/apply ↔ on/filter | 3 个裁决型事件必有消费者；自定义 filter 确实被 `renderStage` 询问 |
-| C4 | 接口面 | operation ↔ 执行者 ↔ 文档 ↔ OpenAPI | 55 条四方 1:1；未注册执行者 → `50101` |
+| C4 | 接口面 | operation ↔ 执行者 ↔ 文档 ↔ OpenAPI | 67 条四方 1:1；未注册执行者 → `50101` |
 | C5 | 装卸面 | 磁盘清单 ↔ 状态 ↔ 装载裁决 ↔ 验签 | 单元路径存在、版本对账、`package.enabled` 存在、`core` 不可卸载 |
 | C6 | 呈现面 | 路由 ↔ 布局槽位 ↔ 主题渲染 | 后台走主题 admin 布局；主题缺该布局时退化为纯数据 |
 | C7 | 数据面 | 契约 ↔ 真实表 ↔ 读回 | `system.info` 与 `Db::connected()` 对账；拔 DSN 回退且首页有数据 |
@@ -1362,6 +1365,57 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 因此答案不是「再开第 18 层」，而是**把第 8 层原位升级**：`database → data`。新增 4 个容器注册项（3 个接口 + `RelationRegistry`），`DatabaseInterface` 保持不变、**12 个业务仓储零改动**，系统层仍 17 个、`core/` 仍 24 个文件、业务表仍 24 张。四条关系由归属系统在 `boot()` 登记，`data` 层只执行巡检、只报告不修复。
 
 规矩 **S · 数据三不** 把结论固化成可执行断言：物理列不出站、多语句必进事务、列表查询必须有上限且必须批量。四个维度、逐条反例与明确不做的事见 [`docs/DATA.md`](DATA.md)。
+
+---
+
+## 31. 性能治理（v0.15 / 规矩 T）：核心不设计「性能强化系统」
+
+用户设想的「根据服务器性能动态分配核心、CPU 性能调度、线程调度」是一次典型的**层级错配**。用第 30 节同一组三问筛，三条全不成立：
+
+| 判据 | 数据层（v0.14） | 性能强化（v0.15） |
+| --- | --- | --- |
+| 独立生命周期 | 随应用演化（换驱动 / 读写分离 / 换巡检策略） | 随**部署环境**演化（换机器、改容器配额、换 FPM 配置） |
+| 跨系统被依赖 | 12 个仓储都 `resolve()` 它 | CPU 配额是**环境事实**，不是被调用的能力 |
+| 可整体替换 | 走 `DatabaseInterface` 可换实现 | 换不掉内核调度器；关掉它业务语义不变 ⇒ **没有契约** |
+
+**决定性的区分**：权限之所以是第 12 层，是因为缺席会改变「能不能做」；性能缺席只改变「多快」。改变语义的才配有一层，只改变快慢的不配。硬开一层会让它认识所有层的内部，撞上规矩 S 的「一件事一个主人」；`core/` 24/24 已满（规矩 D）也不允许。
+
+### 31.1 为什么 PHP 下「动态调核」不成立
+
+| 事实 | 证据 |
+| --- | --- |
+| 应用不持有线程、不持有长驻 worker | `Kernel::handle()` 每请求重建；§23.4 记有 `php -S` 冒烟 `hits=0 / misses=3 / flushes=0` |
+| worker 由 FPM master 管理并回收 | 应用调 `sched_setaffinity()` 绑的是即将被回收的进程 |
+| 线程调度是内核职责 | 常驻线程池需引 Swoole / RoadRunner，被规矩 B 挡住 |
+| 按 `nproc` 分配会读错数 | 本机 `nproc` = 32，`/sys/fs/cgroup/cpu.max` = `400000 100000`（配额 4 核） |
+
+`pm = dynamic` 的 fork/exit 抖动本身也是稳定性的敌人——「动态」换不来稳定。服务器参数因此只写在 [`docs/PERFORMANCE.md`](PERFORMANCE.md) §3 的**部署清单**，不写进代码；`22a` 静态扫描守这条线。
+
+### 31.2 分工与落地
+
+| 层 | 内容 | 位置 |
+| --- | --- | --- |
+| 部署层 | FPM worker 数 / opcache / CPU 配额 / 绑核 | 文档清单（非代码） |
+| 应用层（既有） | 批量取数、游标分页、内容寻址、结构指纹 | v0.13 / v0.14 已落地 |
+| 横切边界 | 预算、可观测、可重跑基准、开关语义等价 | 规矩 T、`22a`–`22c`、`tools/bench.php` |
+| 可选增强 | ETag / 304 / gzip、`Server-Timing`、预算留痕 | `plugins/Performance/`（默认关闭） |
+
+增强包只挂在 `kernel.shutdown`（渲染后唯一可编程出口），**`core/` 一个文件没动**；`config.performance.enabled = false` 时一个钩子都不注册。不缓存 `decide()` 结果（规矩 M）、不缓存带身份的响应、不做跨请求共享缓存、不碰 CPU / 线程 / 进程池。
+
+### 31.3 对比数据与一个真实发现
+
+`php tools/bench.php` 一次真实运行（完整口径、波动说明与明确不做的事见 [`docs/PERFORMANCE.md`](PERFORMANCE.md) §6）：
+
+| 对照 | 关闭 / 之前 | 开启 / 之后 | 结论 |
+| --- | ---: | ---: | --- |
+| 应用层传输字节（60 请求） | 190,908 | 26,450 | **−86.1%** |
+| 同组 SQL 条数 | 2,520 | 2,520 | 服务端计算未变，优化的是传输不是计算 |
+| 4 并发 worker，1 核 → 4 核 | 970.16 ms | 343.08 ms | **2.83×**，CPU 层杠杆在部署配置 |
+| 钉在固定 4 核 → 放开可见核 | 343.08 ms | 294.09 ms | 绑核反而慢约 17% |
+
+**真实发现**：API 信封按 [`SPEC.md`](api/SPEC.md) 带每请求唯一 `request_id`，4 个 API 路径一次 304 都没命中，只有首页稳定命中 11/12。这是 ETag 的正确安全行为（内容变了就不命中），不是缺陷；要让 API 可缓存，正确做法是把追踪 ID 移到 `X-Request-Id` 响应头，已列入 v1.0，本版不为此改契约。
+
+规矩 **T · 性能三不**（不越界 / 不猜 / 不隐形）把结论固化成 10 项可执行断言。
 
 ---
 

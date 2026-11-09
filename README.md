@@ -1,9 +1,9 @@
 # Mini Blog _(Mini_Blog)_
 
-![version](https://img.shields.io/badge/version-0.14.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.15.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
-![tests](https://img.shields.io/badge/tests-240%20passing-2ea44f)
+![tests](https://img.shields.io/badge/tests-250%20passing-2ea44f)
 ![dependencies](https://img.shields.io/badge/dependencies-0-2ea44f)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)
@@ -63,7 +63,7 @@ Mini Blog 的出发点是相反的：**内核只保留「装配 + 调度」两�
 | 呈现不是框架的一部分 | 零主题时输出纯 JSON；HTML/CSS/JS 只允许存在于 `themes/` |
 | 扩展不是改代码 | 新建目录 + `system.json`，内核零改动；接口在清单登记后自动生成文档 |
 | 升级不是重装 | 迁移台账 + checksum 校验 + 版本快照 + 健康门禁，可升级也可回退 |
-| 质量不是口头承诺 | 240 项自动化守卫 + 单文件职责审计，违规即失败 |
+| 质量不是口头承诺 | 250 项自动化守卫 + 单文件职责审计 + 可重跑性能基准，违规即失败 |
 
 **它不做什么**：不内置页面构建器，不绑定某个前端框架，不提供多站点与云托管，不在核心里写 SQL。
 
@@ -235,6 +235,23 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/lifecycle
 
 另有显式 `sql_mode` 严格模式、关系登记 + 只读孤儿巡检（`php tools/data.php verify`）、结构指纹冷启动去重。规矩 **S** 与四个维度的反例列见 [`docs/DATA.md`](docs/DATA.md)。
 
+### 性能治理：不新增第 18 层（v0.15）
+
+用户问「是否该按服务器性能动态分配核心、调度 CPU 与线程来加速网站」。用同一组三问筛，三条全不成立：它随**部署环境**而非应用演化、CPU 配额是环境事实不是被调用的能力、关掉它业务语义不变说明没有契约。**权限缺席会改变「能不能做」，性能缺席只改变「多快」——改变语义的才配有一层。**
+
+更关键的是 PHP 每请求重建内核、不持有线程池；worker 归 FPM master、线程归内核调度器。本机 `nproc` = 32 而 cgroup 配额只有 4 核，应用按可见核数「动态调核」只会开出一堆抢配额的进程。因此服务器参数写成 [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) §3 的**部署清单**，不进代码；`core/` 24/24 已满、系统层仍 17。
+
+应用层只补三道边界（规矩 **T**）：不越界、不猜（结论只认可重跑基准）、不隐形（`Server-Timing` + 预算留痕 + 开关语义等价）。可选增强包 `plugins/Performance/` 默认关闭，只做 ETag / 304 / gzip 与观测，`core/` 零改动。
+
+| `php tools/bench.php` 对照 | 之前 / 关闭 | 之后 / 开启 |
+| --- | ---: | ---: |
+| 60 请求传输字节 | 190,908 | **26,450（−86.1%）** |
+| 同组 SQL 条数 | 2,520 | 2,520（服务端计算未变） |
+| 4 并发 worker：1 核 → 4 核 | 970.16 ms | **343.08 ms（2.83×）** |
+| 钉在固定 4 核 → 放开可见核 | 343.08 ms | 294.09 ms（绑核反而更慢） |
+
+诚实标注：这一组优化的是**传输与可观测**，不是服务端计算；opcache 在 CLI 模型下差异落在噪声内，已明确不纳入结论。完整口径见 [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) §6。
+
 ### 两个扩展动作
 
 **新增系统层**：建 `systems/<X>/`，写 `system.json`（`name / class / requires / priority`）和一个 `extends AbstractSystem` 的类。内核零改动——`Data`、`Lifecycle`、`Api`、`Content`、`Release`、`State` 都是这样接进来的。
@@ -293,11 +310,12 @@ log → data → security → lifecycle → user → permission → api → stat
 | v0.12 | 200 | +19 | 五态状态系统、长任务与异常边界 |
 | v0.13 | 226 | +26 | 评论树、附件内容寻址、表情 token |
 | v0.14 | 240 | +14 | 数据层原位升级（事务 / 批量 / 出站裁剪 / 巡检）、规矩 S |
+| v0.15 | 250 | +10 | 性能治理：不新增层、规矩 T、可重跑基准与部署清单 |
 
 | 指标 | 当前值 | 验证方式 |
 | --- | ---: | --- |
-| 守卫 / 分组 | **240 / 47** | `php tests/run.php` |
-| PHP 文件 / 有效行 | **259 / 16,207** | `php tools/audit-responsibility.php` |
+| 守卫 / 分组 | **250 / 50** | `php tests/run.php` |
+| PHP 文件 / 有效行 | **268 / 16,747** | `php tools/audit-responsibility.php` |
 | 最大单文件 | **187 行** | 同上（预算 190，超限即失败） |
 | 职责违规 / 孤儿协作 | **0 / 0** | 同上，非 0 退出 |
 | 系统层 | **17** | 装配顺序断言 |
@@ -307,8 +325,9 @@ log → data → security → lifecycle → user → permission → api → stat
 | 运行时依赖 | **0** | 无 composer / vendor |
 
 ```bash
-php tests/run.php                    # 240 项守卫，47 个文件
+php tests/run.php                    # 250 项守卫，50 个文件
 php tools/audit-responsibility.php   # 单文件职责审计
+php tools/bench.php                  # 性能对比：应用层开关 + 部署层 opcache / CPU 核数
 php tools/data.php verify            # 只读孤儿巡检 / stats 表体量
 php tools/gen-api-docs.php           # 重新生成 67 份接口文档
 php tools/export-openapi.php         # 导出 OpenAPI 3.1
@@ -321,7 +340,7 @@ php tools/sign-package.php <目录> <密钥>   # 源包签名
 
 ## 工程规矩
 
-19 条规矩全部配有可执行守卫，完整文本见 [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)。核心几条：
+20 条规矩全部配有可执行守卫，完整文本见 [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)。核心几条：
 
 | 规矩 | 内容 |
 | --- | --- |
@@ -364,13 +383,13 @@ Mini_Blog/
 │   ├── Api/                                           （接口面）
 │   └── Lifecycle/                                     （元层：装卸 / 快照 / 版本切换）
 ├── themes/                   Bare（带样式）· BareHtml（零 CSS）
-├── plugins/Hello/            插件示例：只通过钩子改数据
+├── plugins/                   Hello（示例）· Performance（可选性能治理包，默认关闭）
 ├── pages/                    Home · Links · Console · Toolbox · Install
-├── api/registry.json         接口清单（唯一事实源，55 条）
+├── api/registry.json         接口清单（唯一事实源，67 条）
 ├── config/app.php            装配清单
-├── docs/                     架构 / 规矩 / 环境 / 67 份接口文档 / OpenAPI
-├── tests/                    run.php + 夹具 + 38 个守卫文件
-├── tools/                    文档生成 / OpenAPI 导出 / 签名 / 职责审计
+├── docs/                     架构 / 规矩 / 环境 / 性能 / 67 份接口文档 / OpenAPI
+├── tests/                    run.php + 夹具 + 50 个守卫文件
+├── tools/                    文档生成 / OpenAPI 导出 / 签名 / 职责审计 / 性能基准
 └── storage/                  运行时产物（仅骨架入库）
 ```
 
@@ -389,13 +408,14 @@ Mini_Blog/
 
 | 文档 | 内容 |
 | --- | --- |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 30 章架构设计与每个版本的决策记录 |
-| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | 工程规矩 A–S 全文与运行记录 |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 31 章架构设计与每个版本的决策记录 |
+| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | 工程规矩 A–T 全文与运行记录 |
 | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | 本机环境、SSH 接入、浏览器配置 |
 | [`docs/api/SPEC.md`](docs/api/SPEC.md) | 接口规范：信封、错误码、鉴权、分页、幂等、二进制通道例外、出站字段裁剪 |
 | [`docs/STATE.md`](docs/STATE.md) | 状态系统：五态、文案、长任务与可访问性 |
 | [`docs/CONTENT.md`](docs/CONTENT.md) | 评论树、附件内容寻址、表情 token 的边界与安全取舍 |
 | [`docs/DATA.md`](docs/DATA.md) | 数据层：四个维度、三道边界、关系巡检与明确不做 |
+| [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | 性能治理：三问法判断、部署清单、对比数据与明确不做 |
 | [`docs/api/README.md`](docs/api/README.md) | 67 个接口索引 |
 | [`docs/api/openapi.json`](docs/api/openapi.json) | OpenAPI 3.1（60 路径 / 67 操作） |
 | [`docs/architecture.html`](docs/architecture.html) | 可视化架构总览 |
@@ -403,6 +423,8 @@ Mini_Blog/
 ---
 
 ## 路线图
+
+**v0.15 已完成**：性能治理不新增第 18 层——三问法判断「动态调核」归部署层；可选增强包做 ETag / 304 / gzip 与预算留痕；`tools/bench.php` 给出应用层与部署层的真实对比数据；规矩 T 与 3 组守卫。
 
 **v0.14 已完成**：第 8 层 `database` 原位升级为 `data`——事务会话、查询观测、严格模式、孤儿巡检；表情批量取数消除 N+1，评论写入事务包裹与出站白名单；新增规矩 S 与 4 组守卫。
 
@@ -420,8 +442,10 @@ Mini_Blog/
 - [ ] 多实例共享的限流与幂等存储（当前为文件实现）
 - [ ] 控制台从只读升级为完整写操作（走受保护 API）
 - [ ] 经验流水归档、排行榜游标翻页、等级变更通知
+- [ ] 跨请求共享缓存（当前只做无状态协商缓存）
+- [ ] 把 API 信封的 `request_id` 移到 `X-Request-Id` 响应头，让接口响应也能参与协商缓存
 
-**明确不做**：内置页面构建器、绑定前端框架、核心内写 SQL、多站点托管。
+**明确不做**：内置页面构建器、绑定前端框架、核心内写 SQL、多站点托管、应用内动态调核 / 绑核 / 自适应 worker 池。
 
 ---
 

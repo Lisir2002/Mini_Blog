@@ -1,0 +1,8 @@
+{
+  "slug": "performance",
+  "class": "Wx\\Plugins\\Performance\\PerformancePlugin",
+  "version": "0.15.0",
+  "priority": 30,
+  "enabled": true,
+  "_note": "装载不等于生效：真正的开关是 config.performance.enabled（默认 false），关掉时本包不注册任何钩子。"
+}

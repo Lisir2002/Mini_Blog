@@ -36,6 +36,7 @@
 | 出站字段（v0.14） | 响应字段集必须**恰好等于**清单 `response_fields` 声明。仓储返回的是物理行（含 `ip_hash` / `author_id` / `path` 等内部列），operation 必须用**显式白名单**裁剪后再出站，不得 `return $row` 原样透传；新增内部列不得改变接口形状。守卫 `21c` 逐字段比对 | `return $row;` 直接透传；或用 `unset` 删敏感字段（加列时默认泄漏） |
 | 幂等 | 每个接口必须声明 `idempotent` 与 `side_effects`；写操作建议携带 `Idempotency-Key` |
 | 限流 | 每次 API 请求计数，响应回带 `X-RateLimit-*`；超阈值返回 `42901` + `Retry-After` |
+| 传输协商（v0.15） | 可选增强包 `plugins/Performance` 默认关闭。开启后响应可带 `ETag` / `Cache-Control` / `Vary: Accept-Encoding` / `Server-Timing`；客户端声明 `Accept-Encoding: gzip` 且实体超阈值时，`200` 的 body 为 gzip 字节并带 `Content-Encoding: gzip`（**信封字段集不变**，须先解码）；`If-None-Match` 命中返回 `304` 且**无实体**（这是「出站字段恰好等于声明」的唯一例外）；带 `Authorization` / `Cookie`、响应带 `Set-Cookie` / `no-store` 或非 GET 一律不协商。详见 §9 | 在业务代码里手写 gzip；缓存带身份的响应；把 304 当错误码 |
 | 追踪 | 客户端可传 `X-Request-Id`，服务端回填 `request_id` |
 | 文档 | **一个接口对应一份文档**，编号即文件名；由清单生成，禁止手工改文档 |
 
@@ -121,6 +122,23 @@
 | 落盘 | 元数据入库，字节按 SHA-256 内容寻址存 `storage/attachments/<aa>/<bb>/<sha256>`；**文件名永不进路径** | 用原始文件名拼路径（`../../` 直接穿越） |
 
 一句话：**不给文件开第二条守卫路径**。二进制通道是同一套守卫的第二种载荷，不是第二套规则。
+
+---
+
+## 9. 传输协商的例外契约（v0.15）
+
+性能优化不许改变业务结果，只能改变**字节怎么送**。可选增强包在 `kernel.shutdown`（渲染后唯一可编程出口）统一处理，`core/` 零改动，默认 `config.performance.enabled = false`：
+
+| 维度 | 约定 | 反例（禁止） |
+| --- | --- | --- |
+| 开关 | 关闭时零钩子、零额外头；开启后业务 body 解码后与关闭时逐字相同（`22c` 守） | 让开关影响权限 / 数据 / 状态码 |
+| 200 | 可能带 `Content-Encoding: gzip`；调用方按 `Accept-Encoding` 与 `Vary` 处理，先解码再读 JSON | 把 gzip 字节直接 `json_decode` |
+| 304 | `If-None-Match` 命中时无实体、不带 `Content-Encoding`，只回 `ETag` / `Cache-Control` / `Vary`；**信封与 `response_fields` 均不适用** | 给 304 塞 `code/message/data` |
+| 个性化 | 带 `Authorization` / `Cookie`、响应带 `Set-Cookie` 或 `no-store`、非 GET —— 一律不协商 | 缓存私有数据 |
+| 信封 | `request_id` 每请求唯一，因此带信封的 API 响应按设计不会命中 304；ETag 只覆盖稳定内容。这是安全行为，不是缺陷 | 为命中率在插件里剔除业务字段 |
+| 观测 | 每个响应带 `Server-Timing`；预算超限另带 `X-Wx-Budget` 并经 `kernel.trace` 留痕，**不改变响应内容** | 超限时悄悄降级或改结果 |
+
+一句话：**协商只改传输，不改语义**；要减少服务端计算，仍归各归属系统的批量取数与结构指纹（v0.14）。完整判断与对比数据见 `docs/PERFORMANCE.md`。
 
 ---
 

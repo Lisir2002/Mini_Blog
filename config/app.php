@@ -61,6 +61,15 @@ return [
         'session' => ['ttl' => 7200],
     ],
 
+    // 性能治理（v0.15）：可选增强包 plugins/Performance 的开关，默认关闭。
+    // 只做传输经济 / 可观测 / 预算留痕；CPU 亲和性、线程、进程池属于部署层，不在应用里配置。
+    // 关闭时该包一个钩子都不注册，业务语义与未安装完全一致（见规矩 T）。
+    'performance' => [
+        'enabled' => false,
+        'economy' => ['min_bytes' => 256, 'gzip' => true, 'max_age' => 60],
+        'budget'  => ['max_queries' => 40, 'max_ms' => 120.0],
+    ],
+
     // 权限系统（第 12 个系统层）：决策缓存可由站长关闭，关闭后决策语义完全一致，仅性能不同
     'permission' => [
         // driver=file 时基础数据跨请求 / 跨同机进程共享（epoch 失效）；memory 只在单次请求内生效

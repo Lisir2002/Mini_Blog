@@ -4,6 +4,7 @@ namespace Wx\Systems\Lifecycle;
 
 use Throwable;
 use Wx\Contracts\LifecycleManagerInterface;
+use Wx\Core\Config;
 use Wx\Core\HookBus;
 
 /**
@@ -165,6 +166,19 @@ final class LifecycleManager implements LifecycleManagerInterface
         $key = $this->catalog->key($type, $slug);
         $from = $this->current($key);
         $this->machine->assertTransition($from, $operation, $key);
+
+        // 双台账对齐：停用当前启用主题会让 package.enabled 拦下装载，整站静默退化 Headless。
+        // 装卸只管「准入」，「哪个主题生效」由 theme.activate 裁决，故此处要求先切换再停用。
+        // Config 会合并 config/local.php，读到的就是与 ThemeSystem 同一个启用源。
+        if ($type === 'theme' && $operation === 'deactivate') {
+            $cfg = new Config($this->root);
+            if ((string) ($cfg->get('theme.active') ?? '') === $slug) {
+                throw new LifecycleException(
+                    '无法停用：该主题是当前启用主题，请先用 theme.activate 切换', 40901
+                );
+            }
+        }
+
         if (!$this->tx->exists($this->catalog->unitDir($type, $slug))) {
             throw new LifecycleException('单元不存在：' . $key, 40402);
         }

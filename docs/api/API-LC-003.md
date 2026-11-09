@@ -24,7 +24,7 @@
 
 **适用场景**：安装完插件后启用；重新启用此前被停用的主题或独立页。
 
-**实现备注**：启用状态由 package.enabled 钩子裁决：仅 active 或未登记的旧包会被 PackageLoader 装载。
+**实现备注**：启用状态由 package.enabled 钩子裁决：仅 active 或未登记的旧包会被 PackageLoader 装载。对 theme 类型，activate 只恢复装配准入，不改变当前启用主题；切换站点主题请用 theme.activate。
 
 ## 3. 请求规范
 

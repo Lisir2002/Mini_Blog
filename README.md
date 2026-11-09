@@ -1,6 +1,6 @@
 # Mini Blog
 
-![version](https://img.shields.io/badge/version-0.17.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.18.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
 ![tests](https://img.shields.io/badge/tests-282%20passing-2ea44f)
@@ -13,7 +13,7 @@
 
 ## 简介
 
-Mini Blog 用原生 PHP 8.1+ 写成，没有 Composer、vendor、模板引擎与 ORM。17 个系统层各自声明 `system.json` 并由内核按依赖装配；主题包是 HTML/CSS/JS 的唯一合法住所；67 个接口由 `api/registry.json` 单向生成文档与 OpenAPI。新增系统层或接口均无需改动 `core/`——它固定 24 个 PHP 文件，不写一条 SQL，也不输出任何标签或样式。
+Mini Blog 用原生 PHP 8.1+ 写成，没有 Composer、vendor、模板引擎与 ORM。17 个系统层各自声明 `system.json` 并由内核按依赖装配；主题包是 HTML/CSS/JS 的唯一合法住所；69 个接口由 `api/registry.json` 单向生成文档与 OpenAPI。新增系统层或接口均无需改动 `core/`——它固定 24 个 PHP 文件，不写一条 SQL，也不输出任何标签或样式。
 
 默认状态是 Headless 数据服务（`theme.active = null`），接入主题后成为站点。当前为可运行的内核原型，部署配置见 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)。
 
@@ -130,7 +130,7 @@ php tools/gen-api-docs.php           # 重新生成 67 份接口文档
 php tools/export-openapi.php         # 导出 OpenAPI 3.1
 ```
 
-当前基线：282 passed / 0 failed、0 职责违规 / 0 孤儿协作、17 系统层、67 接口、24 张业务表、`core/` 24 文件。均为可重跑的文本证据，不依赖截图。
+当前基线：292 passed / 0 failed、0 职责违规 / 0 孤儿协作、17 系统层、69 接口、24 张业务表、`core/` 24 文件。均为可重跑的文本证据，不依赖截图。
 
 ## 文档
 
@@ -146,7 +146,7 @@ php tools/export-openapi.php         # 导出 OpenAPI 3.1
 | [`docs/DATA.md`](docs/DATA.md) | 数据层四个维度与巡检 |
 | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | 性能治理判断、部署清单与对比数据 |
 | [`docs/api/README.md`](docs/api/README.md) | 67 个接口索引 |
-| [`docs/api/openapi.json`](docs/api/openapi.json) | OpenAPI 3.1（60 路径 / 67 操作） |
+| [`docs/api/openapi.json`](docs/api/openapi.json) | OpenAPI 3.1（62 路径 / 69 操作） |
 | [`docs/architecture.html`](docs/architecture.html) | 可视化架构总览 |
 
 ## 贡献

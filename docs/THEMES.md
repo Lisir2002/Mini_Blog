@@ -93,23 +93,41 @@ php tools/theme.php verify    # 复核成对 / 同源 / 覆盖面 / 零外链 / 
 
 若只想让某主题负责单一呈现面：把其 `LAYOUTS` 与 `theme.json` 的 `layouts` 收窄为对应槽位即可。按规矩 J，未提供的槽位不会被核心兜底，而是自动退化为纯数据——这与 `BareHtml` 只提供 `site` 是同一套机制。
 
+## 主题接口与可视化操作（v0.18）
+
+审计发现主题在五张接口网里只占契约面 / 事件面 / 装配面，**接口面是空的**：审计当时 67 个 operation 无一属于主题，`system.info` 只顺带返回一个 `theme_active` 标量；后台也没有任何主题可视化操作，切换主题只能手改 `config/app.php`。三问法判定：主题切换无独立生命周期（不新增第 18 层）、是被后台 / 安装向导 / CLI 共同调用的能力（应进 `systems/Theme`）、写入策略应可替换（用容器契约）。故补齐**系统层自报接口 + 主题包消费接口**，两边职责不混。
+
+| 接口 | 方法 / 鉴权 | 职责 |
+| --- | --- | --- |
+| `theme.list` | `GET /api/v1/themes` · public | 静态枚举各主题包的 `theme.json`：slug / version / enabled / meta / surface / family / layouts，以及当前 `active` 与 `headless`。不引导主题包、不连库 |
+| `theme.activate` | `POST /api/v1/themes/active` · admin + `theme.manage` | 把启用态原子写入 `config/local.php`；留空 `slug` 停用主题回到 Headless |
+
+**写入只碰本地覆盖层**：`core/Config` 早已支持 `config/local.php`（「安装器 / 运维只写 local.php，删掉即回到默认」），主配置 `theme.active` 恒为 `null`，Headless 根基不动，删除 local.php 天然回退。写入是临时文件 + `rename` 的原子替换，失败时原文件不动；写入前经既有 `package.enabled` 钩子询问装卸系统准入，切到被停用主题返回 `40901`，不硬依赖 `lifecycle` 层。两个能力各有一个契约（`ThemeCatalogInterface` / `ThemeActivationInterface`），注册进容器后可被更高优先级替换；`core/` 仍 24 个 PHP 文件。
+
+**双台账对齐**：`lifecycle.activate` 只恢复装配准入（写 `storage/lifecycle/state.json`），不改变当前启用主题；`theme.activate` 是唯一启用源写入口。`lifecycle.deactivate` 当前启用主题会被拒绝（`40901`），避免静默退化 Headless。三处对「哪个主题生效」不再各说各话。
+
+**生效时机诚实可验证**：当前请求的 `Config` 已缓存，新主题在**下次请求**装配时生效，响应以 `effective=next_request` 明示，不假装即时切换。
+
+**可视化操作在 Glass 后台**：导航新增「主题」分区，卡片由 `theme.list` 的清单生成（元主题 / 示例主题标识、`surface / family / version`、布局槽位、启用态高亮），「启用」与「停用主题（回到 Headless）」走 `theme.activate`，按钮标注需令牌，结果实时显示 HTTP 状态与 JSON 信封。输出一律 `textContent`，令牌只存页面内存，CSS/JS 仍只在 `themes/`，主题包不注册接口（规矩 J）。`25a` / `25b` 两组守卫逐条核对清单字段、鉴权、幂等、白名单、双台账与 UI 路径。
+
 ## 明确不做
 
-- 不新增第 18 个系统层、不新增接口、不改 `core/`（仍 24 个 PHP 文件）；
-- 不改 `theme.active` 默认值（仍 `null` / Headless），不新增激活机制，不强制启用元主题；
+- 不新增第 18 个系统层、不改 `core/`（仍 24 个 PHP 文件）；接口增量归已存在的 `theme` 系统层自报，主题包只消费、不注册；
+- 不改 `theme.active` 默认值（仍 `null` / Headless）；启用写 `config/local.php` 覆盖层，不强制启用元主题；
 - 不内置业务数据、不复制系统层清单、不把接口路径写进服务端 PHP 模板；
 - 不让两款元主题跨包引用（各自自包含），`glass.css` 以「逐字同源」而非共享文件保证材质一致；
 - 不引入 CDN、字体服务、图片资源、前端框架或模板引擎；
-- 不做主题内的写操作后台（受保护接口当前只读探测，完整写控制台属路线图）；
+- 不做主题内的写操作后台：启用 / 停用是 `theme.activate` 的职责，主题包只呈现操作界面、不自行写配置；
+- 不做请求级主题预览（会引入第二套启用态，破坏「`theme.active` 是唯一事实源」）；
 - 不用截图作为证据；结论一律由 `php tests/run.php`、`php tools/theme.php verify` 与 `php tools/audit-responsibility.php` 复现。
 
 ## 验证
 
 ```bash
-php tools/theme.php verify            # 元主题出厂契约
-php tests/run.php                    # 23a / 23b（Glass）+ 24a / 24b（元主题 / GlassFront）
+php tools/theme.php verify            # 元主题出厂契约（默认 Headless 未改）
+php tests/run.php                    # 23a/23b（Glass）、24a/24b（元主题 / GlassFront）、25a/25b（接口 / 可视化操作）
 php tools/audit-responsibility.php   # 单文件职责预算（themes/ 150 行）
-php -l themes/GlassFront/*.php
+php -l themes/Glass/*.php
 ```
 
 关联：[架构第 33 节](ARCHITECTURE.md) · [规矩 J](CONVENTIONS.md) · [接口规范](api/SPEC.md) · [接口索引](api/README.md)

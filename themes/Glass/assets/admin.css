@@ -70,6 +70,25 @@
 
 .dash__foot { text-align: center; font-size: .76rem; padding: .4rem 0; }
 
+/* 主题管理分区：卡片沿用玻璃基元，这里只定义结构与启用态标识 */
+.theme-card.is-active { border-color: rgba(110, 231, 183, .48); box-shadow: var(--g-shadow), 0 0 0 1px rgba(110, 231, 183, .22); }
+.theme-card__top { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; }
+.theme-card__slug { font-family: var(--g-mono); font-size: .9rem; color: var(--g-fg); }
+.theme-card__badge {
+  flex: none; font-size: .7rem; padding: .1rem .55rem; border-radius: 999px;
+  background: rgba(196, 181, 253, .16); border: 1px solid rgba(196, 181, 253, .28);
+  color: #ddd6fe;
+}
+.theme-card.is-active .theme-card__badge {
+  background: rgba(110, 231, 183, .16); border-color: rgba(110, 231, 183, .34); color: var(--g-ok);
+}
+.theme-card__meta, .theme-card__layouts { margin: .4rem 0 0; font-size: .75rem; color: var(--g-muted); word-break: break-all; }
+.theme-card__btn { margin-top: .6rem; width: 100%; font-size: .8rem; padding: .4rem; }
+.theme-card__btn:disabled { opacity: .55; cursor: default; }
+.theme-card__btn.is-busy { opacity: .6; pointer-events: none; }
+.theme-actions { margin-top: .8rem; display: flex; flex-wrap: wrap; gap: .5rem; }
+.theme-actions [data-auth="true"]::after { content: " · 需令牌"; color: var(--g-warn); font-size: .72rem; }
+
 @media (max-width: 900px) {
   .dash { grid-template-columns: 1fr; }
   .dash__side { position: static; min-height: 0; }

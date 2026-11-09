@@ -72,5 +72,7 @@
 | `API-EMOJI-001` | `GET` | `/api/v1/emojis` | `emoji` | `public` | 是 | [API-EMOJI-001](API-EMOJI-001.md) |
 | `API-EMOJI-002` | `POST` | `/api/v1/emojis` | `emoji` | `admin` | 否 | [API-EMOJI-002](API-EMOJI-002.md) |
 | `API-EMOJI-003` | `POST` | `/api/v1/emojis/delete` | `emoji` | `admin` | 否 | [API-EMOJI-003](API-EMOJI-003.md) |
+| `API-THEME-001` | `GET` | `/api/v1/themes` | `theme` | `public` | 是 | [API-THEME-001](API-THEME-001.md) |
+| `API-THEME-002` | `POST` | `/api/v1/themes/active` | `theme` | `admin` | 是 | [API-THEME-002](API-THEME-002.md) |
 
-共 67 个接口，接口版本 `v1`。
+共 69 个接口，接口版本 `v1`。

@@ -653,13 +653,13 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.17.0",
+                    "core_version": "0.18.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
                     "systems": 17,
-                    "contracts": 22,
-                    "api_operations": 67,
+                    "contracts": 24,
+                    "api_operations": 69,
                     "database": "mysql",
                     "theme_active": null,
                     "headless": true
@@ -1077,7 +1077,7 @@
                     "system": "lifecycle"
                 }
             },
-            "notes": "启用状态由 package.enabled 钩子裁决：仅 active 或未登记的旧包会被 PackageLoader 装载。",
+            "notes": "启用状态由 package.enabled 钩子裁决：仅 active 或未登记的旧包会被 PackageLoader 装载。对 theme 类型，activate 只恢复装配准入，不改变当前启用主题；切换站点主题请用 theme.activate。",
             "changelog": [
                 "0.2.0 初次发布"
             ],
@@ -1145,7 +1145,7 @@
                     "system": "lifecycle"
                 }
             },
-            "notes": "停用不清理数据；只有 uninstall 才彻底删除。站点程序 core 不允许停用。",
+            "notes": "停用不清理数据；只有 uninstall 才彻底删除。站点程序 core 不允许停用；当前启用主题也不可停用（会静默退化 Headless），请先用 theme.activate 切换。",
             "changelog": [
                 "0.2.0 初次发布"
             ],
@@ -5352,6 +5352,164 @@
             ],
             "doc": "docs/api/API-EMOJI-003.md",
             "permission": "emoji.manage"
+        },
+        {
+            "id": "API-THEME-001",
+            "name": "列出主题",
+            "system": "theme",
+            "method": "GET",
+            "path": "/api/v1/themes",
+            "operation": "theme.list",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.18.0",
+            "summary": "静态枚举 themes/ 下全部主题包及其清单字段，并返回当前启用主题与是否处于零呈现模式。",
+            "scenario": "后台主题管理卡片、安装向导选择主题、运维核对元主题成对出厂；无主题（Headless）时同样可用。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "active",
+                    "type": "string|null",
+                    "desc": "当前启用主题；null 表示零呈现 Headless"
+                },
+                {
+                    "name": "headless",
+                    "type": "bool",
+                    "desc": "true 表示未启用任何主题"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "出厂主题包数量"
+                },
+                {
+                    "name": "items",
+                    "type": "object[]",
+                    "desc": "slug / version / enabled / meta / surface / family / layouts / active"
+                }
+            ],
+            "errors": [
+                50001
+            ],
+            "example_request": "GET /api/v1/themes",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "active": null,
+                    "headless": true,
+                    "total": 4,
+                    "items": [
+                        {
+                            "slug": "glass-front",
+                            "version": "0.1.0",
+                            "enabled": true,
+                            "meta": true,
+                            "surface": "front",
+                            "family": "glass",
+                            "layouts": [
+                                "site",
+                                "post",
+                                "admin",
+                                "tool",
+                                "install",
+                                "deny"
+                            ],
+                            "active": false
+                        }
+                    ]
+                },
+                "request_id": "4b8e2c1d9a7f0365",
+                "meta": {
+                    "api": "API-THEME-001",
+                    "version": "v1",
+                    "system": "theme"
+                }
+            },
+            "notes": "纯静态读取：不引导主题包、不连库、不触发装配副作用；meta / surface / family 是元主题的一等契约字段。接口归 theme 系统层自报，主题包只消费、不注册接口（规矩 J）。",
+            "changelog": [
+                "0.18.0 初次发布"
+            ],
+            "doc": "docs/api/API-THEME-001.md"
+        },
+        {
+            "id": "API-THEME-002",
+            "name": "启用主题",
+            "system": "theme",
+            "method": "POST",
+            "path": "/api/v1/themes/active",
+            "operation": "theme.activate",
+            "auth": "admin",
+            "idempotent": true,
+            "side_effects": "filesystem",
+            "since": "0.18.0",
+            "summary": "把当前启用主题原子写入 config/local.php 本地覆盖层；留空 slug 则停用主题回到零呈现。",
+            "scenario": "后台「主题」分区点击启用 / 停用；运维脚本一行切换前端门户或后台仪表盘元主题。",
+            "params": [
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "目标主题 slug；留空 / null / 字符串 null 表示停用主题回到 Headless"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "active",
+                    "type": "string|null",
+                    "desc": "本次写入后的目标启用主题"
+                },
+                {
+                    "name": "previous",
+                    "type": "string|null",
+                    "desc": "写入前的启用主题"
+                },
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "目标与当前一致时为 false，不写盘"
+                },
+                {
+                    "name": "effective",
+                    "type": "string",
+                    "desc": "固定 next_request：新主题在下次请求装配时生效"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                40403,
+                40901,
+                42201,
+                50001
+            ],
+            "example_request": "POST /api/v1/themes/active  {\"slug\":\"glass-front\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "active": "glass-front",
+                    "previous": null,
+                    "changed": true,
+                    "effective": "next_request"
+                },
+                "request_id": "7c1e9a3b5d24f806",
+                "meta": {
+                    "api": "API-THEME-002",
+                    "version": "v1",
+                    "system": "theme"
+                }
+            },
+            "notes": "只写 config/local.php（core/Config 既有覆盖层），主配置 theme.active 恒为 null，删掉 local.php 即回到 Headless；临时文件 + rename 原子替换，失败原文件不动。写入前经 package.enabled 询问装卸系统准入，切到被停用主题返回 40901。当前请求 Config 已缓存，新主题在下次请求装配时生效（effective=next_request）。与 lifecycle.activate 分工：后者只恢复装配准入，不改变当前启用主题。",
+            "changelog": [
+                "0.18.0 初次发布"
+            ],
+            "doc": "docs/api/API-THEME-002.md",
+            "permission": "theme.manage"
         }
     ]
 }

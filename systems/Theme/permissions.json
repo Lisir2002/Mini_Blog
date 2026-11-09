@@ -1,0 +1,7 @@
+{
+  "system": "theme",
+  "permissions": [
+    {"name": "theme.read", "description": "读取主题清单与当前启用态"},
+    {"name": "theme.manage", "description": "启用 / 停用主题，写入本地覆盖层"}
+  ]
+}

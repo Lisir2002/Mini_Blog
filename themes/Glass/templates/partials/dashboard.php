@@ -18,6 +18,7 @@
     <nav class="dash__nav" aria-label="后台分区">
       <a class="is-active" href="#overview" data-nav="overview">概览</a>
       <a href="#layers" data-nav="layers">系统层</a>
+      <a href="#themes" data-nav="themes">主题</a>
       <a href="#probes" data-nav="probes">接口探针</a>
       <a href="#runtime" data-nav="runtime">响应明细</a>
     </nav>
@@ -51,6 +52,17 @@
       </div>
       <p class="glass-muted">卡片由 <code>/api/v1/system/layers</code> 的装配顺序生成；新增系统层时后台自动出现，无需修改主题。</p>
       <div class="glass-grid" id="glass-layers"></div>
+    </section>
+    <section id="themes" class="dash__section">
+      <div class="dash__section-head">
+        <h2>主题</h2><span class="glass-muted" id="glass-theme-active">读取中…</span>
+      </div>
+      <p class="glass-muted">清单与当前启用态来自 <code>/api/v1/themes</code>；启用操作需 Bearer 令牌，写入本地覆盖层后下次请求生效。</p>
+      <div class="glass-grid" id="glass-themes"></div>
+      <div class="theme-actions">
+        <button id="glass-theme-headless" type="button" class="ghost" data-auth="true">停用主题（回到 Headless）</button>
+      </div>
+      <pre class="glass-pre" id="glass-theme-output" aria-live="polite">主题操作结果会显示在这里。</pre>
     </section>
     <section id="probes" class="dash__section">
       <div class="dash__section-head">

@@ -31,6 +31,12 @@
   };
   var FALLBACK = { label: '系统层', group: '其它', probe: '/system/info' };
 
+  // 主题管理分区：路径逐条对应 api/registry.json 既有登记；主题包只消费、不臆造接口。
+  var THEME_PATHS = {
+    list:     { path: '/themes' },
+    activate: { path: '/themes/active' }
+  };
+
   // 分区探针：path 逐条对应 registry 的既有登记；auth=true 的接口需 Bearer 令牌。
   var PROBES = [
     { group: '系统', items: [
@@ -76,10 +82,15 @@
     return node;
   }
 
-  function call(path, query) {
+  function call(path, query, method, body) {
     var headers = {};
     if (token) headers.Authorization = 'Bearer ' + token;
-    return fetch(api + path + (query || ''), { headers: headers })
+    var opts = { method: method || 'GET', headers: headers };
+    if (body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    return fetch(api + path + (query || ''), opts)
       .then(function (r) {
         return r.json().catch(function () { return { _non_json: true, http_status: r.status }; })
           .then(function (body) { return { http_status: r.status, data: body }; });
@@ -208,6 +219,72 @@
     });
   }
 
+  function themeOutput(text) {
+    var box = document.getElementById('glass-theme-output');
+    if (box) box.textContent = text;
+  }
+
+  function themeWriteResult(label, res) {
+    themeOutput('HTTP ' + res.http_status + '\n' + JSON.stringify(res.data, null, 2));
+    show(label, res);
+    return res.http_status === 200 && res.data && res.data.code === 0;
+  }
+
+  function themes(result) {
+    var host = document.getElementById('glass-themes');
+    var badge = document.getElementById('glass-theme-active');
+    if (!host) return;
+    var body = (result && result.data) || {};
+    if (body.data && typeof body.data === 'object') body = body.data;
+    var items = Array.isArray(body.items) ? body.items : [];
+    if (badge) badge.textContent = '当前 ' + (body.active || 'Headless（无主题）')
+      + ' · ' + (body.total != null ? body.total : 0) + ' 款';
+    host.textContent = '';
+    items.forEach(function (t) {
+      var card = el('article', 'glass-card theme-card');
+      if (t.active) card.classList.add('is-active');
+      var top = el('div', 'theme-card__top');
+      top.appendChild(el('span', 'theme-card__slug', String(t.slug || '')));
+      top.appendChild(el('span', 'theme-card__badge',
+        t.active ? '启用中' : (t.meta ? '元主题' : '示例主题')));
+      card.appendChild(top);
+      card.appendChild(el('p', 'theme-card__meta',
+        (t.surface || '—') + ' · ' + (t.family || '—') + ' · v' + String(t.version || '—')));
+      card.appendChild(el('p', 'theme-card__layouts',
+        '布局 ' + (Array.isArray(t.layouts) ? t.layouts.join(' / ') : '—')));
+      var btn = el('button', 'theme-card__btn', t.active ? '已启用' : '启用');
+      btn.type = 'button';
+      btn.disabled = !!t.active;
+      btn.setAttribute('data-auth', 'true');
+      btn.addEventListener('click', function () {
+        if (!token) { themeOutput('请先在右上角填写 Bearer 令牌（admin）。'); return; }
+        btn.classList.add('is-busy');
+        call(THEME_PATHS.activate.path, '', 'POST', { slug: t.slug }).then(function (res) {
+          var ok = themeWriteResult('启用主题 · ' + String(t.slug), res);
+          btn.classList.remove('is-busy');
+          if (ok) refreshThemes();
+        });
+      });
+      card.appendChild(btn);
+      host.appendChild(card);
+    });
+  }
+
+  function refreshThemes() {
+    call(THEME_PATHS.list.path).then(themes);
+  }
+
+  var headlessBtn = document.getElementById('glass-theme-headless');
+  if (headlessBtn) headlessBtn.addEventListener('click', function () {
+    if (!token) { themeOutput('请先在右上角填写 Bearer 令牌（admin）。'); return; }
+    headlessBtn.classList.add('is-busy');
+    call(THEME_PATHS.activate.path, '', 'POST', { slug: '' }).then(function (res) {
+      var ok = themeWriteResult('停用主题 · 回到 Headless', res);
+      headlessBtn.classList.remove('is-busy');
+      if (ok) refreshThemes();
+    });
+  });
+
   var tokenInput = document.getElementById('glass-token');
   if (tokenInput) tokenInput.addEventListener('input', function () { token = tokenInput.value.trim(); });
   var refreshBtn = document.getElementById('glass-refresh');
@@ -224,5 +301,6 @@
     });
   });
   probes();
+  refreshThemes();
   refresh();
 })();

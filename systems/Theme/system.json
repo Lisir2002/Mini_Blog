@@ -1,8 +1,9 @@
 {
   "name": "theme",
   "class": "Wx\\Systems\\Theme\\ThemeSystem",
-  "version": "0.1.0",
-  "requires": ["log"],
+  "version": "0.2.0",
+  "requires": ["log", "api"],
   "priority": 50,
-  "enabled": true
+  "enabled": true,
+  "_note": "呈现权归主题系统；v0.18 起自报 theme.list / theme.activate 两个 operation，主题包只消费不注册（规矩 J）"
 }

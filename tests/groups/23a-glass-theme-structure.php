@@ -101,10 +101,18 @@ check('主题渲染经安全系统转义，注入标题不会成为标签', func
     truthy(str_contains($r->body(), '&lt;script&gt;'), '未见转义结果');
 });
 
-check('Glass 是承载包：不改核心、不增系统层、不增接口', function () use ($root): void {
+check('Glass 是承载包：不改核心、不增系统层，接口增量归系统层自报', function () use ($root): void {
     truthy(count(glob($root . '/core/*.php') ?: []) + count(glob($root . '/core/*/*.php') ?: []) === 24, 'core/ 文件数被改动');
     truthy(count(glob($root . '/systems/*/system.json') ?: []) === 17, '系统层数量被改动');
     $registry = json_decode((string) file_get_contents($root . '/api/registry.json'), true);
-    truthy(count($registry['endpoints'] ?? []) === 67, '接口清单被改动');
+    truthy(count($registry['endpoints'] ?? []) === 69, '接口清单被改动');
+    $ops = array_values(array_column(array_filter($registry['endpoints'],
+        static fn(array $e): bool => ($e['system'] ?? '') === 'theme'), 'operation'));
+    truthy($ops === ['theme.list', 'theme.activate'], '主题接口未全部归 theme 系统层自报');
+    // 主题包只消费接口、绝不注册接口（规矩 J）：呈现与能力不混在一个包里。
+    foreach (glob($root . '/themes/Glass/*.php') ?: [] as $php) {
+        truthy(!str_contains((string) file_get_contents($php), 'registerOperation'),
+            '主题包注册了接口：' . basename($php));
+    }
     truthy((glob($root . '/pages/*/assets/*') ?: []) === [], '独立页出现资源文件');
 });

@@ -71,12 +71,19 @@ check('默认 Headless 根基未动：theme.active 仍为 null', function () use
     truthy(str_contains($plain->contentType(), 'json'), '无主题时首页未退化为纯数据');
 });
 
-check('元主题是承载包内容，不改核心 / 系统层 / 接口清单', function () use ($root): void {
+check('元主题是承载包内容，不改核心 / 系统层；接口增量归系统层自报', function () use ($root): void {
     truthy(count(glob($root . '/core/*.php') ?: []) + count(glob($root . '/core/*/*.php') ?: []) === 24,
         'core/ 文件数被改动');
     truthy(count(glob($root . '/systems/*/system.json') ?: []) === 17, '系统层数量被改动');
     $registry = json_decode((string) file_get_contents($root . '/api/registry.json'), true);
-    truthy(count($registry['endpoints'] ?? []) === 67, '接口清单被改动');
+    truthy(count($registry['endpoints'] ?? []) === 69, '接口清单被改动');
+    // 两款元主题都是承载包：注册接口是 theme 系统层的职责，不是主题包的职责。
+    foreach (['Glass', 'GlassFront'] as $dir) {
+        foreach (glob($root . '/themes/' . $dir . '/*.php') ?: [] as $php) {
+            truthy(!str_contains((string) file_get_contents($php), 'registerOperation'),
+                $dir . ' 主题包注册了接口：' . basename($php));
+        }
+    }
 });
 
 check('出厂复核工具 list / verify 可重跑且通过', function () use ($root): void {

@@ -114,11 +114,11 @@ flowchart TB
 
 | 接口网 | 载体 | 解决什么 | 站长可以怎么改 |
 | --- | --- | --- | --- |
-| **契约面** | `Container` + `core/Contracts/*`（12 个） | 实现可替换 | 用更高 `priority` 重新绑定任意契约，把日志换 Syslog、用户换 LDAP、鉴权换 SSO |
+| **契约面** | `Container` + `core/Contracts/*`（13 个） | 实现可替换 | 用更高 `priority` 重新绑定任意契约，把日志换 Syslog、用户换 LDAP、鉴权换 SSO |
 | **事件面** | `HookBus`（action 广播 / filter 链式改值） | 流程可拦截 | 在任何内核节点插入逻辑；业务钩子由系统层自己声明，核心不管 |
 | **装配面** | `system.json` / `theme.json` / `plugin.json` / `page.json` | 单元可插拔 | 丢一个目录即接入新系统层；改配置即可停用任意自带系统 |
 | **数据面** | `DatabaseInterface` + Headless JSON | 数据可读写 | 连接与严格模式 / 事务 / 观测 / 巡检归 `data` 层，表结构与 SQL 归各系统层自持；无主题时整站就是一套 JSON API |
-| **接口面** | `api/registry.json` + `ApiRegistry` + 统一信封 | 操作可规范化 | 21 个操作各有编号与文档；替换执行者只需重新 `registerOperation` |
+| **接口面** | `api/registry.json` + `ApiRegistry` + 统一信封 | 操作可规范化 | 69 个操作各有编号与文档；替换执行者只需重新 `registerOperation` |
 
 核心只定义内核级钩子（`kernel.*` / `route.*` / `system.*` / `render.should_render`），像 `comment.before_save`、`theme.context`、`content.before_save`、`lifecycle.before_upgrade` 这类业务钩子全部由对应系统层自行声明。核心的钩子清单不会因为新增业务而膨胀。
 
@@ -555,20 +555,21 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | **v0.14** | **第 8 层 `database` 原位升级为 `data`（不加第 18 层）：显式 `sql_mode` 严格模式、`DataSession` 事务 / 嵌套 savepoint / `afterCommit`、`QueryProfiler` 查询计数与慢查询留样、关系登记 + 只读孤儿巡检 + `tools/data.php`；表情 `findMany` / `parseMany` 消除 N+1；评论写入事务包裹、出站显式白名单、父隐藏则整枝隐藏；两处 `SELECT *` 改显式列、结构指纹作废与冷启动去重；新增 4 个容器注册项（3 接口 + 关系登记簿，18→22）/ 4 组守卫 14 项断言、`docs/DATA.md` 与规矩 S；`core/` 未新增文件、系统层仍 17 个、业务表仍 24 张** |
 | **v0.15** | **性能治理不新增第 18 层**：三问法判定「动态分配核心 / CPU 调度 / 线程调度」归部署层与内核，参数只写进 `docs/PERFORMANCE.md` 清单；可选包 `plugins/Performance/` 默认关闭，挂在 `kernel.shutdown` 做 ETag / 304 / gzip、`Server-Timing` 与预算留痕；`tools/bench.php` 给出应用层开关与部署层 opcache / CPU 核数的可重跑对比；规矩 T「不越界 / 不猜 / 不隐形」+ 3 组守卫 10 项断言；`core/` 零改动、系统层仍 17、业务表仍 24 张 |
 | **v0.16** | **首个正式后台主题 `themes/Glass`**：半透明磨砂玻璃（`backdrop-filter` 模糊 + 半透明玻璃面 + 纯 CSS 渐变光晕，含 `@supports` 与 reduced-motion / reduced-transparency 降级），自报六个布局槽位；后台仪表盘由 `system.layers` 与既有 GET 接口驱动，主题不新增接口 / 系统层 / 业务数据，`core/` 零改动；`docs/THEMES.md` 与 `23a` / `23b` 两组 14 项守卫，不新增规矩字母** |
-| **v0.17（当前）** | **元主题（初始化主题）成对出厂**：`meta` / `surface` / `family` 成为 `theme.json` 一等契约字段；第一款前端主题 `themes/GlassFront`（front）与第一款后台主题 `themes/Glass`（back）同属 `family=glass`、`glass.css` 逐字同源，门户文章流由公开接口驱动、渐进增强；`tools/theme.php list/verify` 只读复核。元主题「开箱即在、一行启用」，`theme.active` 默认仍 `null`，不新增系统层 / 接口 / 规矩字母 / 激活机制，`core/` 零改动；`24a` / `24b` 两组 18 项守卫归入规矩 J |
+| **v0.17** | **元主题（初始化主题）成对出厂**：`meta` / `surface` / `family` 成为 `theme.json` 一等契约字段；第一款前端主题 `themes/GlassFront`（front）与第一款后台主题 `themes/Glass`（back）同属 `family=glass`、`glass.css` 逐字同源，门户文章流由公开接口驱动、渐进增强；`tools/theme.php list/verify` 只读复核。元主题「开箱即在、一行启用」，`theme.active` 默认仍 `null`，不新增系统层 / 接口 / 规矩字母 / 激活机制，`core/` 零改动；`24a` / `24b` 两组 18 项守卫归入规矩 J |
+| **v0.18（当前）** | **主题接口面与可视化操作**：审计发现主题接口面为空、后台无主题管理 UI、且「激活主题」存在双台账语义裂缝。三问法判定能力归 `systems/Theme`：自报 `theme.list` / `theme.activate`（+2 operation / +2 权限点）与两个容器契约，启用态只写 `config/local.php` 覆盖层（主配置仍 `null`、删除即回退、原子替换、经 `package.enabled` 询问准入）；`lifecycle.deactivate` 当前启用主题返回 `40901`。`themes/Glass` 新增「主题」分区（清单卡片 / 启用 / 停用 / 结果回显）。`25a` / `25b` 两组守卫归入规矩 J；不新增系统层 / 规矩字母，`core/` 仍 24 文件 |
 | v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略、跨请求共享缓存、把 `request_id` 移到 `X-Request-Id` 响应头 |
 
 ---
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **304 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.17 连 `core/` 一个文件都没碰，文件数不变。
-- `php tests/run.php` → **282 passed, 0 failed**（54 个守卫文件；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`）。
+- `php -l` 全量 **311 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.18 连 `core/` 一个文件都没碰，文件数不变。
+- `php tests/run.php` → **292 passed, 0 failed**（56 个守卫文件；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；304 个文件共 18,124 有效代码行，最大单文件 187 行，67 个 operation 全部绑定执行者。
-- **17 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → page`；**13 个契约接口文件**（容器运行时绑定 22 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个内部注册项）、**67 个接口 / 67 份文档**、OpenAPI 3.1（60 路径 / 67 操作）、**27 个承载单元**（17 系统层 + 2 主题 + 6 独立页 + 2 插件）、**44 个权限点**。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；311 个文件共 18,502 有效代码行，最大单文件 187 行，69 个 operation 全部绑定执行者。
+- **17 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → page`；**13 个契约接口文件**（容器运行时绑定 24 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个内部注册项）、**69 个接口 / 69 份文档**、OpenAPI 3.1（62 路径 / 69 操作）、**29 个承载单元**（17 系统层 + 4 主题 + 6 独立页 + 2 插件）、**46 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
-- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=22, api_operations=67, core_version=0.17.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
+- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.18.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
 - 装卸全链路与签名验签实测：安装 → 启用 → 升级（留备份）→ 回滚 → 停用 → 完整性校验 → 卸载；重复安装、版本未递增、反向依赖、路径穿越、源包越界、篡改签名、强制缺签名均被正确拒绝。
 - 所有验证均为**可重跑的文本证据**，未使用截图（规矩 A）。
 
@@ -1459,6 +1460,27 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 **第一款前端元主题**：门户以访客为重心——品牌导航、Hero、站点概览、文章卡片流、文章正文（token → 表情）、评论树与五态。数据来自既有公开 GET 接口（`content.posts` / `content.stats` / `system.info` / `emojis`）与页面 payload，主题不新增接口、不写 SQL、不内置业务数据。服务端模板先直出可读内容、`front.js` 再渐进增强，无脚本或接口不可用时页面仍可读；`24b` 守卫逐条比对探针路径与 registry 的公开接口，断言输出走 `textContent`、无持久化、无写操作、转义生效。
 
 **明确不新增规矩字母**：交付的仍是承载层内容；`24a` / `24b` 两组 18 项守卫归入规矩 J。完整说明见 [`docs/THEMES.md`](THEMES.md)。
+
+## 34. 主题接口面与可视化操作（v0.18 / 规矩 J 的延续）
+
+用户要求审计主题设计：是否有接口遗漏、是否缺少主题可视化操作 UI，并审计全局。结论分三层。
+
+**接口面确实为空，但不是结构违规**：审计当时 67 个 operation 无一属于 `theme`，而 `api`（注册中心自身）、`data`、`plugin`、`page` 同样没有自报接口；主题在契约面（`RendererInterface` / `PackageInterface`）、事件面（`theme.layouts` / `theme.context` / `theme.loaded` / `package.enabled`）、装配面（`theme.json` / `theme.active`）都是完整的。真正的问题是主题有一个「当前启用态」需要被外部读写，却既无接口也无 UI，唯一途径是手改 `config/app.php`；`tools/theme.php` 只有只读的 `list / verify`。v0.16 / v0.17 把「不新增接口、完整写控制台属路线图」写进文档，但路线图一直没兑现，且 `23a`–`24b` 共 32 项守卫只守呈现与数据边界，没有任何一项守「主题可管理」。
+
+**三问法定落点**：主题切换无独立生命周期（不新增第 18 层）；是被后台 / 安装向导 / CLI 共同调用的能力（进 `systems/Theme`）；写入策略应可替换（容器契约）。故接口由系统层自报、界面由主题包消费：
+
+| 落点 | 内容 |
+| --- | --- |
+| `systems/Theme` | `ThemeCatalogInterface` / `ThemeCatalog`（静态清单）、`ThemeActivationInterface` / `LocalThemeActivation`（原子写覆盖层）、`ThemeOperations`（注册 `theme.list` / `theme.activate`）、`permissions.json`（`theme.read` / `theme.manage`） |
+| `api/registry.json` | `API-THEME-001` / `002`，69 个 operation / 69 份文档 / OpenAPI 62 路径 |
+| `themes/Glass` | 导航「主题」分区、清单卡片、启用 / 停用按钮、结果回显；CSS/JS 全在主题包 |
+| `tests/groups/25a / 25b` | 清单逐字段一致、鉴权 / 幂等 / 白名单、双台账对齐、UI 路径与登记一致、输出安全 |
+
+**写入边界**：`core/Config` 既有 `config/local.php` 覆盖层是天然落点——主配置 `theme.active` 恒为 `null`（Headless 根基），删掉 local.php 即回退，临时文件 + `rename` 原子替换，失败原文件不动；写入前经 `package.enabled` 询问装卸准入，不硬依赖 `lifecycle` 层。当前请求 `Config` 已缓存，故响应以 `effective=next_request` 明示下次请求生效，不假装即时切换（规矩 T 的「不猜」）。
+
+**顺带修掉一个真缺陷**：`lifecycle.activate/deactivate` 只写装卸台账，而 `ThemeSystem` 只读 `theme.active`，`DependencyGraph::assertNoReverse` 又按 `theme.active` 拒绝卸载——三处各说各话，导致「能停用、不能切换」的不对称。现在 `lifecycle.activate` 明确保留装配准入语义（清单文档澄清），`lifecycle.deactivate` 当前启用主题返回 `40901`，`theme.activate` 是唯一启用源写入口。
+
+**顺带修正文档陈旧数字**：第 4 节表格仍写「契约面 12 个」「21 个操作」，实际为 13 个契约文件 / 24 个运行时绑定 / 69 个 operation。守卫 `06` / `12a` / `13a` / `13d` / `14c` / `23a` / `24a` 的计数同步为可重跑事实。完整说明见 [`docs/THEMES.md`](THEMES.md)。
 
 ---
 

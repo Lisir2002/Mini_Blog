@@ -8,7 +8,7 @@
 
 | 来源 | 借鉴点 | 本框架的取舍与落地 |
 | --- | --- | --- |
-| OpenAPI 3.1 / 3.1.1 [^oas] | `info` 元数据、稳定 `operationId`、参数必填性与示例、请求/响应 schema、统一错误 schema、operation 级安全声明 | 用自研 JSON 清单表达同一组字段；`tools/export-openapi.php` 直接导出 3.1 文档（60 条路径 / 67 个 operation），无第三方库 |
+| OpenAPI 3.1 / 3.1.1 [^oas] | `info` 元数据、稳定 `operationId`、参数必填性与示例、请求/响应 schema、统一错误 schema、operation 级安全声明 | 用自研 JSON 清单表达同一组字段；`tools/export-openapi.php` 直接导出 3.1 文档（62 条路径 / 69 个 operation），无第三方库 |
 | RFC 9457 Problem Details [^rfc9457] | 机器可读错误、稳定 type、字段级明细、扩展字段前向兼容 | 换成更轻的 `code / message / errors / request_id / meta` 信封，语义一一对应但字段更少 |
 | Microsoft Azure REST API Guidelines [^ms] | 复数名词资源、路径不放动词、层级要浅、GET/PUT/DELETE 幂等、状态码语义 | 路径统一 `/api/v1/<复数资源>`；装卸这类非 CRUD 操作用 `POST /lifecycle/install` 显式动作资源，并在清单里标注 `operation` |
 | Google AIP-190 / AIP-136 / AIP-158 [^aip] | 术语一致、自定义动作显式化、游标分页 | 内容列表采用 `limit + cursor`（base64 编码的 keyset 游标），避免 OFFSET 深翻页 |

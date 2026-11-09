@@ -70,6 +70,11 @@ return [
         'contract_override' => ['require_grant' => true],
     ],
 
+    // 状态系统（第 15 个系统层）：长任务状态的保留时长，秒；过期由 sweep 清理
+    'state' => [
+        'task_ttl' => 86400,
+    ],
+
     // 版本系统（第 14 个系统层）：不重装即可升级、可回退
     'release' => [
         // 与 lifecycle.allow_core_update 各自独立：版本系统走自己的开关，两边都开才升级 core

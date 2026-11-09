@@ -425,7 +425,7 @@ return [
 │   ├── Release/   版本层：ReleaseManager（编排）+ MigrationRunner / MigrationStore / HealthProbe / ReleaseLog / ReleaseManifest / ReleaseUnits
 │   ├── Data/      连接与严格模式 / 事务会话 / 查询观测 / 孤儿巡检 + Schema / SqlScript
 │   └── Lifecycle/ 元层：LifecycleManager（编排）+ 10 协作者（StateMachine / UnitCatalog / DependencyGraph / PackageVerifier / FileTransaction / HookRunner / StateStore / Fs / ReleaseArchive / VersionSwitcher）
-├── themes/Bare/ · themes/BareHtml/ · themes/Glass/   主题包（Glass 为磨砂玻璃后台主题）
+├── themes/Bare/ · BareHtml/ · Glass/ · GlassFront/   主题包（Glass/GlassFront 为磨砂玻璃元主题）
 ├── plugins/Hello/ · plugins/Performance/   插件包（示例；可选性能治理包，默认关闭）
 ├── pages/Home/ Links/ Console/ Toolbox/ Install/   独立页包（后三者 standalone；Install 拆为 InstallPage / Installer / InstallerAccount / InstallerMigrate / InstallState / InstallProbe）
 ├── api/registry.json           接口清单（唯一事实源，67 条）
@@ -554,20 +554,21 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | **v0.13** | **第 16 / 17 系统层 `attachment` 与 `emoji`，并把 `comment` 从「两张表两个接口」补成评论树：邻接表 + 物化路径、深度上限、tombstone 软删、审核状态机、own/any 删除授权；附件元数据与字节分离、SHA-256 内容寻址、四道类型校验、二进制通道复用 RequestGuard、下载强制授权；表情只产出 token、图片只引用本站附件、删除不改写历史；新增 11 个接口 / 3 个守卫文件 26 项断言、1 个独立页 `pages/Post`、1 个主题布局 `post`，`core/` 未新增文件** |
 | **v0.14** | **第 8 层 `database` 原位升级为 `data`（不加第 18 层）：显式 `sql_mode` 严格模式、`DataSession` 事务 / 嵌套 savepoint / `afterCommit`、`QueryProfiler` 查询计数与慢查询留样、关系登记 + 只读孤儿巡检 + `tools/data.php`；表情 `findMany` / `parseMany` 消除 N+1；评论写入事务包裹、出站显式白名单、父隐藏则整枝隐藏；两处 `SELECT *` 改显式列、结构指纹作废与冷启动去重；新增 4 个容器注册项（3 接口 + 关系登记簿，18→22）/ 4 组守卫 14 项断言、`docs/DATA.md` 与规矩 S；`core/` 未新增文件、系统层仍 17 个、业务表仍 24 张** |
 | **v0.15** | **性能治理不新增第 18 层**：三问法判定「动态分配核心 / CPU 调度 / 线程调度」归部署层与内核，参数只写进 `docs/PERFORMANCE.md` 清单；可选包 `plugins/Performance/` 默认关闭，挂在 `kernel.shutdown` 做 ETag / 304 / gzip、`Server-Timing` 与预算留痕；`tools/bench.php` 给出应用层开关与部署层 opcache / CPU 核数的可重跑对比；规矩 T「不越界 / 不猜 / 不隐形」+ 3 组守卫 10 项断言；`core/` 零改动、系统层仍 17、业务表仍 24 张 |
-| **v0.16（当前）** | **首个正式后台主题 `themes/Glass`**：半透明磨砂玻璃（`backdrop-filter` 模糊 + 半透明玻璃面 + 纯 CSS 渐变光晕，含 `@supports` 与 reduced-motion / reduced-transparency 降级），自报六个布局槽位；后台仪表盘由 `system.layers` 与既有 GET 接口驱动，主题不新增接口 / 系统层 / 业务数据，`core/` 零改动；`docs/THEMES.md` 与 `23a` / `23b` 两组 14 项守卫，不新增规矩字母** |
+| **v0.16** | **首个正式后台主题 `themes/Glass`**：半透明磨砂玻璃（`backdrop-filter` 模糊 + 半透明玻璃面 + 纯 CSS 渐变光晕，含 `@supports` 与 reduced-motion / reduced-transparency 降级），自报六个布局槽位；后台仪表盘由 `system.layers` 与既有 GET 接口驱动，主题不新增接口 / 系统层 / 业务数据，`core/` 零改动；`docs/THEMES.md` 与 `23a` / `23b` 两组 14 项守卫，不新增规矩字母** |
+| **v0.17（当前）** | **元主题（初始化主题）成对出厂**：`meta` / `surface` / `family` 成为 `theme.json` 一等契约字段；第一款前端主题 `themes/GlassFront`（front）与第一款后台主题 `themes/Glass`（back）同属 `family=glass`、`glass.css` 逐字同源，门户文章流由公开接口驱动、渐进增强；`tools/theme.php list/verify` 只读复核。元主题「开箱即在、一行启用」，`theme.active` 默认仍 `null`，不新增系统层 / 接口 / 规矩字母 / 激活机制，`core/` 零改动；`24a` / `24b` 两组 18 项守卫归入规矩 J |
 | v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略、跨请求共享缓存、把 `request_id` 移到 `X-Request-Id` 响应头 |
 
 ---
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **286 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.16 连 `core/` 一个文件都没碰，文件数不变。
-- `php tests/run.php` → **264 passed, 0 failed**（52 个守卫文件；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`）。
+- `php -l` 全量 **304 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.17 连 `core/` 一个文件都没碰，文件数不变。
+- `php tests/run.php` → **282 passed, 0 failed**（54 个守卫文件；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；286 个文件共 17,374 有效代码行，最大单文件 187 行，67 个 operation 全部绑定执行者。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；304 个文件共 18,124 有效代码行，最大单文件 187 行，67 个 operation 全部绑定执行者。
 - **17 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → page`；**13 个契约接口文件**（容器运行时绑定 22 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个内部注册项）、**67 个接口 / 67 份文档**、OpenAPI 3.1（60 路径 / 67 操作）、**27 个承载单元**（17 系统层 + 2 主题 + 6 独立页 + 2 插件）、**44 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
-- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=22, api_operations=67, core_version=0.16.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
+- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=22, api_operations=67, core_version=0.17.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
 - 装卸全链路与签名验签实测：安装 → 启用 → 升级（留备份）→ 回滚 → 停用 → 完整性校验 → 卸载；重复安装、版本未递增、反向依赖、路径穿越、源包越界、篡改签名、强制缺签名均被正确拒绝。
 - 所有验证均为**可重跑的文本证据**，未使用截图（规矩 A）。
 
@@ -1438,6 +1439,26 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 令牌只存页面内存变量，输出一律 `textContent`；`23b` 守卫逐条比对 `admin.js` 中的 `path` / `probe` 与 `api/registry.json`，确保主题不臆造接口，并断言呈现元数据覆盖运行时返回的全部 17 层。`23a` 守卫则守六布局、玻璃三要素、CSS/JS 逐字注入、无主题退化与 `deny` 布局。
 
 **明确不新增规矩字母**：本轮交付是承载层内容，不是新的工程约束；两组守卫归入规矩 J。若只想让 Glass 负责后台，把 `LAYOUTS` 收窄为 `admin / deny` 即可，未提供的槽位按规矩 J 自动退化为纯数据。完整说明见 [`docs/THEMES.md`](THEMES.md)。
+
+---
+
+## 33. 元主题与第一款前端主题（v0.17 / 规矩 J 的延续）
+
+用户提出「前端主题沿用同一磨砂玻璃材质做第一款，也是元主题（初始化主题），后端主题也是元主题」。三问法（与判数据系统、性能系统同一把尺子）给出结论：**元主题不是新的系统层、接口、规矩字母或激活机制，而是 `theme.json` 的一等契约字段**。
+
+| 字段 | 含义 |
+| --- | --- |
+| `meta: true` | 随核心出厂、无需安装、可作为初始化基线；`Bare` / `BareHtml` 是示例主题，不带此字段 |
+| `surface: front|back` | 主打呈现面：访客门户 / 后台管理 |
+| `family: glass` | 材质家族；同家族两款主题共享**逐字同源**的 `glass.css` |
+
+**成对出厂、能力对等**：第一款前端主题 `themes/GlassFront` 与第一款后台主题 `themes/Glass` 都声明六布局、都可独立作为初始化基线启用；区别只在 `surface` 与各自内容侧重（访客门户 / 系统层仪表盘）。`glass.css` 是材质层（逐字同源，由 `24a` 守卫断言字节相等），`front.css` / `admin.css` 是各自结构层，互不重复定义质感。两款主题各自自包含、不跨包引用。
+
+**初始化 ≠ 强制启用**：`theme.active` 默认仍是 `null`，Headless 根基不动（规矩 J 有大量守卫支撑）。元主题是「开箱即在、一行启用」的基线，启用权归配置 / 装卸系统裁决。`tools/theme.php list/verify` 是纯静态只读的出厂复核：枚举清单、校验 front / back 成对、family 一致、设计系统同源、六布局齐全、零外部资源、默认 Headless 未改。
+
+**第一款前端元主题**：门户以访客为重心——品牌导航、Hero、站点概览、文章卡片流、文章正文（token → 表情）、评论树与五态。数据来自既有公开 GET 接口（`content.posts` / `content.stats` / `system.info` / `emojis`）与页面 payload，主题不新增接口、不写 SQL、不内置业务数据。服务端模板先直出可读内容、`front.js` 再渐进增强，无脚本或接口不可用时页面仍可读；`24b` 守卫逐条比对探针路径与 registry 的公开接口，断言输出走 `textContent`、无持久化、无写操作、转义生效。
+
+**明确不新增规矩字母**：交付的仍是承载层内容；`24a` / `24b` 两组 18 项守卫归入规矩 J。完整说明见 [`docs/THEMES.md`](THEMES.md)。
 
 ---
 

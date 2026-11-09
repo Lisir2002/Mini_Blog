@@ -119,7 +119,7 @@ php -S 127.0.0.1:8090 -t docs
 ## 四、日常命令
 
 ```bash
-php tests/run.php                    # 全量守卫（当前 264 项 / 52 组）
+php tests/run.php                    # 全量守卫（当前 282 项 / 54 组）
 php tools/audit-responsibility.php   # 单文件职责审计，非 0 退出即失败
 php tools/bench.php                  # 性能基准：应用层开关 + 部署层 opcache / CPU 核数对照
 php tools/data.php verify            # 只读孤儿巡检（stats 看表体量）
@@ -139,7 +139,7 @@ git status && git log --oneline -5   # 版本基线
 | 分支 | `main`，跟踪 `origin/main` |
 | 可见性 | Public |
 | 凭据 | GitHub CLI OAuth（`~/.config/gh/hosts.yml`），git 通过 `gh auth git-credential` 取用 |
-| 当前规模 | 456 个已追踪文件（含 67 份接口文档；提交数随迭代递增） |
+| 当前规模 | 478 个已追踪文件（含 67 份接口文档；提交数随迭代递增） |
 
 **不入库的内容**（`.gitignore` 已覆盖）：`storage/` 除骨架外的全部运行时产物、`storage/install.token`、`storage/install.lock`、`config/local.php`、`docs/responsibility-report.json`。
 

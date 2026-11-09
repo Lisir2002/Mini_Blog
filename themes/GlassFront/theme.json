@@ -1,0 +1,12 @@
+{
+  "slug": "glass-front",
+  "class": "Wx\\Themes\\GlassFront\\GlassFrontTheme",
+  "version": "0.1.0",
+  "priority": 10,
+  "enabled": true,
+  "meta": true,
+  "surface": "front",
+  "family": "glass",
+  "layouts": ["site", "post", "admin", "tool", "install", "deny"],
+  "_note": "出厂元主题（初始化主题）· 前端面：第一款前端主题，半透明磨砂玻璃质感门户。与后端元主题 Glass 同属 family=glass、glass.css 逐字同源；访客侧首页文章流由公开接口 /content/posts 驱动，主题不持有业务数据。六布局齐全，可独立作为初始化基线启用"
+}

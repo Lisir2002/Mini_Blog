@@ -1,9 +1,9 @@
 # Mini Blog
 
-![version](https://img.shields.io/badge/version-0.16.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.17.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
-![tests](https://img.shields.io/badge/tests-264%20passing-2ea44f)
+![tests](https://img.shields.io/badge/tests-282%20passing-2ea44f)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
 一个零依赖的 PHP 博客框架：把博客拆成系统核心、系统层、承载包与主题四层，核心只做装配与调度，能力、呈现、接口全部可插拔。
@@ -28,8 +28,8 @@ Mini Blog 用原生 PHP 8.1+ 写成，没有 Composer、vendor、模板引擎与
 | 内容与交互 | 文章、评论树、SHA-256 内容寻址附件、表情 token、五态状态反馈 |
 | 数据平面 | 事务会话、查询观测、严格 `sql_mode`、显式出站字段白名单、只读孤儿巡检 |
 | 安装与版本 | 五步安装向导、迁移台账与 checksum、按版本快照升级与回退 |
-| 后台主题 | `themes/Glass`：半透明磨砂玻璃质感，仪表盘由系统层清单驱动 |
-| 可重跑证据 | 264 项自动化守卫、单文件职责审计、应用层与部署层性能基准 |
+| 出厂元主题 | `Glass`（后台面）/ `GlassFront`（前端面）：半透明磨砂玻璃质感，同材质家族、可独立启用 |
+| 可重跑证据 | 282 项自动化守卫、单文件职责审计、出厂主题复核、应用层与部署层性能基准 |
 
 ## 安装
 
@@ -73,7 +73,8 @@ php -S 127.0.0.1:8080 -t public public/index.php
 ```php
 'theme' => ['active' => 'bare'],       // 语义 HTML + style.css
 'theme' => ['active' => 'bare-html'],  // 零 CSS 的裸 HTML
-'theme' => ['active' => 'glass'],      // 半透明磨砂玻璃，含后台仪表盘
+'theme' => ['active' => 'glass'],      // 磨砂玻璃 · 后台面（仪表盘）
+'theme' => ['active' => 'glass-front'], // 磨砂玻璃 · 前端面（访客门户）
 ```
 
 调用接口（统一信封 `code / message / data / request_id / meta`）：
@@ -84,7 +85,7 @@ curl -s 'http://127.0.0.1:8080/api/v1/content/posts?limit=1'
 curl -s http://127.0.0.1:8080/api/v1/emojis
 ```
 
-受保护接口的令牌获取、错误码、分页与二进制通道约定见 [`docs/api/SPEC.md`](docs/api/SPEC.md)；主题与后台启用见 [`docs/THEMES.md`](docs/THEMES.md)。
+受保护接口的令牌获取、错误码、分页与二进制通道约定见 [`docs/api/SPEC.md`](docs/api/SPEC.md)；元主题与主题启用见 [`docs/THEMES.md`](docs/THEMES.md)。
 
 ## 架构
 
@@ -106,13 +107,13 @@ Mini_Blog/
 ├── public/index.php          唯一入口
 ├── core/                     24 个 PHP：装配与调度
 ├── systems/                  17 个系统层，各带 system.json / migrations
-├── themes/                   Bare · BareHtml · Glass（磨砂玻璃后台）
+├── themes/                   Bare · BareHtml · Glass · GlassFront（磨砂玻璃元主题）
 ├── plugins/                  Hello · Performance（默认关闭）
 ├── pages/                    Home · Links · Post · Console · Toolbox · Install
 ├── api/registry.json         接口清单（唯一事实源，67 条）
 ├── config/app.php            装配清单
 ├── docs/                     架构、规矩、专题与 67 份接口文档
-├── tests/                    52 组守卫
+├── tests/                    54 组守卫
 ├── tools/                    文档生成 / OpenAPI / 审计 / 基准 / 签名
 └── storage/                  运行时产物
 ```
@@ -120,7 +121,8 @@ Mini_Blog/
 ## 验证
 
 ```bash
-php tests/run.php                    # 264 项守卫，52 组
+php tests/run.php                    # 282 项守卫，54 组
+php tools/theme.php verify            # 出厂元主题契约复核
 php tools/audit-responsibility.php   # 单文件职责审计
 php tools/data.php verify            # 只读孤儿巡检
 php tools/bench.php                  # 应用层与部署层性能对比
@@ -128,16 +130,16 @@ php tools/gen-api-docs.php           # 重新生成 67 份接口文档
 php tools/export-openapi.php         # 导出 OpenAPI 3.1
 ```
 
-当前基线：264 passed / 0 failed、0 职责违规 / 0 孤儿协作、17 系统层、67 接口、24 张业务表、`core/` 24 文件。均为可重跑的文本证据，不依赖截图。
+当前基线：282 passed / 0 failed、0 职责违规 / 0 孤儿协作、17 系统层、67 接口、24 张业务表、`core/` 24 文件。均为可重跑的文本证据，不依赖截图。
 
 ## 文档
 
 | 文档 | 内容 |
 | --- | --- |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 32 章架构设计与版本决策 |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 33 章架构设计与版本决策 |
 | [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | 工程规矩 A–T 全文与运行记录 |
 | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | 本机环境、安装与部署配置 |
-| [`docs/THEMES.md`](docs/THEMES.md) | 主题包与 Glass 磨砂玻璃后台主题 |
+| [`docs/THEMES.md`](docs/THEMES.md) | 元主题契约、前端 / 后台磨砂玻璃主题 |
 | [`docs/api/SPEC.md`](docs/api/SPEC.md) | 接口规范：信封、错误码、鉴权、分页、二进制通道 |
 | [`docs/STATE.md`](docs/STATE.md) | 五态状态系统 |
 | [`docs/CONTENT.md`](docs/CONTENT.md) | 评论树、附件、表情的边界与取舍 |

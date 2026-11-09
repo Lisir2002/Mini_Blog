@@ -16,7 +16,10 @@ return [
     ],
 
     // 默认「无主题」：全站零样式、零 HTML，框架退化为纯数据服务
-    // 'bare' 示例主题 · 'bare-html' 零 CSS 裸 HTML · 'glass' 半透明磨砂玻璃后台主题
+    // 两款出厂元主题（初始化主题，见 docs/THEMES.md）：同属 family=glass 磨砂玻璃材质
+    //   'glass-front' 前端面（访客门户）· 'glass' 后端面（后台仪表盘），glass.css 逐字同源
+    // 另：'bare' 示例主题 · 'bare-html' 零 CSS 裸 HTML（非元主题，仅演示布局权归主题）
+    // 元主题是「开箱可选」的出厂基线，不强制启用；php tools/theme.php list/verify 可复核
     // 主题可只声明部分布局槽位；未声明的槽位退化为纯数据，核心绝不兜底（规矩 J）
     'theme' => [
         'active' => null,

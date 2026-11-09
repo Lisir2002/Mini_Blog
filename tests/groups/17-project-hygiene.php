@@ -97,7 +97,7 @@ check('项目树纪律：不留临时命名的文件', function () use ($root): 
 
 check('项目树纪律：tools/ 只放可重跑的正式工具', function () use ($root): void {
     $allowed = ['audit', 'bench', 'audit-responsibility.php', 'bench.php', 'data.php',
-                'export-openapi.php', 'gen-api-docs.php', 'sign-package.php'];
+                'export-openapi.php', 'gen-api-docs.php', 'sign-package.php', 'theme.php'];
     $unexpected = [];
     foreach (scandir($root . '/tools') as $entry) {
         if (in_array($entry, ['.', '..'], true)) {

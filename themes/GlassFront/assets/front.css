@@ -1,0 +1,81 @@
+/* ==========================================================================
+   GlassFront 前端门户结构层 —— 与 glass.css（材质层）叠加。
+   glass.css 与 Glass 后端元主题逐字同源；本文件只负责「门户」这一呈现面的布局，
+   不重复定义玻璃质感，保证两款元主题换皮时材质一致、结构各司其职。
+   ========================================================================== */
+
+.front-shell { max-width: 62rem; margin: 0 auto; display: grid; gap: 1.1rem; }
+
+/* 顶部品牌导航 */
+.front-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; padding: .8rem 1.3rem; flex-wrap: wrap;
+}
+.front-nav__brand { display: flex; align-items: center; gap: .6rem; font-weight: 680; letter-spacing: .02em; }
+.front-nav__dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--g-accent), var(--g-accent-2));
+  box-shadow: 0 0 12px var(--g-accent);
+}
+.front-nav__links { display: flex; gap: 1.1rem; font-size: .88rem; }
+.front-nav__links a { color: var(--g-muted); }
+.front-nav__links a:hover, .front-nav__links a.is-active { color: var(--g-accent); text-decoration: none; }
+.front-nav__badge {
+  font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+  padding: .18rem .55rem; border-radius: 999px;
+  border: 1px solid var(--g-line); color: var(--g-accent-2);
+}
+
+/* Hero */
+.front-hero { padding: 1.9rem 1.6rem; }
+.front-hero h1 { font-size: 2.1rem; margin: .3rem 0 .55rem; }
+.front-hero .glass-eyebrow { letter-spacing: .2em; }
+.front-hero p { max-width: 40rem; }
+.front-hero__actions { display: flex; gap: .6rem; margin-top: 1rem; flex-wrap: wrap; }
+
+/* 站点概览条 */
+.front-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .8rem; }
+.front-stat { padding: .85rem 1rem; }
+.front-stat__label { margin: 0; font-size: .76rem; letter-spacing: .05em; color: var(--g-muted); }
+.front-stat__value { margin: .25rem 0 0; font-size: 1.5rem; font-weight: 680; line-height: 1.1; }
+.front-stat__note { margin: .2rem 0 0; font-size: .74rem; color: var(--g-faint); }
+
+/* 文章卡片流 */
+.front-section__head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.front-section__head h2 { margin: 0; }
+.front-posts { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: .85rem; margin-top: 1rem; }
+.front-post {
+  display: flex; flex-direction: column; gap: .45rem;
+  padding: 1.1rem 1.2rem; transition: transform .15s ease, border-color .15s ease;
+}
+.front-post:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, .34); }
+.front-post__title { margin: 0; font-size: 1.06rem; }
+.front-post__title a { color: var(--g-fg); }
+.front-post__title a:hover { color: var(--g-accent); text-decoration: none; }
+.front-post__excerpt { margin: 0; font-size: .86rem; color: var(--g-muted); line-height: 1.55; flex: 1; }
+.front-post__meta { display: flex; gap: .7rem; font-size: .76rem; color: var(--g-faint); }
+.front-post__tag {
+  align-self: flex-start; font-size: .68rem; padding: .1rem .5rem; border-radius: 6px;
+  background: rgba(125, 211, 252, .14); color: var(--g-accent);
+}
+.front-empty, .front-error { margin: 0; color: var(--g-muted); font-size: .88rem; }
+.front-error { color: var(--g-bad); }
+
+/* 文章正文排版 */
+.front-article { padding: 1.6rem 1.6rem 1.8rem; }
+.front-article > h1 { font-size: 2rem; }
+.front-article .glass-meta { margin-bottom: .4rem; }
+.front-article .glass-body { font-size: 1rem; line-height: 1.85; white-space: pre-wrap; }
+.front-article__divider { height: 1px; margin: 1.4rem 0; background: var(--g-line-soft); }
+.front-toc { display: flex; gap: .6rem; flex-wrap: wrap; font-size: .8rem; color: var(--g-faint); }
+
+/* 页脚 */
+.front-foot { padding: .9rem 1.2rem; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: .78rem; }
+.front-foot code { font-size: .76rem; }
+
+@media (max-width: 720px) {
+  .front-hero { padding: 1.35rem 1.15rem; }
+  .front-hero h1 { font-size: 1.6rem; }
+  .front-article { padding: 1.15rem; }
+  .front-nav__links { gap: .75rem; }
+}

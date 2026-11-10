@@ -1,6 +1,6 @@
 # Mini Blog
 
-![version](https://img.shields.io/badge/version-0.18.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.19.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
 ![tests](https://img.shields.io/badge/tests-282%20passing-2ea44f)
@@ -24,12 +24,12 @@ Mini Blog 用原生 PHP 8.1+ 写成，没有 Composer、vendor、模板引擎与
 | 四层模型 | 系统核心 / 系统层 / 承载包 / 数据与呈现，层间只通过契约、事件、装配清单与数据接口通信 |
 | 可插拔系统层 | 17 层覆盖日志、数据、安全、权限、内容、评论、附件、表情、状态、版本等，各带 `system.json` |
 | 呈现归主题 | 无主题或主题缺布局时一律退化为纯 JSON，框架不兜底 HTML/CSS/JS |
-| 接口清单驱动 | 67 个接口 = 67 份文档 = 67 个 operation，全部由 `api/registry.json` 生成 |
+| 接口清单驱动 | 69 个接口 = 69 份文档 = 69 个 operation，全部由 `api/registry.json` 生成 |
 | 内容与交互 | 文章、评论树、SHA-256 内容寻址附件、表情 token、五态状态反馈 |
 | 数据平面 | 事务会话、查询观测、严格 `sql_mode`、显式出站字段白名单、只读孤儿巡检 |
 | 安装与版本 | 五步安装向导、迁移台账与 checksum、按版本快照升级与回退 |
 | 出厂元主题 | `Glass`（后台面）/ `GlassFront`（前端面）：半透明磨砂玻璃质感，同材质家族、可独立启用 |
-| 可重跑证据 | 282 项自动化守卫、单文件职责审计、出厂主题复核、应用层与部署层性能基准 |
+| 可重跑证据 | 全量自动化守卫、单文件职责审计、出厂主题复核、应用层与部署层性能基准 |
 
 ## 安装
 
@@ -110,27 +110,29 @@ Mini_Blog/
 ├── themes/                   Bare · BareHtml · Glass · GlassFront（磨砂玻璃元主题）
 ├── plugins/                  Hello · Performance（默认关闭）
 ├── pages/                    Home · Links · Post · Console · Toolbox · Install
-├── api/registry.json         接口清单（唯一事实源，67 条）
+├── api/registry.json         接口清单（唯一事实源，69 条）
 ├── config/app.php            装配清单
-├── docs/                     架构、规矩、专题与 67 份接口文档
-├── tests/                    54 组守卫
-├── tools/                    文档生成 / OpenAPI / 审计 / 基准 / 签名
+├── docs/                     架构、规矩、专题与 69 份接口文档
+├── tests/                    守卫分组（见 tests/groups/）
+├── tools/                    文档生成 / OpenAPI / 审计 / 基准 / 旅程 / 事实对账 / 签名
 └── storage/                  运行时产物
 ```
 
 ## 验证
 
 ```bash
-php tests/run.php                    # 282 项守卫，54 组
+php tests/run.php                    # 全量守卫（分组见 tests/groups/）
 php tools/theme.php verify            # 出厂元主题契约复核
 php tools/audit-responsibility.php   # 单文件职责审计
 php tools/data.php verify            # 只读孤儿巡检
+php tools/journey.php                # 全链路旅程（隔离站点 / 真实 HTTP 管线）
+php tools/facts.php verify           # 计数唯一真源对账
 php tools/bench.php                  # 应用层与部署层性能对比
-php tools/gen-api-docs.php           # 重新生成 67 份接口文档
+php tools/gen-api-docs.php           # 重新生成 69 份接口文档
 php tools/export-openapi.php         # 导出 OpenAPI 3.1
 ```
 
-当前基线：292 passed / 0 failed、0 职责违规 / 0 孤儿协作、17 系统层、69 接口、24 张业务表、`core/` 24 文件。均为可重跑的文本证据，不依赖截图。
+当前基线：php tests/run.php 全绿、0 职责违规 / 0 孤儿协作、17 系统层、69 接口、24 张业务表、`core/` 24 文件。均为可重跑的文本证据，不依赖截图。
 
 ## 文档
 
@@ -145,9 +147,10 @@ php tools/export-openapi.php         # 导出 OpenAPI 3.1
 | [`docs/CONTENT.md`](docs/CONTENT.md) | 评论树、附件、表情的边界与取舍 |
 | [`docs/DATA.md`](docs/DATA.md) | 数据层四个维度与巡检 |
 | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | 性能治理判断、部署清单与对比数据 |
-| [`docs/api/README.md`](docs/api/README.md) | 67 个接口索引 |
+| [`docs/api/README.md`](docs/api/README.md) | 69 个接口索引 |
 | [`docs/api/openapi.json`](docs/api/openapi.json) | OpenAPI 3.1（62 路径 / 69 操作） |
 | [`docs/architecture.html`](docs/architecture.html) | 可视化架构总览 |
+| `tools/journey.php` · `tools/facts.php` | 全链路旅程 · 计数唯一真源对账 |
 
 ## 贡献
 

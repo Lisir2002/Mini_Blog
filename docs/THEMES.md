@@ -126,6 +126,8 @@ php tools/theme.php verify    # 复核成对 / 同源 / 覆盖面 / 零外链 / 
 ```bash
 php tools/theme.php verify            # 元主题出厂契约（默认 Headless 未改）
 php tests/run.php                    # 23a/23b（Glass）、24a/24b（元主题 / GlassFront）、25a/25b（接口 / 可视化操作）
+php tools/journey.php                # 22 步全链路旅程：装完 → 建文章/评论/附件/表情 → 前后台主题 → 停用回 Headless
+php tools/facts.php verify           # 计数唯一真源对账（文档数字 == 事实）
 php tools/audit-responsibility.php   # 单文件职责预算（themes/ 150 行）
 php -l themes/Glass/*.php
 ```

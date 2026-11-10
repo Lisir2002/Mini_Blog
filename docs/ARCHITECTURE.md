@@ -324,7 +324,7 @@ return [
 
 ### 10.1 清单是唯一事实源
 
-`api/registry.json` 定义 **67 个接口**：`API-CORE-001~004`、`API-LOG-001`、`API-LC-001~009`、`API-AUTH-001~004`、`API-USER-001`、`API-CONTENT-001~005`、`API-COMMENT-001~005`、`API-ATTACH-001~005`、`API-EMOJI-001~003`、`API-PERM-001~014`、`API-MEMBER-001~010`、`API-REL-001~005`、`API-STATE-001`。每条必须声明 `id / name / system / method / path / operation / auth / idempotent / side_effects / since / summary / scenario / params / response_fields / errors / example_request / example_response / notes / changelog / doc`。
+`api/registry.json` 定义 **69 个接口**：`API-CORE-001~004`、`API-LOG-001`、`API-LC-001~009`、`API-AUTH-001~004`、`API-USER-001`、`API-CONTENT-001~005`、`API-COMMENT-001~005`、`API-ATTACH-001~005`、`API-EMOJI-001~003`、`API-PERM-001~014`、`API-MEMBER-001~010`、`API-REL-001~005`、`API-STATE-001`。每条必须声明 `id / name / system / method / path / operation / auth / idempotent / side_effects / since / summary / scenario / params / response_fields / errors / example_request / example_response / notes / changelog / doc`。
 
 `ApiRegistry` 构造时强校验：ID 唯一、`method+path` 唯一、`operation` 唯一；`registerOperation` 拒绝重复执行者。
 
@@ -363,7 +363,7 @@ return [
 | 幂等键 | `IdempotencyStore`（文件 JSON） | 同键同参数重放首次结果并回 `Idempotency-Replayed: true`；同键不同参数 `40902`；参数校验失败不写缓存；429 不被缓存 |
 | 429 限流 | `RateLimiter`（固定窗口） | `Retry-After` + `X-RateLimit-Limit/Remaining/Reset`；CLI 用 PID 隔离避免跨轮累积 |
 | 游标分页 | `content.posts` | `limit + cursor`，cursor 为 base64 编码的记录 ID，走 `id > cursor` 的 keyset 分页，避免 OFFSET 深翻页 |
-| OpenAPI 3.1 | `tools/export-openapi.php` | 由清单导出 `docs/api/openapi.json`（49 条路径 / 55 个 operation，同路径多方法合并），含 `bearerAuth` 安全声明与统一 schema |
+| OpenAPI 3.1 | `tools/export-openapi.php` | 由清单导出 `docs/api/openapi.json`（62 条路径 / 69 个 operation，同路径多方法合并），含 `bearerAuth` 安全声明与统一 schema |
 
 ### 10.5 一个接口 = 一份规范化操作文档
 
@@ -556,20 +556,21 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | **v0.15** | **性能治理不新增第 18 层**：三问法判定「动态分配核心 / CPU 调度 / 线程调度」归部署层与内核，参数只写进 `docs/PERFORMANCE.md` 清单；可选包 `plugins/Performance/` 默认关闭，挂在 `kernel.shutdown` 做 ETag / 304 / gzip、`Server-Timing` 与预算留痕；`tools/bench.php` 给出应用层开关与部署层 opcache / CPU 核数的可重跑对比；规矩 T「不越界 / 不猜 / 不隐形」+ 3 组守卫 10 项断言；`core/` 零改动、系统层仍 17、业务表仍 24 张 |
 | **v0.16** | **首个正式后台主题 `themes/Glass`**：半透明磨砂玻璃（`backdrop-filter` 模糊 + 半透明玻璃面 + 纯 CSS 渐变光晕，含 `@supports` 与 reduced-motion / reduced-transparency 降级），自报六个布局槽位；后台仪表盘由 `system.layers` 与既有 GET 接口驱动，主题不新增接口 / 系统层 / 业务数据，`core/` 零改动；`docs/THEMES.md` 与 `23a` / `23b` 两组 14 项守卫，不新增规矩字母** |
 | **v0.17** | **元主题（初始化主题）成对出厂**：`meta` / `surface` / `family` 成为 `theme.json` 一等契约字段；第一款前端主题 `themes/GlassFront`（front）与第一款后台主题 `themes/Glass`（back）同属 `family=glass`、`glass.css` 逐字同源，门户文章流由公开接口驱动、渐进增强；`tools/theme.php list/verify` 只读复核。元主题「开箱即在、一行启用」，`theme.active` 默认仍 `null`，不新增系统层 / 接口 / 规矩字母 / 激活机制，`core/` 零改动；`24a` / `24b` 两组 18 项守卫归入规矩 J |
-| **v0.18（当前）** | **主题接口面与可视化操作**：审计发现主题接口面为空、后台无主题管理 UI、且「激活主题」存在双台账语义裂缝。三问法判定能力归 `systems/Theme`：自报 `theme.list` / `theme.activate`（+2 operation / +2 权限点）与两个容器契约，启用态只写 `config/local.php` 覆盖层（主配置仍 `null`、删除即回退、原子替换、经 `package.enabled` 询问准入）；`lifecycle.deactivate` 当前启用主题返回 `40901`。`themes/Glass` 新增「主题」分区（清单卡片 / 启用 / 停用 / 结果回显）。`25a` / `25b` 两组守卫归入规矩 J；不新增系统层 / 规矩字母，`core/` 仍 24 文件 |
+| **v0.18** | **主题接口面与可视化操作**：审计发现主题接口面为空、后台无主题管理 UI、且「激活主题」存在双台账语义裂缝。三问法判定能力归 `systems/Theme`：自报 `theme.list` / `theme.activate`（+2 operation / +2 权限点）与两个容器契约，启用态只写 `config/local.php` 覆盖层（主配置仍 `null`、删除即回退、原子替换、经 `package.enabled` 询问准入）；`lifecycle.deactivate` 当前启用主题返回 `40901`。`themes/Glass` 新增「主题」分区（清单卡片 / 启用 / 停用 / 结果回显）。`25a` / `25b` 两组守卫归入规矩 J；不新增系统层 / 规矩字母，`core/` 仍 24 文件 |
+| **v0.19（当前）** | **端到端旅程与计数单一真源**：把轴从「横向加能力」转到「纵向压实」。新增 `tools/journey.php`（+ `tools/journey/` 七个协作者）：在 `/tmp` 隔离站点 + 独立表前缀里跑完 安装五步 → 真实令牌 → 文章 / 表情 token → 评论树 → 附件上传下载 → 自定义表情 → 前台门户 → 后台主题分区 → 停用回 Headless，全程走 `Kernel::handle(Request)` 真实请求管线，输出纯文本证据，`finally` 清理并对工作区做零残留指纹复核。新增 `tools/facts.php`（+ `tools/facts/`）：从清单 / 文件系统实时算出唯一事实集，逐项对账文档锚点与守卫硬编码锁。`26a` / `26b` 两组守卫分别守「旅程可重跑 / 零残留」与「文档 == 事实」；不新增系统层 / 接口 / 规矩字母，`core/` 仍 24 文件 |
 | v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略、跨请求共享缓存、把 `request_id` 移到 `X-Request-Id` 响应头 |
 
 ---
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **311 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.18 连 `core/` 一个文件都没碰，文件数不变。
-- `php tests/run.php` → **292 passed, 0 failed**（56 个守卫文件；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`）。
+- `php -l` 全量 **324 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 起连 `core/` 一个文件都没碰，文件数不变。
+- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；311 个文件共 18,502 有效代码行，最大单文件 187 行，69 个 operation 全部绑定执行者。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；324 个文件共 19,397 有效代码行，最大单文件 187 行，69 个 operation 全部绑定执行者。
 - **17 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → page`；**13 个契约接口文件**（容器运行时绑定 24 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个内部注册项）、**69 个接口 / 69 份文档**、OpenAPI 3.1（62 路径 / 69 操作）、**29 个承载单元**（17 系统层 + 4 主题 + 6 独立页 + 2 插件）、**46 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
-- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.18.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
+- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.19.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
 - 装卸全链路与签名验签实测：安装 → 启用 → 升级（留备份）→ 回滚 → 停用 → 完整性校验 → 卸载；重复安装、版本未递增、反向依赖、路径穿越、源包越界、篡改签名、强制缺签名均被正确拒绝。
 - 所有验证均为**可重跑的文本证据**，未使用截图（规矩 A）。
 
@@ -1460,6 +1461,20 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 **第一款前端元主题**：门户以访客为重心——品牌导航、Hero、站点概览、文章卡片流、文章正文（token → 表情）、评论树与五态。数据来自既有公开 GET 接口（`content.posts` / `content.stats` / `system.info` / `emojis`）与页面 payload，主题不新增接口、不写 SQL、不内置业务数据。服务端模板先直出可读内容、`front.js` 再渐进增强，无脚本或接口不可用时页面仍可读；`24b` 守卫逐条比对探针路径与 registry 的公开接口，断言输出走 `textContent`、无持久化、无写操作、转义生效。
 
 **明确不新增规矩字母**：交付的仍是承载层内容；`24a` / `24b` 两组 18 项守卫归入规矩 J。完整说明见 [`docs/THEMES.md`](THEMES.md)。
+
+## 35. 端到端旅程与计数单一真源（v0.19 / 收敛期）
+
+用户问「后续开发方向该怎么走」。阶段判断是：**架构已经封顶**——`core/` 24 文件触到规矩 D 上限，17 系统层、69 接口、46 权限点、规矩 A–T、五张接口网、元主题成对、Headless 根基全齐，架构自己把「加契约 / 加系统层」这条路关掉了。继续横向扩能力边际收益为负（每加一个都要同步一堆计数和守卫），项目从建设期进入**收敛 / 交付期**。故方向轴转为纵向压实。
+
+**一、把「结构正确」升级成「真实可用」**：`302` 项守卫全部验证结构 / 契约 / 边界 / 计数，没有一条跑完整用户旅程。`tools/journey.php` 补上这条：22 个步骤全部走真实 HTTP 管线，每一步断言响应信封与副作用，凭据来自安装器建的管理员账号经 `auth.token` 真实签发（不是静态测试令牌）。它抓的是「每个零件都对、但拼起来不工作」这类问题——v0.18 的双台账语义裂缝正是典型。隔离策略：站点复制到 `/tmp`、独立表前缀 `wxj_*`、`finally` 里删表删目录，并对工作区 `config/app.php` / `core/` / `systems/` / `registry.json` / `local.php` 做前后指纹比对。连跑三次结果一致、零残留表、零残留目录。
+
+旅程还实证了两个只有全链路才会暴露的交叉点：安装器写的 `config/local.php`（database 段）与 `theme.activate` 的写入能共存、互不抹除；`effective=next_request` 必须换一个不带任何覆盖配置的新内核才真的换皮。
+
+**二、单一真源治理**：`69 / 46 / 24 / 13 / 17 / 62` 这些数字曾散落在十余个文档与守卫里，每次升级手工批量同步且必然漏——本次审计就查出 README 同时写着 `67` 与 `69` 接口、`282` 与 `292` 守卫，架构 §4 还留着 `49 条路径 / 55 个 operation`。`tools/facts.php` 从物理状态实时计算唯一事实集，`verify` 用带上下文的精确锚点对账 67 项**当前基线陈述**数字（历史版本表里的 `240 passed`、`第 11 个系统层` 是史实，刻意不在锚点内），并反向核对守卫里的硬编码锁没过期。
+
+**边界的关键取舍**：守卫里的 `=== 69` / `=== 46` **保持独立硬编码**，不改成读事实源——否则守卫就变成自己验自己、锁会失效。`26b` 只负责报「锁过期了」。同样，`292 passed / 311 文件 / 18502 行` 这类**运行快照**自指且静态不可得，文档改为「`php tests/run.php` 全绿」「数字见 `php tools/facts.php`」的定性表述；文件数 / 有效行只与 `docs/responsibility-report.json`（由 `tests/run.php` 每次刷新的物理落盘）核对。
+
+**三、明确不做**：不加第 18 个系统层、不加新规矩字母、不动 `core/` 24 文件、不改 `theme.active = null`；不横向扩内容能力（全文搜索 / SEO / 缓存层 / 前端框架）、不做主题市场 / 多主题并存激活、不用截图入库。两个新工具都在 `tools/`，`26a` / `26b` 归入规矩 J 的「可重跑文本证据」延续。
 
 ## 34. 主题接口面与可视化操作（v0.18 / 规矩 J 的延续）
 

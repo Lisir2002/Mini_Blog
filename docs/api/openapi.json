@@ -722,7 +722,7 @@
             "get": {
                 "operationId": "system.health",
                 "summary": "健康检查与安装环境探测",
-                "description": "返回数据库连通状态、已建表清单、系统层数量与当前主题，供安装向导和控制台使用。\n\n适用场景：部署后冒烟验证；安装向导判断是否已连上 MySQL 并完成建表；控制台展示环境状态。",
+                "description": "逐项检查数据库连通、storage 可写、主题可解析，返回 ok / degraded / down 三级状态与每项明细。\n\n适用场景：部署后冒烟、负载均衡摘流量判定、控制台环境面板；无主题（Headless）时同样可用。",
                 "tags": [
                     "core"
                 ],

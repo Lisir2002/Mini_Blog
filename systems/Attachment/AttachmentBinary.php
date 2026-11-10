@@ -68,15 +68,30 @@ final class AttachmentBinary
         if (((string) ($row['visibility'] ?? 'public')) === 'private') {
             $this->assertReadable($in['_identity'] ?? null, $row);
         }
-        $bytes = $this->storage->read((string) $row['sha256']);
-        if ($bytes === null) throw new ApiOperationException('附件字节缺失', 50001);
 
-        return [
-            'bytes' => $bytes, 'name' => (string) $row['name'], 'mime' => (string) $row['mime'],
+        $sha  = (string) $row['sha256'];
+        $size = $this->storage->size($sha);
+        if ($size === null) throw new ApiOperationException('附件字节缺失', 50001);
+
+        $meta = [
+            'name'       => (string) $row['name'],
+            'mime'       => (string) $row['mime'],
             'visibility' => (string) ($row['visibility'] ?? 'public'),
-            'inline' => ((string) ($in['disposition'] ?? 'attachment')) === 'inline'
+            'inline'     => ((string) ($in['disposition'] ?? 'attachment')) === 'inline'
                 && str_starts_with((string) $row['mime'], 'image/'),
+            'size'       => $size,
         ];
+
+        // 大文件不读进内存：交给 Route 分块输出。阈值 <= 0 时一律按字节返回（旧行为）。
+        $threshold = (int) $this->kernel->config()->get('attachment.stream_threshold', 1048576);
+        if ($threshold > 0 && $size >= $threshold) {
+            $path = $this->storage->path($sha);
+            if ($path !== null) return $meta + ['path' => $path];
+        }
+
+        $bytes = $this->storage->read($sha);
+        if ($bytes === null) throw new ApiOperationException('附件字节缺失', 50001);
+        return $meta + ['bytes' => $bytes];
     }
 
     private function assertReadable(?array $identity, array $row): void

@@ -20,11 +20,11 @@
 
 ## 2. 功能与适用场景
 
-返回数据库连通状态、已建表清单、系统层数量与当前主题，供安装向导和控制台使用。
+逐项检查数据库连通、storage 可写、主题可解析，返回 ok / degraded / down 三级状态与每项明细。
 
-**适用场景**：部署后冒烟验证；安装向导判断是否已连上 MySQL 并完成建表；控制台展示环境状态。
+**适用场景**：部署后冒烟、负载均衡摘流量判定、控制台环境面板；无主题（Headless）时同样可用。
 
-**实现备注**：只做盘点，不建表、不改配置；建表由各系统层 boot 阶段幂等执行。无数据库时框架仍可启动，此为契约与实现可分离的验证点。
+**实现备注**：逐项判定而非恒定 ok：任一 down → down，其余非 ok → degraded。只做盘点，不建表、不改配置；建表由各系统层 boot 阶段幂等执行。无数据库时框架仍可启动，此为契约与实现可分离的验证点。
 
 ## 3. 请求规范
 
@@ -62,9 +62,10 @@
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `status` | `string` | 固定为 ok |
+| `status` | `string` | ok 全部正常；degraded 可用但有一项异常；down 数据库不可用 |
+| `checks` | `object` | database / storage / theme 三项，各含 status 与 detail |
 | `database` | `string` | mysql 或 fallback（未连库时各系统层回退内存 / 会话适配器） |
-| `tables` | `string[]` | 数据库中已存在的表名，表归各系统层自持 |
+| `table_count` | `int` | 库内表数量；不回显表名，避免 public 接口暴露 schema |
 | `systems` | `int` | 已装配系统层数 |
 | `theme_active` | `string|null` | 当前启用主题 |
 
@@ -93,9 +94,23 @@ GET /api/v1/system/health
     "message": "ok",
     "data": {
         "status": "ok",
+        "checks": {
+            "database": {
+                "status": "ok",
+                "detail": "mysql"
+            },
+            "storage": {
+                "status": "ok",
+                "detail": "writable"
+            },
+            "theme": {
+                "status": "ok",
+                "detail": "headless"
+            }
+        },
         "database": "mysql",
-        "tables": 21,
-        "systems": 14,
+        "table_count": 21,
+        "systems": 17,
         "theme_active": null
     },
     "request_id": "3c4d5e6f708192a3",
@@ -120,6 +135,7 @@ GET /api/v1/system/health
 ## 8. 变更记录
 
 - 0.4.0 初次发布
+- 0.20.0 status 改为真实分级并新增 checks；tables 数组改为 table_count
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；
 > 追加可选字段、新增接口、新增可选过滤值属于兼容性变更，沿用当前版本。

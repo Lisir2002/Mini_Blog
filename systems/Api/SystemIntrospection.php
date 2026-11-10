@@ -39,28 +39,84 @@ final class SystemIntrospection
     }
 
     /** @return array<string, mixed> */
+    /**
+     * 健康检查 —— 返回可判定的分级状态，而不是「恒定 ok」。
+     *
+     * v0.20 前这里第一行就是 'status' => 'ok'：库断了、目录不可写、主题配置指向不存在的
+     * 目录，运维看到的仍是绿灯。健康检查的价值全在「能不能据此摘流量 / 判上线」，
+     * 恒真等于没有。现在逐项检查，任一 down → down，其余非 ok → degraded。
+     * 同时不再回显全表名（public 接口没有理由暴露 schema，且 SHOW TABLES 随表数变慢）。
+     *
+     * @return array<string, mixed>
+     */
     public function health(): array
     {
         $k = $this->kernel;
         $connected = Db::connected($k);
+
+        $checks = [
+            'database' => $connected
+                ? ['status' => 'ok',   'detail' => 'mysql']
+                : ['status' => 'down', 'detail' => 'fallback'],
+            'storage'  => $this->storageCheck($k->root()),
+            'theme'    => $this->themeCheck($k->root(), $k->config()->get('theme.active')),
+        ];
+
+        $status = 'ok';
+        foreach ($checks as $check) {
+            if ($check['status'] === 'down') { $status = 'down'; break; }
+            if ($check['status'] !== 'ok') $status = 'degraded';
+        }
+
         $tables = [];
         if ($connected) {
             try {
-                $tables = array_map(
-                    static fn(array $row): string => (string) reset($row),
-                    $k->container()->resolve(DatabaseInterface::class)->query('SHOW TABLES')
-                );
+                $tables = $k->container()->resolve(DatabaseInterface::class)->query('SHOW TABLES');
             } catch (Throwable) {
                 $tables = [];
             }
         }
+
         return [
-            'status'       => 'ok',
+            'status'       => $status,
+            'checks'       => $checks,
             'database'     => $connected ? 'mysql' : 'fallback',
-            'tables'       => $tables,
+            'table_count'  => count($tables),
             'systems'      => count($k->systems()->instances()),
             'theme_active' => $k->config()->get('theme.active'),
         ];
+    }
+
+    /** @return array{status: string, detail: string} */
+    private function storageCheck(string $root): array
+    {
+        $dir = $root . '/storage';
+        $ok = is_dir($dir) ? is_writable($dir) : @mkdir($dir, 0775, true);
+        return [
+            'status' => $ok ? 'ok' : 'down',
+            'detail' => $ok ? 'writable' : 'not_writable',
+        ];
+    }
+
+    /** @return array{status: string, detail: string} */
+    private function themeCheck(string $root, mixed $active): array
+    {
+        if ($active === null || $active === '') {
+            return ['status' => 'ok', 'detail' => 'headless'];
+        }
+        $slug = (string) $active;
+        if (preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug) !== 1) {
+            return ['status' => 'degraded', 'detail' => 'unresolved:' . $slug];
+        }
+        // slug 与目录名不必相同（bare ↔ themes/Bare），只读清单判定，不引导主题包。
+        foreach (glob($root . '/themes/*/theme.json') ?: [] as $file) {
+            $meta = json_decode((string) @file_get_contents($file), true);
+            $declared = is_array($meta)
+                ? (string) ($meta['slug'] ?? basename(dirname($file)))
+                : basename(dirname($file));
+            if ($declared === $slug) return ['status' => 'ok', 'detail' => $slug];
+        }
+        return ['status' => 'degraded', 'detail' => 'unresolved:' . $slug];
     }
 
     /** @return array<string, mixed> */

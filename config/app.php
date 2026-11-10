@@ -91,6 +91,13 @@ return [
         'max_links'    => 3,
     ],
 
+    // 附件系统：超过 stream_threshold 字节的下载走分块输出，避免整文件读进内存。
+    // 0 表示关闭流式（一律按字节返回，与 v0.19 行为一致）。
+    'attachment' => [
+        'max_per_post'     => 20,
+        'stream_threshold' => 1048576,
+    ],
+
     // 状态系统（第 15 个系统层）：长任务状态的保留时长，秒；过期由 sweep 清理
     'state' => [
         'task_ttl' => 86400,
@@ -112,5 +119,8 @@ return [
         'pass'          => 'wx_pass_2026',
         'prefix'        => 'wx_',
         'auto_fallback' => true,
+        // 连接超时（秒）：库不可达时不让 worker 无限等；0 = 沿用驱动 / 系统默认（旧行为）。
+        // 语句级读超时（max_execution_time / innodb_lock_wait_timeout）属部署层，见 docs/PERFORMANCE.md。
+        'timeout'       => ['connect' => 2],
     ],
 ];

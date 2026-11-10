@@ -13,6 +13,11 @@ use Wx\Contracts\DatabaseInterface;
  * 1. 显式设置严格模式 —— 不依赖服务器默认值。宽松模式下超长字符串会被静默截断，
  *    那正是「静默改变用户意图」，必须由连接自己保证。
  * 2. 挂上查询计数器 —— 通过替换语句类覆盖 prepare→execute，而不是只在 query/exec 上计数。
+ *
+ * v0.20 补连接超时：库不可达时 worker 不能无限等。PDO_MYSQL 的 ATTR_TIMEOUT 是
+ * **连接**超时（实测：设 N 秒则 N 秒内失败；DSN 的 connect_timeout 在 mysqlnd 下无效，
+ * 已放弃该写法）。语句级读超时属部署层配置（max_execution_time / innodb_lock_wait_timeout），
+ * 不在应用连接里硬编码 —— 避免老版本 MySQL 因不识别参数导致整站连不上。
  */
 final class PdoDatabase implements DatabaseInterface
 {
@@ -25,7 +30,8 @@ final class PdoDatabase implements DatabaseInterface
         private string $user,
         private string $pass,
         private string $prefix,
-        private ?QueryProfilerInterface $profiler = null
+        private ?QueryProfilerInterface $profiler = null,
+        private int $connectTimeout = 2
     ) {}
 
     public function pdo(): PDO
@@ -41,14 +47,19 @@ final class PdoDatabase implements DatabaseInterface
 
     private function connect(): PDO
     {
+        $isMysql = str_starts_with($this->dsn, 'mysql:');
         $options = [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES   => false,
             PDO::ATTR_STRINGIFY_FETCHES  => false,
         ];
-        if (str_starts_with($this->dsn, 'mysql:') && defined('PDO::MYSQL_ATTR_INIT_COMMAND')) {
+        if ($isMysql && defined('PDO::MYSQL_ATTR_INIT_COMMAND')) {
             $options[PDO::MYSQL_ATTR_INIT_COMMAND] = "SET SESSION sql_mode='" . self::SQL_MODE . "'";
+        }
+        // 连接超时（秒）：PDO_MYSQL 的 ATTR_TIMEOUT 即连接阶段超时，0 表示沿用系统默认。
+        if ($isMysql && $this->connectTimeout > 0) {
+            $options[PDO::ATTR_TIMEOUT] = $this->connectTimeout;
         }
         return $this->profiler === null
             ? new PDO($this->dsn, $this->user, $this->pass, $options)

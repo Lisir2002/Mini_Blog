@@ -653,7 +653,7 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.19.0",
+                    "core_version": "0.20.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
@@ -813,14 +813,19 @@
             "idempotent": true,
             "side_effects": "none",
             "since": "0.4.0",
-            "summary": "返回数据库连通状态、已建表清单、系统层数量与当前主题，供安装向导和控制台使用。",
-            "scenario": "部署后冒烟验证；安装向导判断是否已连上 MySQL 并完成建表；控制台展示环境状态。",
+            "summary": "逐项检查数据库连通、storage 可写、主题可解析，返回 ok / degraded / down 三级状态与每项明细。",
+            "scenario": "部署后冒烟、负载均衡摘流量判定、控制台环境面板；无主题（Headless）时同样可用。",
             "params": [],
             "response_fields": [
                 {
                     "name": "status",
                     "type": "string",
-                    "desc": "固定为 ok"
+                    "desc": "ok 全部正常；degraded 可用但有一项异常；down 数据库不可用"
+                },
+                {
+                    "name": "checks",
+                    "type": "object",
+                    "desc": "database / storage / theme 三项，各含 status 与 detail"
                 },
                 {
                     "name": "database",
@@ -828,9 +833,9 @@
                     "desc": "mysql 或 fallback（未连库时各系统层回退内存 / 会话适配器）"
                 },
                 {
-                    "name": "tables",
-                    "type": "string[]",
-                    "desc": "数据库中已存在的表名，表归各系统层自持"
+                    "name": "table_count",
+                    "type": "int",
+                    "desc": "库内表数量；不回显表名，避免 public 接口暴露 schema"
                 },
                 {
                     "name": "systems",
@@ -853,9 +858,23 @@
                 "message": "ok",
                 "data": {
                     "status": "ok",
+                    "checks": {
+                        "database": {
+                            "status": "ok",
+                            "detail": "mysql"
+                        },
+                        "storage": {
+                            "status": "ok",
+                            "detail": "writable"
+                        },
+                        "theme": {
+                            "status": "ok",
+                            "detail": "headless"
+                        }
+                    },
                     "database": "mysql",
-                    "tables": 21,
-                    "systems": 14,
+                    "table_count": 21,
+                    "systems": 17,
                     "theme_active": null
                 },
                 "request_id": "3c4d5e6f708192a3",
@@ -865,9 +884,10 @@
                     "system": "core"
                 }
             },
-            "notes": "只做盘点，不建表、不改配置；建表由各系统层 boot 阶段幂等执行。无数据库时框架仍可启动，此为契约与实现可分离的验证点。",
+            "notes": "逐项判定而非恒定 ok：任一 down → down，其余非 ok → degraded。只做盘点，不建表、不改配置；建表由各系统层 boot 阶段幂等执行。无数据库时框架仍可启动，此为契约与实现可分离的验证点。",
             "changelog": [
-                "0.4.0 初次发布"
+                "0.4.0 初次发布",
+                "0.20.0 status 改为真实分级并新增 checks；tables 数组改为 table_count"
             ],
             "doc": "docs/api/API-CORE-004.md"
         },

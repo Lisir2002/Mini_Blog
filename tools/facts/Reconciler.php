@@ -68,8 +68,8 @@ final class Reconciler
                 '/\*\*(\d+) 个权限点\*\*/' => ['permissions'],
                 '/(\d+) 个文件共 ([\d,]+) 有效代码行/' => ['php_files', 'total_sloc'],
                 '/(\d+) 个 operation 全部绑定执行者/' => $op,
-                // 历史陈述「v0.14 起未碰 core/」不带版本尾数，避免被误当当前版本对账。
-                '/v0\.14 起连 `core\/` 一个文件都没碰/' => ['literal_ok'],
+                // 历史陈述「v0.14–v0.19 未碰 core/」不带版本尾数，避免被误当当前版本对账。
+                '/v0\.14 – v0\.19 连 `core\/` 一个文件都没碰/' => ['literal_ok'],
             ],
             'docs/CONVENTIONS.md' => [
                 '/生成 (\d+) 份文档 \+ 索引/' => $op,

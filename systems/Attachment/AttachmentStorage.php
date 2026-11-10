@@ -43,6 +43,21 @@ final class AttachmentStorage
         return $bytes === false ? null : $bytes;
     }
 
+    /** 供流式下载使用：只给已校验哈希对应的绝对路径，不做任何读取。 */
+    public function path(string $sha256): ?string
+    {
+        $path = $this->root . '/' . $this->relative($sha256);
+        return is_file($path) ? $path : null;
+    }
+
+    public function size(string $sha256): ?int
+    {
+        $path = $this->path($sha256);
+        if ($path === null) return null;
+        $size = @filesize($path);
+        return $size === false ? null : (int) $size;
+    }
+
     public function exists(string $sha256): bool
     {
         return is_file($this->root . '/' . $this->relative($sha256));

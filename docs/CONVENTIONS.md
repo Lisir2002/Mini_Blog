@@ -92,7 +92,7 @@ curl -i http://127.0.0.1:8080/...    # 真实 HTTP 响应头与响应体
 2. `tests/run.php` 中对应的断言；
 3. 至少一次全绿的运行记录（文本证据，不用截图）。
 
-**当前运行记录**（v0.19）：`php tests/run.php` → **全绿**（分组数见 `php tools/facts.php`）；`php -l` 全量 **324** 个 PHP 文件通过（`core/` 仅 24 个，已达上限，未新增文件）；`php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**（19397 有效代码行，最大单文件 187 行，69 个 operation 全绑定执行者）；`php tools/theme.php verify` 复核两款元主题成对 / 同源 / 覆盖面 / 零外链 / 默认 Headless；`php tools/bench.php` 输出应用层开关关 / 开与部署层 opcache、CPU 核数的真实对比数据；`php tools/gen-api-docs.php` 生成 69 份文档 + 索引；`php tools/export-openapi.php` 导出 OpenAPI 3.1（62 路径 / 69 操作）；`php tools/data.php verify` 只读孤儿巡检、`stats` 表体量；`23a` / `23b` 两组守卫验证 `themes/Glass` 的六布局、磨砂玻璃基元、探针路径与登记清单逐条一致、令牌只存内存；`25a` / `25b` 两组守卫验证主题清单 / 启用接口 / 双台账对齐与后台可视化操作；真实 MariaDB 10.11 上建立 24 张表，完成文章 / 评论树 / 附件内容寻址 / 自定义表情 / 用户 / 令牌 / 权限决策 / 页面会话 / 用户组 / 字段级写 / 契约覆盖授权 / 头衔 / 经验 / 等级 / 长任务状态 / 事务回滚 / 批量表情解析 / 出站字段裁剪读写与 HTTP 端到端冒烟。全部为可重跑的文本证据，未使用截图。
+**当前运行记录**（v0.20）：`php tests/run.php` → **全绿**（分组数见 `php tools/facts.php`）；`php -l` 全量 **326** 个 PHP 文件通过（`core/` 仅 24 个，已达上限，未新增文件）；`php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**（19746 有效代码行，最大单文件 187 行，69 个 operation 全绑定执行者）；`php tools/theme.php verify` 复核两款元主题成对 / 同源 / 覆盖面 / 零外链 / 默认 Headless；`php tools/bench.php` 输出应用层开关关 / 开与部署层 opcache、CPU 核数的真实对比数据；`php tools/gen-api-docs.php` 生成 69 份文档 + 索引；`php tools/export-openapi.php` 导出 OpenAPI 3.1（62 路径 / 69 操作）；`php tools/data.php verify` 只读孤儿巡检、`stats` 表体量；`23a` / `23b` 两组守卫验证 `themes/Glass` 的六布局、磨砂玻璃基元、探针路径与登记清单逐条一致、令牌只存内存；`25a` / `25b` 两组守卫验证主题清单 / 启用接口 / 双台账对齐与后台可视化操作；真实 MariaDB 10.11 上建立 24 张表，完成文章 / 评论树 / 附件内容寻址 / 自定义表情 / 用户 / 令牌 / 权限决策 / 页面会话 / 用户组 / 字段级写 / 契约覆盖授权 / 头衔 / 经验 / 等级 / 长任务状态 / 事务回滚 / 批量表情解析 / 出站字段裁剪读写与 HTTP 端到端冒烟。全部为可重跑的文本证据，未使用截图。
 
 ---
 
@@ -222,6 +222,8 @@ curl -i http://127.0.0.1:8080/...    # 真实 HTTP 响应头与响应体
 > **v0.18 落地记录**：审计发现主题接口面为空、后台无可视化操作，且「激活主题」存在 `config/app.php` 与 `storage/lifecycle/state.json` 双台账语义裂缝。三问法判定能力归 `systems/Theme`：新增 `theme.list` / `theme.activate` 两个 operation 与两个容器契约，启用态只写 `config/local.php` 覆盖层（主配置仍 `null`、删除即回退、原子替换、经 `package.enabled` 询问准入）；`lifecycle.deactivate` 当前启用主题被拒。`themes/Glass` 新增「主题」分区，卡片由清单生成、启用 / 停用走受保护接口，输出一律 `textContent`。`25a` / `25b` 两组守卫归入规矩 J；不新增系统层 / 规矩字母，`core/` 仍 24 文件。详见 [主题文档](THEMES.md)。
 >
 > **v0.19 落地记录**：方向判断为「架构已封顶，从横向加能力转为纵向压实」。新增 `tools/journey.php` + `tools/journey/` 七个协作者，在 `/tmp` 隔离站点里跑完 22 步真实 HTTP 旅程（安装 → 令牌 → 文章 / 表情 → 评论树 → 附件 → 自定义表情 → 前台 / 后台主题 → 停用回 Headless），凭据真实签发、结束删表删目录并做工作区零残留指纹复核。新增 `tools/facts.php` + `tools/facts/`，从仓库物理状态算唯一事实集，对账 67 个文档锚点与守卫硬编码锁；守卫锁保持独立硬编码（不读事实源），运行快照改为引用命令的定性表述。`26a` / `26b` 两组守卫归入规矩 J；不新增系统层 / 接口 / 规矩字母，`core/` 仍 24 文件。
+>
+> **v0.20 落地记录**：稳定性加固四件套——DB 连接超时（`ATTR_TIMEOUT` 默认 2s；DSN `connect_timeout` 实测在 mysqlnd 下无效，放弃）、`system.health` 改为 `ok/degraded/down` + 逐项 checks、限流与幂等改 `flock` 原子读改写（幂等升级为「先占位后回填」，同键并发 `40905`）、附件 >1MB 分块输出。`core/Http/Response.php` 增加流式出口（唯一核心改动，不新增文件），并修掉 `asData()` 覆盖流式响应与 `ob_flush()` 冲出调用方缓冲两处缺陷。`27a` / `27b` 两组故障注入守卫；不新增系统层 / 接口 / 规矩字母，`core/` 仍 24 文件。
 
 ---
 

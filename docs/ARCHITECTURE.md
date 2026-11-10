@@ -557,20 +557,21 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | **v0.16** | **首个正式后台主题 `themes/Glass`**：半透明磨砂玻璃（`backdrop-filter` 模糊 + 半透明玻璃面 + 纯 CSS 渐变光晕，含 `@supports` 与 reduced-motion / reduced-transparency 降级），自报六个布局槽位；后台仪表盘由 `system.layers` 与既有 GET 接口驱动，主题不新增接口 / 系统层 / 业务数据，`core/` 零改动；`docs/THEMES.md` 与 `23a` / `23b` 两组 14 项守卫，不新增规矩字母** |
 | **v0.17** | **元主题（初始化主题）成对出厂**：`meta` / `surface` / `family` 成为 `theme.json` 一等契约字段；第一款前端主题 `themes/GlassFront`（front）与第一款后台主题 `themes/Glass`（back）同属 `family=glass`、`glass.css` 逐字同源，门户文章流由公开接口驱动、渐进增强；`tools/theme.php list/verify` 只读复核。元主题「开箱即在、一行启用」，`theme.active` 默认仍 `null`，不新增系统层 / 接口 / 规矩字母 / 激活机制，`core/` 零改动；`24a` / `24b` 两组 18 项守卫归入规矩 J |
 | **v0.18** | **主题接口面与可视化操作**：审计发现主题接口面为空、后台无主题管理 UI、且「激活主题」存在双台账语义裂缝。三问法判定能力归 `systems/Theme`：自报 `theme.list` / `theme.activate`（+2 operation / +2 权限点）与两个容器契约，启用态只写 `config/local.php` 覆盖层（主配置仍 `null`、删除即回退、原子替换、经 `package.enabled` 询问准入）；`lifecycle.deactivate` 当前启用主题返回 `40901`。`themes/Glass` 新增「主题」分区（清单卡片 / 启用 / 停用 / 结果回显）。`25a` / `25b` 两组守卫归入规矩 J；不新增系统层 / 规矩字母，`core/` 仍 24 文件 |
-| **v0.19（当前）** | **端到端旅程与计数单一真源**：把轴从「横向加能力」转到「纵向压实」。新增 `tools/journey.php`（+ `tools/journey/` 七个协作者）：在 `/tmp` 隔离站点 + 独立表前缀里跑完 安装五步 → 真实令牌 → 文章 / 表情 token → 评论树 → 附件上传下载 → 自定义表情 → 前台门户 → 后台主题分区 → 停用回 Headless，全程走 `Kernel::handle(Request)` 真实请求管线，输出纯文本证据，`finally` 清理并对工作区做零残留指纹复核。新增 `tools/facts.php`（+ `tools/facts/`）：从清单 / 文件系统实时算出唯一事实集，逐项对账文档锚点与守卫硬编码锁。`26a` / `26b` 两组守卫分别守「旅程可重跑 / 零残留」与「文档 == 事实」；不新增系统层 / 接口 / 规矩字母，`core/` 仍 24 文件 |
+| **v0.19** | **端到端旅程与计数单一真源**：把轴从「横向加能力」转到「纵向压实」。新增 `tools/journey.php`（+ `tools/journey/` 七个协作者）：在 `/tmp` 隔离站点 + 独立表前缀里跑完 安装五步 → 真实令牌 → 文章 / 表情 token → 评论树 → 附件上传下载 → 自定义表情 → 前台门户 → 后台主题分区 → 停用回 Headless，全程走 `Kernel::handle(Request)` 真实请求管线，输出纯文本证据，`finally` 清理并对工作区做零残留指纹复核。新增 `tools/facts.php`（+ `tools/facts/`）：从清单 / 文件系统实时算出唯一事实集，逐项对账文档锚点与守卫硬编码锁。`26a` / `26b` 两组守卫分别守「旅程可重跑 / 零残留」与「文档 == 事实」；不新增系统层 / 接口 / 规矩字母，`core/` 仍 24 文件 |
+| **v0.20（当前）** | **稳定性加固四件套**：DB 连接超时（`PDO::ATTR_TIMEOUT`，默认 2s；DSN `connect_timeout` 在 mysqlnd 下实测无效，已放弃）、`system.health` 从恒 `ok` 改为 `ok/degraded/down` + 逐项 checks（`tables` 数组改为 `table_count`）、限流与幂等改为 `flock` 原子读改写（幂等升级为「先占位后回填」，同键并发返回 `40905`）、附件 >1MB 走 64KB 分块输出。`Response` 增加流式出口（唯一核心改动，不新增文件）。`27a` / `27b` 两组故障注入守卫；`core/` 仍 24 文件 |
 | v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略、跨请求共享缓存、把 `request_id` 移到 `X-Request-Id` 响应头 |
 
 ---
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **324 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 起连 `core/` 一个文件都没碰，文件数不变。
+- `php -l` 全量 **326 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件），文件数仍 24。
 - `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；324 个文件共 19,397 有效代码行，最大单文件 187 行，69 个 operation 全部绑定执行者。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；326 个文件共 19,746 有效代码行，最大单文件 187 行，69 个 operation 全部绑定执行者。
 - **17 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → page`；**13 个契约接口文件**（容器运行时绑定 24 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个内部注册项）、**69 个接口 / 69 份文档**、OpenAPI 3.1（62 路径 / 69 操作）、**29 个承载单元**（17 系统层 + 4 主题 + 6 独立页 + 2 插件）、**46 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
-- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.19.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
+- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.20.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
 - 装卸全链路与签名验签实测：安装 → 启用 → 升级（留备份）→ 回滚 → 停用 → 完整性校验 → 卸载；重复安装、版本未递增、反向依赖、路径穿越、源包越界、篡改签名、强制缺签名均被正确拒绝。
 - 所有验证均为**可重跑的文本证据**，未使用截图（规矩 A）。
 
@@ -1461,6 +1462,22 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 **第一款前端元主题**：门户以访客为重心——品牌导航、Hero、站点概览、文章卡片流、文章正文（token → 表情）、评论树与五态。数据来自既有公开 GET 接口（`content.posts` / `content.stats` / `system.info` / `emojis`）与页面 payload，主题不新增接口、不写 SQL、不内置业务数据。服务端模板先直出可读内容、`front.js` 再渐进增强，无脚本或接口不可用时页面仍可读；`24b` 守卫逐条比对探针路径与 registry 的公开接口，断言输出走 `textContent`、无持久化、无写操作、转义生效。
 
 **明确不新增规矩字母**：交付的仍是承载层内容；`24a` / `24b` 两组 18 项守卫归入规矩 J。完整说明见 [`docs/THEMES.md`](THEMES.md)。
+
+## 36. 稳定性加固四件套（v0.20 / 故障注入）
+
+方向由用户定为「稳定性、效率、性能」。核对后的判断是：**效率基本做完**（N+1 已在 v0.13 / v0.14 消除、游标分页、结构指纹免重放 DDL）、**性能是「没有度量」而不是「已知慢」**、**稳定性有两处在安静地错**。所以先做稳定性——健康检查恒 `ok`、限流丢计数这类问题不报错、不发日志、守卫全绿，与生产事故的形态完全一致；在数据正确性没有保证时优化性能没有意义。
+
+**一、数据库连接超时**。`PdoDatabase::connect()` 原先不设任何超时，库不可达时靠系统默认（本机实测 30s）挂住 worker。实测发现两件事：`PDO::ATTR_TIMEOUT` 在 PDO_MYSQL 下是**连接**超时（设 1s 则 1.00s 失败）；DSN 里的 `connect_timeout` 在 mysqlnd 下**不生效**（设 2s 仍 30s）。因此只保留前者，放弃 DSN 写法。配置 `database.timeout.connect` 默认 2s，`0` 表示沿用系统默认。语句级读超时没有硬编码：`max_execution_time` 在 MySQL 5.7 以下不存在，塞进 `MYSQL_ATTR_INIT_COMMAND` 会让老版本整站连不上，属部署层（见 [`docs/PERFORMANCE.md`](PERFORMANCE.md)）。
+
+**二、健康检查分级**。`system.health` 原先第一行就是 `'status' => 'ok'`，库断了也只写 `database: fallback`。现在逐项检查 database / storage / theme：任一 `down` → `down`，其余非 `ok` → `degraded`。同时把 `tables`（全表名数组）换成 `table_count`——public 接口没有理由暴露 schema，且 `SHOW TABLES` 随表数变慢。控制台指标卡同步增加「健康」一项。
+
+**三、限流与幂等的并发正确性**。两处都是「读-改-写」分离：限流先 `file_get_contents` 再 `file_put_contents`，并发请求同时读到旧计数各自写回，**实际放行量远超阈值**；幂等先 `get` 未命中就执行、执行完再 `put`，同键并发会**各自把业务跑一遍**——恰好在最需要它的时候（客户端重试）失效。现在两者都在 `flock(LOCK_EX)` 内完成读改写。幂等升级为「先占位、后回填」：同键并发只有一个 `claimed`，其余得到 `40905`（带 `Retry-After: 1`）；执行失败释放占位可重试；pending 占位自带 30s 短 TTL，进程崩溃不会让同键永久不可用。
+
+**四、附件流式下载**。下载原先 `file_get_contents` 全量读入，再作为 `Response::$body` 字符串 `echo`：100MB 附件至少 100MB 峰值，而且此时已发出 200，只能给客户端一个截断文件。现在超过 `attachment.stream_threshold`（默认 1MB）走 64KB 分块输出，小文件保持原语义（既有字节级断言零改动）。实测：64MB 文件在 `memory_limit=32M` 下完整下载，进程峰值 6MB。
+
+**这一版改了 core，且只改一个文件。** `Response` 增加 `setStream()` / `isStreamed()`：body 语义与所有既有调用完全不变，不设 stream 时逐字等同旧实现。两处顺带修的缺陷都是它引出的：①`asData()` 会把 body 为空的流式响应改写成 JSON（Hello 插件向 `route.response` 注入 payload 后触发，实测把 64MB 流覆盖成一段 JSON）；②`send()` 里的 `ob_flush()` 会冲出调用方的缓冲链，在 CLI / 测试中把已累积输出提前送到 stdout。文件数仍 24，`Kernel` / `Router` / 容器一行未动，系统层仍 17、接口仍 69。
+
+**守卫（`27a` / `27b`）全部是故障注入**：不可达库必须快速失败、无库 / 坏主题必须被判定、同键并发必须只有一个 `claimed`、限流连续 40 次不丢计数、大文件不进 body、小文件字节不变。正常路径断言证明不了这些——这正是「每规矩配可执行守卫」在稳定性上的形态。
 
 ## 35. 端到端旅程与计数单一真源（v0.19 / 收敛期）
 

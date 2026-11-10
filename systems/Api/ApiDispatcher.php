@@ -11,6 +11,9 @@ use Wx\Core\Kernel;
  * 请求分发编排者 —— 只负责「匹配 → 守卫 → 幂等 → 唯一执行者 → 统一信封」。
  * 限流、写边界、鉴权、参数校验已委托给 RequestGuard；幂等存储委托给 IdempotencyStore。
  * 校验失败与 429 不进入幂等缓存；5xx / 未实现不缓存，避免把故障固化。
+ *
+ * v0.20 幂等改为「先占位、后回填」：claim 在文件锁内完成，同键并发只有一个执行，
+ * 其余得到 40905 而不是各自把业务跑一遍。执行失败释放占位，客户端可安全重试。
  */
 final class ApiDispatcher
 {
@@ -46,14 +49,20 @@ final class ApiDispatcher
         $useIdem = $g['is_write'] && $idemKey !== null && $idemKey !== ''
             && $this->kernel->config()->get('api.idempotency.enabled', true) === true;
         $fingerprint = $useIdem ? $this->fingerprint($request) : '';
+        $claim = null;
         if ($useIdem) {
-            $cached = $this->idempotency->get($idemKey);
-            if ($cached !== null) {
-                if (($cached['fingerprint'] ?? '') !== $fingerprint) {
-                    return $this->envelope(409, Envelope::error(40902, $requestId), $headers);
-                }
+            $claim = $this->idempotency->claim($idemKey, $fingerprint);
+            if ($claim['state'] === 'conflict') {
+                return $this->envelope(409, Envelope::error(40902, $requestId), $headers);
+            }
+            if ($claim['state'] === 'inflight') {
+                // 同键上一个请求还没写完：让客户端重试，而不是重复执行一次副作用。
+                $headers['Retry-After'] = '1';
+                return $this->envelope(409, Envelope::error(40905, $requestId), $headers);
+            }
+            if ($claim['state'] === 'replay') {
                 $headers['Idempotency-Replayed'] = 'true';
-                return $this->envelope((int) $cached['status'], (array) $cached['body'], $headers);
+                return $this->envelope((int) ($claim['status'] ?? 200), (array) ($claim['body'] ?? []), $headers);
             }
         }
 
@@ -81,8 +90,13 @@ final class ApiDispatcher
             );
         }
 
-        if ($useIdem && !in_array((int) ($result['body']['code'] ?? 0), [50001, 50101], true)) {
-            $this->idempotency->put($idemKey, $fingerprint, $result['status'], $result['body']);
+        if ($useIdem && ($claim['state'] ?? '') === 'claimed') {
+            if (in_array((int) ($result['body']['code'] ?? 0), [50001, 50101], true)) {
+                // 故障不固化：退回占位，允许客户端带同一键重试。
+                $this->idempotency->release($idemKey);
+            } else {
+                $this->idempotency->complete($idemKey, $fingerprint, $result['status'], $result['body']);
+            }
         }
         return $result;
     }

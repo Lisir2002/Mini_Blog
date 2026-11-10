@@ -112,13 +112,14 @@
   function metrics(r) {
     var host = document.getElementById('glass-metrics');
     if (!host) return;
-    var tables = field(r[1], 'tables', []);
+    var tables = field(r[1], 'table_count', '—');
     var cards = [
       { label: '系统层', value: field(r[0], 'systems', '—'), note: '按契约装配' },
       { label: '接口',   value: field(r[0], 'api_operations', '—'), note: '清单与文档 1:1' },
       { label: '契约',   value: field(r[0], 'contracts', '—'), note: '容器运行时绑定' },
-      { label: '库内表', value: Array.isArray(tables) ? tables.length : '—', note: 'SHOW TABLES 返回原值' },
+      { label: '库内表', value: tables, note: 'SHOW TABLES 计数' },
       { label: '权限点', value: field(r[2], 'total', '—'), note: '各层自报' },
+      { label: '健康',   value: field(r[1], 'status', '—'), note: 'ok / degraded / down' },
       { label: '已发布', value: field(r[3], 'published', '—'), note: '内容系统层' }
     ];
     host.textContent = '';

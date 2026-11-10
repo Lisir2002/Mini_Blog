@@ -70,10 +70,14 @@ final class AttachmentRoute
     private function binary(Response $response, array $data): void
     {
         $name = (string) ($data['name'] ?? 'file');
+        $size = array_key_exists('path', $data)
+            ? (int) ($data['size'] ?? 0)
+            : strlen((string) ($data['bytes'] ?? ''));
+
         $response->setStatus(200)
             ->setLayout('binary')
             ->setHeader('Content-Type', (string) ($data['mime'] ?? 'application/octet-stream'))
-            ->setHeader('Content-Length', (string) strlen((string) ($data['bytes'] ?? '')))
+            ->setHeader('Content-Length', (string) $size)
             ->setHeader('Content-Disposition',
                 (($data['inline'] ?? false) ? 'inline' : 'attachment')
                 . '; filename="' . self::asciiName($name) . '"; filename*=UTF-8\'\'' . rawurlencode($name))
@@ -81,8 +85,36 @@ final class AttachmentRoute
             ->setHeader('X-Content-Type-Options', 'nosniff')
             ->setHeader('Content-Security-Policy', "default-src 'none'; sandbox")
             ->setHeader('Cache-Control', ((string) ($data['visibility'] ?? 'public')) === 'public'
-                ? 'public, max-age=3600' : 'private, no-store')
-            ->setBody((string) ($data['bytes'] ?? ''));
+                ? 'public, max-age=3600' : 'private, no-store');
+
+        if (array_key_exists('path', $data)) {
+            $path = (string) $data['path'];
+            // 必须是 callable：send() 到输出时才创建生成器，避免提前打开文件句柄。
+            $response->setStream(static fn(): \Generator => self::chunks($path));
+            return;
+        }
+        $response->setBody((string) ($data['bytes'] ?? ''));
+    }
+
+    /**
+     * 分块读取：一次只驻留一块，内存峰值与文件大小无关。
+     * 文件在上传后不会再被改写（内容寻址），因此下载期间无需加锁。
+     *
+     * @return \Generator<int, string>
+     */
+    private static function chunks(string $path): \Generator
+    {
+        $fh = @fopen($path, 'rb');
+        if ($fh === false) return;
+        try {
+            while (!feof($fh)) {
+                $chunk = fread($fh, 65536);
+                if ($chunk === false || $chunk === '') break;
+                yield $chunk;
+            }
+        } finally {
+            fclose($fh);
+        }
     }
 
     /** 与 ApiDispatcher 完全一致的错误翻译：未登记的码一律 50001，不把内部数字变成对外契约。 */

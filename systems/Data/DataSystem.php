@@ -37,7 +37,8 @@ final class DataSystem extends AbstractSystem
                     (string) $kernel->config()->get('database.user', ''),
                     (string) $kernel->config()->get('database.pass', ''),
                     (string) $kernel->config()->get('database.prefix', 'wx_'),
-                    $container->resolve(QueryProfilerInterface::class)
+                    $container->resolve(QueryProfilerInterface::class),
+                    (int) $kernel->config()->get('database.timeout.connect', 2)
                 );
             },
             $owner,

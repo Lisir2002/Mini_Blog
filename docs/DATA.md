@@ -57,6 +57,7 @@
 | --- | --- | --- |
 | 全部 prepared statement，注入面为零 | 12 个 `Pdo*` 仓储 | 拼接用户输入进 SQL |
 | 20 个二级索引 / 5 个 UNIQUE / 游标分页 | `migrations/*.sql` | `OFFSET` 深分页 |
+| **连接超时**：`database.timeout.connect`（默认 2s，0 关闭），落到 `PDO::ATTR_TIMEOUT`。实测 DSN 的 `connect_timeout` 在 mysqlnd 下不生效，故不采用；语句级读超时属部署层 | `PdoDatabase::connect()` | 库不可达时 worker 会按系统默认（本机 30s）挂死，请求排队的雪崩往往从这里开始 |
 | **显式 `sql_mode`**：`STRICT_ALL_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION` | `PdoDatabase::SQL_MODE` + `MYSQL_ATTR_INIT_COMMAND` | 依赖服务器默认值——宽松模式下超长字符串会被**静默截断**，等于静默改变用户意图 |
 | 两处 `SELECT *` 改显式列 | `PdoContentRepository`、`PdoStateStore` | `SELECT *` 会让「加一列」直接变成「改一次接口形状」，且新列默认出站 |
 | 结构指纹：迁移内容没变时冷启动不重放 DDL | `Schema::apply()` + `MigrationRunner` 末尾 `Schema::invalidate()` | 每次启动跑 20+ 条 `CREATE TABLE IF NOT EXISTS`；或迁移改了结构却因指纹未作废而漏建 |

@@ -20,11 +20,11 @@
 
 ## 2. 功能与适用场景
 
-按 keyset 游标分页返回文章列表，支持状态过滤与关键词检索；数据来自 ContentRepositoryInterface（MySQL 或回退适配器）。
+游标分页读取文章列表，支持按状态、关键词、分类或标签筛选，可单独取置顶位。
 
 **适用场景**：博客首页 / 归档页取数据；Headless 站点对外提供文章 API；深翻页用 next_cursor 而非 OFFSET。
 
-**实现备注**：游标为 base64 编码的自增 ID，采用 id > cursor 的 keyset 分页，避免 OFFSET 深翻页性能塌陷；非法游标返回 42201。
+**实现备注**：回收站文章永不出现（用 content.trash 读）；status=published 时还会排除 publish_at 未到点的定时文章 —— 否则「定时」只是一句承诺。置顶不混进时间线：keyset 分页的键是 id，若把 pinned 排进主序，两次翻页之间有人置顶就会出现重复行或漏行，所以置顶单独用 pinned=1 取。total 与 items 同口径，不会出现「共 12 篇但只有 9 篇能翻到」。
 
 ## 3. 请求规范
 
@@ -34,10 +34,13 @@
 
 | 参数 | 位置 | 必填 | 类型 | 说明 |
 | --- | --- | --- | --- | --- |
-| `limit` | query | 否 | `int` | 每页条数 1-100，默认取 config.content.per_page |
-| `cursor` | query | 否 | `string` | 上一页返回的 next_cursor（base64 编码的记录 ID） |
-| `status` | query | 否 | `string` | published / draft / any，默认 published |
-| `keyword` | query | 否 | `string` | 标题或正文模糊匹配 |
+| `limit` | query | 否 | `int` | 每页条数，默认 10，上限 100 |
+| `cursor` | query | 否 | `string` | 上一页返回的 next_cursor |
+| `status` | query | 否 | `string` | published（默认）/ draft / review / archived / any |
+| `keyword` | query | 否 | `string` | 在标题与正文中做 LIKE 匹配 |
+| `term` | query | 否 | `string` | 按分类或标签的 slug 过滤 |
+| `kind` | query | 否 | `string` | 配合 term 使用：category / tag |
+| `pinned` | query | 否 | `bool` | 只取置顶推荐位，按权重倒序 |
 
 ## 4. 响应规范
 

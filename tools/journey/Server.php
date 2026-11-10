@@ -38,23 +38,38 @@ final class Server
 
     /**
      * 一次真实 HTTP 请求。
+     *
+     * 用原始 socket 而不是 file_get_contents：HTTP 包装器会开一条「投机预连接」，
+     * 内置服务器先 accept 它、发现没有请求再关掉。当两条连接同时在队列里，
+     * 拿到响应的顺序就可能与发出的顺序错开 —— 于是「截断配置后应 500」偶尔读到
+     * 上一条请求的 200，守卫变成随机通过或随机失败。这类不稳定比没有守卫更糟：
+     * 它会让人开始怀疑断言本身，而不是怀疑代码。
+     *
      * @return array{status:int, protocol:string, headers:array<string,string>, body:string}
      */
     public function get(string $path = '/'): array
     {
-        $ctx = stream_context_create(['http' => [
-            'ignore_errors' => true, 'timeout' => 10, 'header' => "Connection: close\r\n",
-        ]]);
-        $body = @file_get_contents('http://127.0.0.1:' . $this->port . $path, false, $ctx);
-        $raw = $http_response_header ?? [];
+        $fp = @fsockopen('127.0.0.1', $this->port, $errno, $errstr, 5.0);
+        if (!is_resource($fp)) {
+            // 连不上就是连不上：返回 0 而不是沿用上一次的响应头。
+            return ['status' => 0, 'protocol' => '', 'headers' => [], 'body' => ''];
+        }
+        stream_set_timeout($fp, 10);
+        fwrite($fp, "GET {$path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
+        $raw = (string) stream_get_contents($fp);
+        fclose($fp);
 
+        [$head, $body] = array_pad(explode("\r\n\r\n", $raw, 2), 2, '');
+        $lines = explode("\r\n", $head);
         $status = 0;
         $protocol = '';
         $headers = [];
-        foreach ($raw as $i => $line) {
-            if ($i === 0 && preg_match('#^(HTTP/\S+)\s+(\d{3})#', $line, $m) === 1) {
-                $protocol = $m[1];
-                $status = (int) $m[2];
+        foreach ($lines as $i => $line) {
+            if ($i === 0) {
+                if (preg_match('#^(HTTP/\S+)\s+(\d{3})#', $line, $m) === 1) {
+                    $protocol = $m[1];
+                    $status = (int) $m[2];
+                }
                 continue;
             }
             $at = strpos($line, ':');
@@ -62,8 +77,24 @@ final class Server
                 $headers[strtolower(trim(substr($line, 0, $at)))] = trim(substr($line, $at + 1));
             }
         }
-        return ['status' => $status, 'protocol' => $protocol,
-                'headers' => $headers, 'body' => (string) $body];
+        return ['status' => $status, 'protocol' => $protocol, 'headers' => $headers,
+                'body' => str_contains(strtolower($headers['transfer-encoding'] ?? ''), 'chunked')
+                    ? self::dechunk($body) : $body];
+    }
+
+    /** 分块编码只在内置服务器选了 chunked 时出现；不还原的话正文会带上长度前缀，逐字断言必错。 */
+    private static function dechunk(string $body): string
+    {
+        $out = '';
+        while ($body !== '') {
+            $eol = strpos($body, "\r\n");
+            if ($eol === false) break;
+            $size = (int) hexdec(substr($body, 0, $eol));
+            if ($size === 0) break;
+            $out .= substr($body, $eol + 2, $size);
+            $body = substr($body, $eol + 2 + $size + 2);
+        }
+        return $out;
     }
 
     public function stop(): void
@@ -83,7 +114,12 @@ final class Server
     private function spawn(): void
     {
         $this->log = sys_get_temp_dir() . '/wx-sapi-' . $this->port . '.log';
+        // revalidate_freq=0：内置服务器会启用 opcache，默认每 2 秒才检查一次文件是否改动。
+        // 故障注入「写完文件立刻请求」正好落在这个窗口里，拿到的是旧字节码 ——
+        // 于是「截断配置应当 500」会随运行时刻随机通过或失败。守卫必须确定，
+        // 观测窗口就不能交给一个与业务无关的缓存参数决定。
         $cmd = [PHP_BINARY, '-d', 'display_errors=' . $this->displayErrors, '-d', 'log_errors=1',
+                '-d', 'opcache.revalidate_freq=0', '-d', 'opcache.validate_timestamps=1',
                 '-S', '127.0.0.1:' . $this->port, '-t', $this->docroot];
         $descriptors = [0 => ['pipe', 'r'], 1 => ['file', $this->log, 'a'], 2 => ['file', $this->log, 'a']];
         $this->proc = proc_open($cmd, $descriptors, $this->pipes);

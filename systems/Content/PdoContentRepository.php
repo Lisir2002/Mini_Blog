@@ -10,10 +10,19 @@ use Wx\Contracts\DatabaseInterface;
 /**
  * 内容系统的 MySQL / PDO 实现。
  * 表结构与 SQL 全部在本系统层目录内；核心只认识 ContentRepositoryInterface。
- * 列表采用 keyset 游标分页（id > cursor），避免 OFFSET 在深翻页时的性能塌陷。
+ *
+ * 读查询在 PostQuery（只 SELECT），这里只留写入与单行读取：
+ * 读写混在一处时，加一个状态最容易只改一半。v0.28 的三条约定：
+ *   1. 出站列显式列出，`SELECT *` 会让「加一列」直接变成「改一次接口形状」；
+ *   2. 回收站与「未到点的定时发布」都在 SQL 里过滤，不靠调用方记得；
+ *   3. 状态迁移用 `WHERE status = :from` 的比较并设置，并发下最多一个成功。
  */
 final class PdoContentRepository implements ContentRepositoryInterface
 {
+    private const COLUMNS = 'id,slug,title,body,excerpt,status,author,created_at,updated_at,deleted_at,publish_at,pinned,sort_weight';
+
+    private ?PostQuery $query = null;
+
     public function __construct(private DatabaseInterface $db) {}
 
     /** 幂等建表：装载本系统层 migrations/*.sql，占位前缀替换为实际配置值。 */
@@ -42,63 +51,21 @@ final class PdoContentRepository implements ContentRepositoryInterface
         }
     }
 
-    public function list(array $query = []): array
+    public function list(array $query = []): array { return $this->query()->page($query, false); }
+
+    public function trash(array $query = []): array { return $this->query()->page($query, true); }
+
+    public function count(string $status = 'published'): int { return $this->query()->count($status); }
+
+    public function findBySlug(string $slug, bool $withDeleted = false): ?array
     {
-        $limit  = max(1, min(100, (int) ($query['limit'] ?? 10)));
-        $status = (string) ($query['status'] ?? 'published');
-        $kw     = trim((string) ($query['keyword'] ?? ''));
-        $after  = 0;
-        $cursor = (string) ($query['cursor'] ?? '');
-        if ($cursor !== '') {
-            $decoded = base64_decode($cursor, true);
-            if ($decoded === false || !ctype_digit($decoded)) {
-                throw new InvalidArgumentException('非法游标');
-            }
-            $after = (int) $decoded;
-        }
-
-        $where  = [];
-        $params = [];
-        if ($status !== 'any') { $where[] = 'status = :status'; $params[':status'] = $status; }
-        if ($after > 0)       { $where[] = 'id > :after';       $params[':after']  = $after; }
-        if ($kw !== '') {
-            // 两个独立占位符，不能复用 :kw —— 连接是 ATTR_EMULATE_PREPARES=false（原生预处理），
-            // MySQL 协议不支持同一个命名参数出现两次，复用会在 prepare 后的 execute 抛
-            // 「Invalid parameter number」。搜索从上线起就是 500，而内存实现用的是 str_contains，
-            // 行为不一致，所以两组测试都没发现。
-            $where[] = '(title LIKE :kw_title OR body LIKE :kw_body)';
-            $params[':kw_title'] = '%' . $kw . '%';
-            $params[':kw_body']  = '%' . $kw . '%';
-        }
-        $sql = 'SELECT id,slug,title,body,excerpt,status,author,created_at,updated_at FROM ' . $this->table()
-             . ($where !== [] ? ' WHERE ' . implode(' AND ', $where) : '')
-             . ' ORDER BY id ASC LIMIT ' . ($limit + 1);
-
-        $stmt = $this->db->pdo()->prepare($sql);
-        foreach ($params as $key => $value) $stmt->bindValue($key, $value);
-        $stmt->execute();
-        $rows = $stmt->fetchAll();
-
-        $hasMore = count($rows) > $limit;
-        if ($hasMore) array_pop($rows);
-        $items = array_map([$this, 'normalize'], $rows);
-        return [
-            'items'       => $items,
-            'next_cursor' => $hasMore && $items !== [] ? base64_encode((string) end($items)['id']) : null,
-            'total'       => $this->count($status),
-        ];
-    }
-
-    public function findBySlug(string $slug): ?array
-    {
-        // 显式列：SELECT * 会让「加一列」直接变成「改一次接口形状」，且新列默认出站。
         $stmt = $this->db->pdo()->prepare(
-            'SELECT id, slug, title, body, excerpt, status, author, created_at, updated_at'
-            . ' FROM ' . $this->table() . ' WHERE slug = :slug LIMIT 1'
+            'SELECT ' . self::COLUMNS . ' FROM ' . $this->table()
+            . ' WHERE slug = :slug' . ($withDeleted ? '' : ' AND deleted_at IS NULL') . ' LIMIT 1'
         );
         $stmt->execute([':slug' => $slug]);
         $row = $stmt->fetch();
-        return $row === false ? null : $this->normalize($row);
+        return $row === false ? null : PostRow::normalize($row);
     }
 
     public function create(array $post): int
@@ -112,6 +79,8 @@ final class PdoContentRepository implements ContentRepositoryInterface
         if (!preg_match('/^[a-z0-9][a-z0-9-]{0,190}$/', $slug)) {
             throw new InvalidArgumentException('slug 只允许小写字母、数字与连字符');
         }
+        $status = (string) ($post['status'] ?? 'draft');
+        ContentStatus::assertKnown($status);
         $now = date('Y-m-d H:i:s');
         $stmt = $this->db->pdo()->prepare(
             'INSERT INTO ' . $this->table() . ' (slug,title,body,excerpt,status,author,created_at,updated_at)
@@ -120,8 +89,7 @@ final class PdoContentRepository implements ContentRepositoryInterface
         try {
             $stmt->execute([
                 ':slug' => $slug, ':title' => $title, ':body' => $body,
-                ':excerpt' => $this->excerpt($body),
-                ':status' => (string) ($post['status'] ?? 'published'),
+                ':excerpt' => PostRow::excerpt($body), ':status' => $status,
                 ':author' => (string) ($post['author'] ?? ''),
                 ':created_at' => $now, ':updated_at' => $now,
             ]);
@@ -134,6 +102,7 @@ final class PdoContentRepository implements ContentRepositoryInterface
     /**
      * 按 slug 更新白名单字段。字段级权限的裁决在上层（ContentSystem），
      * 这里只做存储层校验：字段白名单、状态取值、非空约束。
+     * 状态字段走 ContentStatus 矩阵：拼错的取值是参数错误，不可达的迁移是状态冲突。
      * @param array<string, mixed> $fields
      */
     public function update(string $slug, array $fields): bool
@@ -141,60 +110,102 @@ final class PdoContentRepository implements ContentRepositoryInterface
         $sets   = [];
         $params = [':slug' => $slug, ':updated_at' => date('Y-m-d H:i:s')];
         foreach ($fields as $key => $value) {
-            if (!in_array($key, ['title', 'body', 'status'], true)) continue;
-            $text = (string) $value;
-            if (($key === 'title' || $key === 'body') && trim($text) === '') {
+            if ($key === 'status') {
+                ContentStatus::assertKnown((string) $value);
+                $from = (string) ($this->findBySlug($slug, true)['status'] ?? '');
+                if (!ContentStatus::canTransition($from, (string) $value)) {
+                    throw new InvalidArgumentException('不可达的状态迁移：' . $from . ' → ' . $value);
+                }
+            }
+            if (!in_array($key, ['title', 'body', 'status', 'pinned', 'weight'], true)) continue;
+            if (($key === 'title' || $key === 'body') && trim((string) $value) === '') {
                 throw new InvalidArgumentException($key . ' 不能为空');
             }
-            if ($key === 'status' && !in_array($text, ['published', 'draft', 'private', 'pending'], true)) {
-                throw new InvalidArgumentException('非法状态：' . $text);
+            if ($key === 'pinned') {
+                $sets[] = 'pinned = :pinned';
+                $params[':pinned'] = (int) ((bool) $value);
+                continue;
+            }
+            if ($key === 'weight') {
+                $sets[] = 'sort_weight = :weight';
+                $params[':weight'] = max(-1000, min(1000, (int) $value));
+                continue;
             }
             $sets[] = $key . ' = :' . $key;
-            $params[':' . $key] = $text;
+            $params[':' . $key] = (string) $value;
             if ($key === 'body') {
                 $sets[] = 'excerpt = :excerpt';
-                $params[':excerpt'] = $this->excerpt($text);
+                $params[':excerpt'] = PostRow::excerpt((string) $value);
             }
         }
         if ($sets === []) return false;
 
         $stmt = $this->db->pdo()->prepare(
             'UPDATE ' . $this->table() . ' SET ' . implode(', ', $sets)
-            . ', updated_at = :updated_at WHERE slug = :slug'
+            . ', updated_at = :updated_at WHERE slug = :slug AND deleted_at IS NULL'
         );
         $stmt->execute($params);
         return $stmt->rowCount() > 0;
     }
 
-    public function count(string $status = 'published'): int
+    public function transition(string $slug, string $from, string $to, ?string $publishAt = null): bool
     {
-        $sql = 'SELECT COUNT(*) FROM ' . $this->table()
-             . ($status !== 'any' ? ' WHERE status = :status' : '');
+        ContentStatus::assertKnown($to);
+        $params = [':to' => $to, ':updated_at' => date('Y-m-d H:i:s'), ':slug' => $slug, ':from' => $from];
+        $sql = 'UPDATE ' . $this->table() . ' SET status = :to, updated_at = :updated_at, publish_at = '
+             . ($publishAt === null ? 'NULL' : ':publish_at')
+             . ' WHERE slug = :slug AND status = :from AND deleted_at IS NULL';
+        if ($publishAt !== null) $params[':publish_at'] = $publishAt;
         $stmt = $this->db->pdo()->prepare($sql);
-        if ($status !== 'any') $stmt->bindValue(':status', $status);
-        $stmt->execute();
-        return (int) $stmt->fetchColumn();
+        $stmt->execute($params);
+        // rowCount 为 0 有两种可能：并发者已经把它改成了同一个目标状态（幂等重放，应成功），
+        // 或者状态被改到了别处（应冲突）。MySQL 在「值没变」时也返回 0，
+        // 所以不能用 rowCount 判断成功与否，只能回读一次确认。
+        if ($stmt->rowCount() > 0) return true;
+        return (string) ($this->findBySlug($slug)['status'] ?? '') === $to;
+    }
+
+    public function delete(string $slug): bool
+    {
+        // 两个独立占位符：原生预处理不接受同一个命名参数出现两次（HY093）。
+        $stmt = $this->db->pdo()->prepare(
+            'UPDATE ' . $this->table() . ' SET deleted_at = :now, updated_at = :touched'
+            . ' WHERE slug = :slug AND deleted_at IS NULL'
+        );
+        $now = date('Y-m-d H:i:s');
+        $stmt->execute([':now' => $now, ':touched' => $now, ':slug' => $slug]);
+        return $stmt->rowCount() > 0;
+    }
+
+    public function restore(string $slug): bool
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'UPDATE ' . $this->table() . ' SET deleted_at = NULL, updated_at = :now'
+            . ' WHERE slug = :slug AND deleted_at IS NOT NULL'
+        );
+        $stmt->execute([':now' => date('Y-m-d H:i:s'), ':slug' => $slug]);
+        return $stmt->rowCount() > 0;
+    }
+
+    public function purge(string $slug): bool
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'DELETE FROM ' . $this->table() . ' WHERE slug = :slug AND deleted_at IS NOT NULL'
+        );
+        $stmt->execute([':slug' => $slug]);
+        return $stmt->rowCount() > 0;
     }
 
     /** 卸载时清理本系统层自建的表（数据归属清晰，核心不参与）。 */
     public function dropSchema(): void
     {
-        $this->db->pdo()->exec('DROP TABLE IF EXISTS ' . $this->table());
+        $pdo = $this->db->pdo();
+        $pdo->exec('DROP TABLE IF EXISTS ' . $this->db->prefix() . 'content_term_relations');
+        $pdo->exec('DROP TABLE IF EXISTS ' . $this->db->prefix() . 'content_terms');
+        $pdo->exec('DROP TABLE IF EXISTS ' . $this->table());
     }
+
+    private function query(): PostQuery { return $this->query ??= new PostQuery($this->db); }
 
     private function table(): string { return $this->db->prefix() . 'content_posts'; }
-
-    private function normalize(array $row): array
-    {
-        $row['id']    = (int) $row['id'];
-        $row['body']  = (string) $row['body'];
-        $row['excerpt'] = (string) ($row['excerpt'] ?? $this->excerpt($row['body']));
-        return $row;
-    }
-
-    private function excerpt(string $body): string
-    {
-        $text = trim((string) preg_replace('/\s+/u', ' ', strip_tags($body)));
-        return function_exists('mb_substr') ? mb_substr($text, 0, 120) : substr($text, 0, 120);
-    }
 }

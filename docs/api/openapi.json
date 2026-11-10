@@ -295,7 +295,7 @@
             "get": {
                 "operationId": "content.posts",
                 "summary": "查询文章列表（游标分页）",
-                "description": "按 keyset 游标分页返回文章列表，支持状态过滤与关键词检索；数据来自 ContentRepositoryInterface（MySQL 或回退适配器）。\n\n适用场景：博客首页 / 归档页取数据；Headless 站点对外提供文章 API；深翻页用 next_cursor 而非 OFFSET。",
+                "description": "游标分页读取文章列表，支持按状态、关键词、分类或标签筛选，可单独取置顶位。\n\n适用场景：博客首页 / 归档页取数据；Headless 站点对外提供文章 API；深翻页用 next_cursor 而非 OFFSET。",
                 "tags": [
                     "content"
                 ],
@@ -304,7 +304,7 @@
                         "name": "limit",
                         "in": "query",
                         "required": false,
-                        "description": "每页条数 1-100，默认取 config.content.per_page",
+                        "description": "每页条数，默认 10，上限 100",
                         "schema": {
                             "type": "integer"
                         }
@@ -313,7 +313,7 @@
                         "name": "cursor",
                         "in": "query",
                         "required": false,
-                        "description": "上一页返回的 next_cursor（base64 编码的记录 ID）",
+                        "description": "上一页返回的 next_cursor",
                         "schema": {
                             "type": "string"
                         }
@@ -322,7 +322,7 @@
                         "name": "status",
                         "in": "query",
                         "required": false,
-                        "description": "published / draft / any，默认 published",
+                        "description": "published（默认）/ draft / review / archived / any",
                         "schema": {
                             "type": "string"
                         }
@@ -331,9 +331,36 @@
                         "name": "keyword",
                         "in": "query",
                         "required": false,
-                        "description": "标题或正文模糊匹配",
+                        "description": "在标题与正文中做 LIKE 匹配",
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    {
+                        "name": "term",
+                        "in": "query",
+                        "required": false,
+                        "description": "按分类或标签的 slug 过滤",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "kind",
+                        "in": "query",
+                        "required": false,
+                        "description": "配合 term 使用：category / tag",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "pinned",
+                        "in": "query",
+                        "required": false,
+                        "description": "只取置顶推荐位，按权重倒序",
+                        "schema": {
+                            "type": "boolean"
                         }
                     }
                 ],
@@ -3354,7 +3381,7 @@
             "post": {
                 "operationId": "content.update",
                 "summary": "按字段更新文章",
-                "description": "按 slug 更新 title / body / status；每个字段单独做一次字段级授权，任一字段非 allow 则整次写入被拒。\n\n适用场景：作者改自己的文章；编辑只能改标题不能改正文这类字段级限制。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "description": "按字段更新文章标题、正文、状态、置顶与权重；每个字段单独经过字段级权限裁决。\n\n适用场景：作者改自己的文章；编辑只能改标题不能改正文这类字段级限制。\n\n非幂等写操作：建议携带 Idempotency-Key。",
                 "tags": [
                     "content"
                 ],
@@ -3382,6 +3409,26 @@
                     },
                     "403": {
                         "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "文章在回收站",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3420,8 +3467,8 @@
                             }
                         }
                     },
-                    "404": {
-                        "description": "资源不存在",
+                    "501": {
+                        "description": "接口已登记但执行者未实现",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3443,19 +3490,27 @@
                                 "properties": {
                                     "slug": {
                                         "type": "string",
-                                        "description": "文章唯一标识"
+                                        "description": "文章 slug"
                                     },
                                     "title": {
                                         "type": "string",
-                                        "description": "新标题"
+                                        "description": "标题"
                                     },
                                     "body": {
                                         "type": "string",
-                                        "description": "新正文（同时刷新摘要）"
+                                        "description": "正文，同时重算摘要"
                                     },
                                     "status": {
                                         "type": "string",
-                                        "description": "published / draft / private / pending"
+                                        "description": "目标状态，须满足状态迁移矩阵"
+                                    },
+                                    "pinned": {
+                                        "type": "boolean",
+                                        "description": "是否置顶"
+                                    },
+                                    "weight": {
+                                        "type": "integer",
+                                        "description": "置顶排序权重，-1000~1000"
                                     }
                                 }
                             }
@@ -6926,6 +6981,996 @@
                                     "new_password": {
                                         "type": "string",
                                         "description": "action=reset_password 时的新口令"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/content/post/transition": {
+            "post": {
+                "operationId": "content.transition",
+                "summary": "变更文章状态",
+                "description": "在 draft / review / published / archived 之间迁移文章状态，可同时指定定时发布时间。\n\n适用场景：写完稿提交审核；审核通过后发布；下线旧文归档；排一篇明天早上八点自动上线的公告。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "文章状态迁移不可达",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "501": {
+                        "description": "接口已登记但执行者未实现",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "slug",
+                                    "to"
+                                ],
+                                "properties": {
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "文章 slug"
+                                    },
+                                    "to": {
+                                        "type": "string",
+                                        "description": "目标状态：draft / review / published / archived"
+                                    },
+                                    "publish_at": {
+                                        "type": "string",
+                                        "description": "仅当 to=published 时生效；未来时间表示定时发布，留空表示立即"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/content/post/delete": {
+            "post": {
+                "operationId": "content.delete",
+                "summary": "删除文章（进回收站）",
+                "description": "把文章移入回收站：打上删除时间，状态原样保留。\n\n适用场景：下掉一篇不合适的旧文；误删后还能从回收站找回来。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "文章不在回收站",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "501": {
+                        "description": "接口已登记但执行者未实现",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "slug"
+                                ],
+                                "properties": {
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "文章 slug"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/content/post/restore": {
+            "post": {
+                "operationId": "content.restore",
+                "summary": "恢复文章",
+                "description": "从回收站恢复文章，状态与定时时间保持删除前的样子。\n\n适用场景：误删找回；下架后又决定重新上线（恢复后再走一次状态迁移）。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "文章不在回收站",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "501": {
+                        "description": "接口已登记但执行者未实现",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "slug"
+                                ],
+                                "properties": {
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "文章 slug"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/content/post/purge": {
+            "post": {
+                "operationId": "content.purge",
+                "summary": "彻底删除文章",
+                "description": "永久删除回收站里的文章，不可恢复；必须回写 slug 作为二次确认。\n\n适用场景：清理确定不再需要的稿件；合规要求彻底抹掉某篇内容。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "文章不在回收站",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "501": {
+                        "description": "接口已登记但执行者未实现",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "slug",
+                                    "confirm"
+                                ],
+                                "properties": {
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "文章 slug"
+                                    },
+                                    "confirm": {
+                                        "type": "string",
+                                        "description": "必须与 slug 完全一致"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/content/trash": {
+            "get": {
+                "operationId": "content.trash",
+                "summary": "回收站列表",
+                "description": "分页列出已软删除的文章，含删除时间与删除前状态。\n\n适用场景：后台回收站页面；确认哪些内容可以彻底清掉。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "每页条数，默认 20，上限 100",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "上一页返回的 next_cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "keyword",
+                        "in": "query",
+                        "required": false,
+                        "description": "在标题与正文中做 LIKE 匹配",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "501": {
+                        "description": "接口已登记但执行者未实现",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/content/terms": {
+            "get": {
+                "operationId": "content.terms",
+                "summary": "分类与标签列表",
+                "description": "列出全部分类与标签，附每个术语下已发布文章数。\n\n适用场景：侧边栏标签云、导航里的分类菜单；后台选择要绑定的术语。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [
+                    {
+                        "name": "kind",
+                        "in": "query",
+                        "required": false,
+                        "description": "category / tag / any，默认 any",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "501": {
+                        "description": "接口已登记但执行者未实现",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/content/terms/manage": {
+            "post": {
+                "operationId": "content.terms.manage",
+                "summary": "管理分类与标签",
+                "description": "创建 / 重命名 / 删除术语；删除会一并清理它的全部文章绑定。\n\n适用场景：站长整理站点结构：新增「随笔」分类，给「php」改名，删掉一个只用过一次的错标签。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "分类或标签不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "分类或标签已存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "501": {
+                        "description": "接口已登记但执行者未实现",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "action"
+                                ],
+                                "properties": {
+                                    "action": {
+                                        "type": "string",
+                                        "description": "create / update / delete"
+                                    },
+                                    "kind": {
+                                        "type": "string",
+                                        "description": "action=create 时必填：category / tag"
+                                    },
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "action=create 时必填：小写字母、数字与连字符"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "description": "显示名称，最长 60 字（create 必填）"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "description": "可选说明"
+                                    },
+                                    "id": {
+                                        "type": "integer",
+                                        "description": "update / delete 时的术语 ID"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/content/post/terms": {
+            "post": {
+                "operationId": "content.attach",
+                "summary": "绑定文章术语",
+                "description": "把文章的分类与标签整体替换为给定集合，返回实际新增与移除的条数。\n\n适用场景：编辑页右侧的分类勾选与标签输入框；批量整理旧文的归档。",
+                "tags": [
+                    "content"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "分类或标签不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "文章在回收站",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "501": {
+                        "description": "接口已登记但执行者未实现",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "slug",
+                                    "terms"
+                                ],
+                                "properties": {
+                                    "slug": {
+                                        "type": "string",
+                                        "description": "文章 slug"
+                                    },
+                                    "terms": {
+                                        "type": "string",
+                                        "description": "术语引用数组，形如 kind:slug；传空数组表示清空"
                                     }
                                 }
                             }

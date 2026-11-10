@@ -123,7 +123,7 @@ php tests/run.php                    # 全量守卫（当前数字见 `php tools
 php tools/audit-responsibility.php   # 单文件职责审计，非 0 退出即失败
 php tools/bench.php                  # 性能基准：应用层开关 + 部署层 opcache / CPU 核数对照
 php tools/data.php verify            # 只读孤儿巡检（stats 看表体量）
-php tools/gen-api-docs.php           # 重新生成 80 份接口文档
+php tools/gen-api-docs.php           # 重新生成 88 份接口文档
 php tools/journey.php                # 全链路旅程（需 MariaDB）
 php tools/facts.php verify           # 计数唯一真源对账（锚点 / 守卫锁 / 错误码 / 反向候选）
 php tools/facts.php accept           # 确认新增数字属史实后，更新反向候选快照（唯一写文件的模式）
@@ -145,7 +145,7 @@ git status && git log --oneline -5   # 版本基线
 | 分支 | `main`，跟踪 `origin/main` |
 | 可见性 | Public |
 | 凭据 | GitHub CLI OAuth（`~/.config/gh/hosts.yml`），git 通过 `gh auth git-credential` 取用 |
-| 当前规模 | 随迭代递增；当前量以 `git ls-files | wc -l` 与 `php tools/facts.php` 为准（含 80 份接口文档） |
+| 当前规模 | 随迭代递增；当前量以 `git ls-files | wc -l` 与 `php tools/facts.php` 为准（含 88 份接口文档） |
 
 **不入库的内容**（`.gitignore` 已覆盖）：`storage/` 除骨架外的全部运行时产物、`storage/install.token`、`storage/install.lock`、`config/local.php`、`docs/responsibility-report.json`。
 

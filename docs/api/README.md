@@ -85,5 +85,13 @@
 | `API-USER-003` | `GET` | `/api/v1/users` | `user` | `admin` | 是 | [API-USER-003](API-USER-003.md) |
 | `API-USER-004` | `GET` | `/api/v1/users/view` | `user` | `admin` | 是 | [API-USER-004](API-USER-004.md) |
 | `API-USER-005` | `POST` | `/api/v1/users/manage` | `user` | `admin` | 否 | [API-USER-005](API-USER-005.md) |
+| `API-CONTENT-006` | `POST` | `/api/v1/content/post/transition` | `content` | `admin` | 否 | [API-CONTENT-006](API-CONTENT-006.md) |
+| `API-CONTENT-007` | `POST` | `/api/v1/content/post/delete` | `content` | `admin` | 否 | [API-CONTENT-007](API-CONTENT-007.md) |
+| `API-CONTENT-008` | `POST` | `/api/v1/content/post/restore` | `content` | `admin` | 否 | [API-CONTENT-008](API-CONTENT-008.md) |
+| `API-CONTENT-009` | `POST` | `/api/v1/content/post/purge` | `content` | `admin` | 否 | [API-CONTENT-009](API-CONTENT-009.md) |
+| `API-CONTENT-010` | `GET` | `/api/v1/content/trash` | `content` | `admin` | 是 | [API-CONTENT-010](API-CONTENT-010.md) |
+| `API-CONTENT-011` | `GET` | `/api/v1/content/terms` | `content` | `public` | 是 | [API-CONTENT-011](API-CONTENT-011.md) |
+| `API-CONTENT-012` | `POST` | `/api/v1/content/terms/manage` | `content` | `admin` | 否 | [API-CONTENT-012](API-CONTENT-012.md) |
+| `API-CONTENT-013` | `POST` | `/api/v1/content/post/terms` | `content` | `admin` | 是 | [API-CONTENT-013](API-CONTENT-013.md) |
 
-共 80 个接口，接口版本 `v1`。
+共 88 个接口，接口版本 `v1`。

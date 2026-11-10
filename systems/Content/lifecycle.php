@@ -25,7 +25,11 @@ return [
                 (string) $db['dsn'], (string) ($db['user'] ?? ''), (string) ($db['pass'] ?? ''),
                 [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
             );
-            $pdo->exec('DROP TABLE IF EXISTS ' . (string) ($db['prefix'] ?? 'wx_') . 'content_posts');
+            // 关系表先删：它引用术语表，顺序反了在将来补上外键时会失败。
+            $prefix = (string) ($db['prefix'] ?? 'wx_');
+            $pdo->exec('DROP TABLE IF EXISTS ' . $prefix . 'content_term_relations');
+            $pdo->exec('DROP TABLE IF EXISTS ' . $prefix . 'content_terms');
+            $pdo->exec('DROP TABLE IF EXISTS ' . $prefix . 'content_posts');
         } catch (\Throwable) {
             // 数据库不可用时静默跳过：文件已由装卸系统移除，残留数据可人工清理
         }

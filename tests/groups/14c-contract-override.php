@@ -186,7 +186,7 @@ check('卸载清理 9 张权限表、分组表不遗漏；新接口已四方对�
     $ids = array_column($d['endpoints'], 'id');
     truthy(in_array('API-PERM-011', $ids, true) && in_array('API-PERM-012', $ids, true), 'v0.8 接口未登记');
     truthy(in_array('API-PERM-013', $ids, true) && in_array('API-PERM-014', $ids, true), 'v0.9 分组接口未登记');
-    truthy(count($d['endpoints']) === 80, '接口总数异常');
+    truthy(count($d['endpoints']) === 88, '接口总数异常');
     truthy(is_file($root . '/docs/api/API-PERM-011.md') && is_file($root . '/docs/api/API-PERM-012.md'),
         '新接口操作文档缺失');
 });

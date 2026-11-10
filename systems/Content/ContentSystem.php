@@ -9,6 +9,7 @@ use Wx\Core\AbstractSystem;
 use Wx\Core\Kernel;
 use Wx\Systems\Api\ApiOperationException;
 use Wx\Systems\Data\Db;
+use Wx\Systems\Data\RelationRegistry;
 
 /**
  * 内容系统 —— 第 11 个系统层，博客的正文数据模型。
@@ -59,40 +60,62 @@ final class ContentSystem extends AbstractSystem
 
         // 统计层要「文章存量」，但统计层不认识文章表。由本层自报，两个维度各算一次。
         // 没有统计层时这个过滤器无人消费，零副作用。
+        // v0.28 起 count() 已排除回收站与未到点的定时文章：存量口径必须与列表一致，
+        // 否则首页写「共 12 篇」而列表只有 9 篇，读的人只会以为分页坏了。
         $kernel->hooks()->filter('metric.collect', static function (array $samples) use ($repo): array {
             $samples[] = ['name' => 'content_posts', 'labels' => ['status' => 'published'], 'value' => $repo->count('published')];
             $samples[] = ['name' => 'content_posts', 'labels' => ['status' => 'any'], 'value' => $repo->count('any')];
+            $samples[] = ['name' => 'content_posts', 'labels' => ['status' => 'trash'], 'value' => $repo->count('trash')];
             return $samples;
         }, 10);
+
+        // 术语表与关系表归属本系统层：声明出来，data.php verify 才能发现「绑到了已删除术语」。
+        if ($kernel->container()->has(RelationRegistry::class)) {
+            $relations = $kernel->container()->resolve(RelationRegistry::class);
+            $relations->declare('content.term_relation', 'content_term_relations', 'term_id', 'content_terms', 'id');
+            $relations->declare('content.term_post', 'content_term_relations', 'post_id', 'content_posts', 'id');
+        }
 
         if (!$kernel->container()->has(ApiRegistryInterface::class)) return;
         /** @var ApiRegistryInterface $registry */
         $registry = $kernel->container()->resolve(ApiRegistryInterface::class);
         $perPage = (int) $kernel->config()->get('content.per_page', 10);
 
-        $registry->registerOperation('content.posts', static function (array $in) use ($repo, $perPage, $kernel): array {
+        // 分类标签需要两张表；没有 MySQL 时传 null，相关接口会明确报 50101 而不是返回空列表。
+        $terms = $repo instanceof PdoContentRepository ? ContentTermStore::fromKernel($kernel) : null;
+
+        $registry->registerOperation('content.posts', static function (array $in) use ($repo, $perPage, $kernel, $terms): array {
             $result = $repo->list([
                 'limit'   => (int)    ($in['limit']   ?? $perPage),
                 'cursor'  => (string) ($in['cursor']  ?? ''),
                 'status'  => (string) ($in['status']  ?? 'published'),
                 'keyword' => (string) ($in['keyword'] ?? ''),
+                'term'    => (string) ($in['term']    ?? ''),
+                'kind'    => (string) ($in['kind']    ?? ''),
+                'pinned'  => (bool)   ($in['pinned']  ?? false),
             ]);
             // 文章权限是可编程裁决点：内容层不认识权限层，只把列表交给钩子过滤
             $result['items'] = (array) $kernel->hooks()->apply('content.visible', $result['items'], $in, $kernel);
-            $result['items'] = self::presentMany((array) $result['items'], $kernel);
+            $result['items'] = self::presentMany((array) $result['items'], $kernel, $terms);
             return $result;
         });
 
-        $registry->registerOperation('content.post', static function (array $in) use ($repo, $kernel): array {
+        $registry->registerOperation('content.post', static function (array $in) use ($repo, $kernel, $terms): array {
             $post = $repo->findBySlug((string) ($in['slug'] ?? ''));
             if ($post === null) {
+                throw new ApiOperationException('文章不存在', 40403);
+            }
+            // 定时发布在到点前对公开读路径就是「不存在」。只在列表里藏起来不够：
+            // 知道 slug 的人照样能提前读到，而那正是排期想避免的事。
+            if (($post['status'] ?? '') === ContentStatus::PUBLISHED
+                && !empty($post['publish_at']) && (int) strtotime((string) $post['publish_at']) > time()) {
                 throw new ApiOperationException('文章不存在', 40403);
             }
             $visible = (array) $kernel->hooks()->apply('content.visible', [$post], $in, $kernel);
             if ($visible === []) {
                 throw new ApiOperationException('无权访问该文章', 40301);
             }
-            return self::present((array) ($visible[0] ?? $post), $kernel);
+            return self::present((array) ($visible[0] ?? $post), $kernel, $terms);
         });
 
         $registry->registerOperation('content.create', static function (array $in) use ($repo, $kernel): array {
@@ -142,7 +165,7 @@ final class ContentSystem extends AbstractSystem
 
             $identity = $in['_identity'] ?? null;
             $changes  = [];
-            foreach (['title', 'body', 'status'] as $field) {
+            foreach (['title', 'body', 'status', 'pinned', 'weight'] as $field) {
                 if (!array_key_exists($field, $in)) continue;
                 // 资源标识统一用 slug：读路径（content.visible）与写路径必须指向同一个资源标识，
                 // 否则按 slug 登记的 ACL 只保护读、按数字 id 登记的只保护写，同一条授权会两处打架。
@@ -154,12 +177,20 @@ final class ContentSystem extends AbstractSystem
                 if ($decision !== AccessControlInterface::ALLOW) {
                     throw new ApiOperationException('字段写入被拒绝：' . $field, 40303);
                 }
-                $changes[$field] = (string) $in[$field];
+                $changes[$field] = $in[$field];
             }
             if ($changes === []) throw new ApiOperationException('没有可更新的字段', 42201);
-            $repo->update($slug, $changes);
+            $applied = $repo->update($slug, $changes);
+            // rowCount 为 0 有两种可能：写入了相同的值（正常），或文章刚被别人删掉（必须报错）。
+            // 区分它们的唯一办法是再读一次，而不是把 false 当成成功。
+            if (!$applied && $repo->findBySlug($slug) === null) {
+                throw new ApiOperationException('文章在回收站，请先恢复', 40909);
+            }
             return ['slug' => $slug, 'updated' => array_keys($changes)];
         });
+
+        (new ContentLifecycleOperations($repo))->register($registry, $kernel);
+        (new ContentTaxonomyOperations($repo, $terms))->register($registry);
     }
 
     /**
@@ -168,29 +199,35 @@ final class ContentSystem extends AbstractSystem
      * @param array<string, mixed> $post
      * @return array<string, mixed>
      */
-    private static function present(array $post, Kernel $kernel): array
+    private static function present(array $post, Kernel $kernel, ?ContentTermStore $terms): array
     {
         $body = (string) ($post['body'] ?? '');
         $post['body_tokens'] = $kernel->hooks()->apply(
             'emoji.parse', [['type' => 'text', 'value' => $body]], $body
         );
+        $post['terms'] = $terms === null ? [] : $terms->forPost((int) ($post['id'] ?? 0));
         return $post;
     }
 
     /**
-     * 列表批量呈现：表情解析一次取全，避免每篇文章一条 SQL。
+     * 列表批量呈现：表情与术语都一次取全，避免每篇文章两条 SQL。
      * 缺少表情系统时钩子不注册，$defaults 原样返回，行为与单篇一致。
      * @param list<array<string, mixed>> $posts
      * @return list<array<string, mixed>>
      */
-    private static function presentMany(array $posts, Kernel $kernel): array
+    private static function presentMany(array $posts, Kernel $kernel, ?ContentTermStore $terms): array
     {
         $texts = [];
         foreach ($posts as $post) $texts[] = (string) ($post['body'] ?? '');
         $defaults = array_map(static fn(string $text): array => [['type' => 'text', 'value' => $text]], $texts);
         $tokenLists = (array) $kernel->hooks()->apply('emoji.parse_many', $defaults, $texts);
+        $termMap = $terms === null ? [] : $terms->forPosts(array_map(
+            static fn(array $post): int => (int) ($post['id'] ?? 0),
+            $posts
+        ));
         foreach ($posts as $index => $post) {
             $post['body_tokens'] = $tokenLists[$index] ?? ($defaults[$index] ?? []);
+            $post['terms'] = $termMap[(int) ($post['id'] ?? 0)] ?? [];
             $posts[$index] = $post;
         }
         return $posts;

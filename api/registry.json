@@ -268,7 +268,7 @@
             "idempotent": true,
             "side_effects": "none",
             "since": "0.4.0",
-            "summary": "按 keyset 游标分页返回文章列表，支持状态过滤与关键词检索；数据来自 ContentRepositoryInterface（MySQL 或回退适配器）。",
+            "summary": "游标分页读取文章列表，支持按状态、关键词、分类或标签筛选，可单独取置顶位。",
             "scenario": "博客首页 / 归档页取数据；Headless 站点对外提供文章 API；深翻页用 next_cursor 而非 OFFSET。",
             "params": [
                 {
@@ -276,28 +276,49 @@
                     "in": "query",
                     "required": false,
                     "type": "int",
-                    "desc": "每页条数 1-100，默认取 config.content.per_page"
+                    "desc": "每页条数，默认 10，上限 100"
                 },
                 {
                     "name": "cursor",
                     "in": "query",
                     "required": false,
                     "type": "string",
-                    "desc": "上一页返回的 next_cursor（base64 编码的记录 ID）"
+                    "desc": "上一页返回的 next_cursor"
                 },
                 {
                     "name": "status",
                     "in": "query",
                     "required": false,
                     "type": "string",
-                    "desc": "published / draft / any，默认 published"
+                    "desc": "published（默认）/ draft / review / archived / any"
                 },
                 {
                     "name": "keyword",
                     "in": "query",
                     "required": false,
                     "type": "string",
-                    "desc": "标题或正文模糊匹配"
+                    "desc": "在标题与正文中做 LIKE 匹配"
+                },
+                {
+                    "name": "term",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "按分类或标签的 slug 过滤"
+                },
+                {
+                    "name": "kind",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "配合 term 使用：category / tag"
+                },
+                {
+                    "name": "pinned",
+                    "in": "query",
+                    "required": false,
+                    "type": "bool",
+                    "desc": "只取置顶推荐位，按权重倒序"
                 }
             ],
             "response_fields": [
@@ -347,7 +368,7 @@
                     "system": "content"
                 }
             },
-            "notes": "游标为 base64 编码的自增 ID，采用 id > cursor 的 keyset 分页，避免 OFFSET 深翻页性能塌陷；非法游标返回 42201。",
+            "notes": "回收站文章永不出现（用 content.trash 读）；status=published 时还会排除 publish_at 未到点的定时文章 —— 否则「定时」只是一句承诺。置顶不混进时间线：keyset 分页的键是 id，若把 pinned 排进主序，两次翻页之间有人置顶就会出现重复行或漏行，所以置顶单独用 pinned=1 取。total 与 items 同口径，不会出现「共 12 篇但只有 9 篇能翻到」。",
             "changelog": [
                 "0.4.0 初次发布"
             ],
@@ -421,9 +442,10 @@
                     "system": "content"
                 }
             },
-            "notes": "资源不存在返回 40403（HTTP 404），与「接口不存在」40401 区分；data 恒为 null 的错误响应不塞业务数据。",
+            "notes": "资源不存在返回 40403（HTTP 404），与「接口不存在」40401 区分；data 恒为 null 的错误响应不塞业务数据。 v0.28 起：回收站里的文章与「已发布但 publish_at 未到点」的文章都返回 40403 —— 只在列表里藏起来不够，知道 slug 的人照样能提前读到排期内容。",
             "changelog": [
-                "0.4.0 初次发布"
+                "0.4.0 初次发布",
+                "0.28.0 定时发布与回收站文章一律 40403"
             ],
             "doc": "docs/api/API-CONTENT-002.md"
         },
@@ -659,13 +681,13 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.27.0",
+                    "core_version": "0.28.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
                     "systems": 18,
                     "contracts": 26,
-                    "api_operations": 80,
+                    "api_operations": 88,
                     "database": "mysql",
                     "theme_active": null,
                     "headless": true
@@ -2870,7 +2892,7 @@
             "idempotent": false,
             "side_effects": "database",
             "since": "0.9.0",
-            "summary": "按 slug 更新 title / body / status；每个字段单独做一次字段级授权，任一字段非 allow 则整次写入被拒。",
+            "summary": "按字段更新文章标题、正文、状态、置顶与权重；每个字段单独经过字段级权限裁决。",
             "scenario": "作者改自己的文章；编辑只能改标题不能改正文这类字段级限制。",
             "params": [
                 {
@@ -2878,28 +2900,42 @@
                     "in": "body",
                     "required": true,
                     "type": "string",
-                    "desc": "文章唯一标识"
+                    "desc": "文章 slug"
                 },
                 {
                     "name": "title",
                     "in": "body",
                     "required": false,
                     "type": "string",
-                    "desc": "新标题"
+                    "desc": "标题"
                 },
                 {
                     "name": "body",
                     "in": "body",
                     "required": false,
                     "type": "string",
-                    "desc": "新正文（同时刷新摘要）"
+                    "desc": "正文，同时重算摘要"
                 },
                 {
                     "name": "status",
                     "in": "body",
                     "required": false,
                     "type": "string",
-                    "desc": "published / draft / private / pending"
+                    "desc": "目标状态，须满足状态迁移矩阵"
+                },
+                {
+                    "name": "pinned",
+                    "in": "body",
+                    "required": false,
+                    "type": "bool",
+                    "desc": "是否置顶"
+                },
+                {
+                    "name": "weight",
+                    "in": "body",
+                    "required": false,
+                    "type": "int",
+                    "desc": "置顶排序权重，-1000~1000"
                 }
             ],
             "response_fields": [
@@ -2918,12 +2954,14 @@
                 40101,
                 40102,
                 40301,
-                40302,
                 40303,
+                40403,
+                40908,
+                40909,
                 42201,
                 42901,
                 50001,
-                40403
+                50101
             ],
             "example_request": "POST /api/v1/content/post/update  {\"slug\":\"first-post\",\"title\":\"新标题\"}",
             "example_response": {
@@ -2942,7 +2980,7 @@
                     "system": "content"
                 }
             },
-            "notes": "字段级权限是资源 ACL 的 field 维度，不是第四层权限：ACL 条目 field=body 只影响 body，不会把整篇文章从列表剔除。决策输入为 content.edit + {type:post, id:文章 slug, field:字段名}，资源标识与读路径（content.read）统一为 slug，避免同一条 ACL 只对一侧生效；权限层缺席或任一字段非 allow 一律 40303（fail-closed），不做部分写入。",
+            "notes": "字段白名单只含 title / body / status / pinned / weight，每个字段单独调用一次 decide()，任一字段被拒则整次写入失败，不存在「部分成功」。status 走 ContentStatus 迁移矩阵：拼错的值返回 42201，已知但不可达的迁移返回 40908。定时发布请用 content.transition —— 那里能同时设置 publish_at。",
             "changelog": [
                 "0.9.0 初次发布"
             ],
@@ -6535,6 +6573,706 @@
                 "0.27.0 初次发布"
             ],
             "doc": "docs/api/API-USER-005.md"
+        },
+        {
+            "id": "API-CONTENT-006",
+            "name": "变更文章状态",
+            "system": "content",
+            "method": "POST",
+            "path": "/api/v1/content/post/transition",
+            "operation": "content.transition",
+            "auth": "admin",
+            "permission": "content.publish",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.28.0",
+            "summary": "在 draft / review / published / archived 之间迁移文章状态，可同时指定定时发布时间。",
+            "scenario": "写完稿提交审核；审核通过后发布；下线旧文归档；排一篇明天早上八点自动上线的公告。",
+            "params": [
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "文章 slug"
+                },
+                {
+                    "name": "to",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "目标状态：draft / review / published / archived"
+                },
+                {
+                    "name": "publish_at",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "仅当 to=published 时生效；未来时间表示定时发布，留空表示立即"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "slug",
+                    "type": "string",
+                    "desc": "文章 slug"
+                },
+                {
+                    "name": "from",
+                    "type": "string",
+                    "desc": "迁移前状态"
+                },
+                {
+                    "name": "to",
+                    "type": "string",
+                    "desc": "迁移后状态"
+                },
+                {
+                    "name": "publish_at",
+                    "type": "string|null",
+                    "desc": "生效的发布时间"
+                },
+                {
+                    "name": "scheduled",
+                    "type": "bool",
+                    "desc": "是否排在未来"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                40403,
+                40908,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "POST /api/v1/content/post/transition  {\"slug\":\"hello\",\"to\":\"published\",\"publish_at\":\"2026-11-12 08:00:00\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "slug": "hello",
+                    "from": "review",
+                    "to": "published",
+                    "publish_at": "2026-11-12 08:00:00",
+                    "scheduled": true
+                },
+                "request_id": "c1a2b3d4e5f60718",
+                "meta": {
+                    "api": "API-CONTENT-006",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "迁移矩阵是穷举的：draft→review/published/archived，review→draft/published/archived，published→draft/archived，archived→draft/published；同状态重复提交是幂等成功（changed 字段不参与判断）。未知状态值返回 42201（拼写问题），已知但不可达返回 40908（顺序问题）——两者处置不同，不能压成一个码。publish_at 只对 published 有意义，改成其他状态时会被清空，避免留下「改回草稿却还排着未来时间」的残留。迁移是「比较并设置」：两个人同时改同一篇，后到的返回 40908 而不是静默覆盖。",
+            "changelog": [
+                "0.28.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-006.md"
+        },
+        {
+            "id": "API-CONTENT-007",
+            "name": "删除文章（进回收站）",
+            "system": "content",
+            "method": "POST",
+            "path": "/api/v1/content/post/delete",
+            "operation": "content.delete",
+            "auth": "admin",
+            "permission": "content.delete",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.28.0",
+            "summary": "把文章移入回收站：打上删除时间，状态原样保留。",
+            "scenario": "下掉一篇不合适的旧文；误删后还能从回收站找回来。",
+            "params": [
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "文章 slug"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "slug",
+                    "type": "string",
+                    "desc": "文章 slug"
+                },
+                {
+                    "name": "deleted",
+                    "type": "bool",
+                    "desc": "是否已删除"
+                },
+                {
+                    "name": "restorable",
+                    "type": "bool",
+                    "desc": "固定为 true，可通过 content.restore 恢复"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                40403,
+                40909,
+                40910,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "POST /api/v1/content/post/delete  {\"slug\":\"hello\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "slug": "hello",
+                    "deleted": true,
+                    "restorable": true
+                },
+                "request_id": "d2b3c4e5f6071829",
+                "meta": {
+                    "api": "API-CONTENT-007",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "软删除只打 deleted_at，不动 status：回收站里的草稿恢复后仍然是草稿。删除后详情、列表、计数、统计存量全部立即看不到它；重复删除返回 40909 而不是再删一次（不重复计时，否则「删除时间」会一次次刷新，保留期永远不到）。",
+            "changelog": [
+                "0.28.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-007.md"
+        },
+        {
+            "id": "API-CONTENT-008",
+            "name": "恢复文章",
+            "system": "content",
+            "method": "POST",
+            "path": "/api/v1/content/post/restore",
+            "operation": "content.restore",
+            "auth": "admin",
+            "permission": "content.delete",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.28.0",
+            "summary": "从回收站恢复文章，状态与定时时间保持删除前的样子。",
+            "scenario": "误删找回；下架后又决定重新上线（恢复后再走一次状态迁移）。",
+            "params": [
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "文章 slug"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "slug",
+                    "type": "string",
+                    "desc": "文章 slug"
+                },
+                {
+                    "name": "restored",
+                    "type": "bool",
+                    "desc": "是否已恢复"
+                },
+                {
+                    "name": "status",
+                    "type": "string",
+                    "desc": "恢复后的状态（即删除前的状态）"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                40403,
+                40909,
+                40910,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "POST /api/v1/content/post/restore  {\"slug\":\"hello\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "slug": "hello",
+                    "restored": true,
+                    "status": "draft"
+                },
+                "request_id": "e3c4d5f60718293a",
+                "meta": {
+                    "api": "API-CONTENT-008",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "恢复不顺手改状态：把回收站里的草稿恢复成「已发布」会让一次误删变成一次意外上线。不在回收站时返回 40910，不存在的 slug 返回 40403 —— 「不在回收站」与「没有这篇」是两件事。",
+            "changelog": [
+                "0.28.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-008.md"
+        },
+        {
+            "id": "API-CONTENT-009",
+            "name": "彻底删除文章",
+            "system": "content",
+            "method": "POST",
+            "path": "/api/v1/content/post/purge",
+            "operation": "content.purge",
+            "auth": "admin",
+            "permission": "content.delete",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.28.0",
+            "summary": "永久删除回收站里的文章，不可恢复；必须回写 slug 作为二次确认。",
+            "scenario": "清理确定不再需要的稿件；合规要求彻底抹掉某篇内容。",
+            "params": [
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "文章 slug"
+                },
+                {
+                    "name": "confirm",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "必须与 slug 完全一致"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "purged",
+                    "type": "bool",
+                    "desc": "是否已彻底删除"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                40403,
+                40909,
+                40910,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "POST /api/v1/content/post/purge  {\"slug\":\"hello\",\"confirm\":\"hello\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "slug": "hello",
+                    "purged": true
+                },
+                "request_id": "f4d5e6a718293a4b",
+                "meta": {
+                    "api": "API-CONTENT-009",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "只对回收站里的文章生效：直接抹掉一篇还在展示的文章必须走「删除 → 彻底删除」两步，让手滑和决定之间隔一个动作。confirm 要求回写 slug 而不是 true —— 布尔值会被前端默认勾选，写 slug 没法顺手点过去。",
+            "changelog": [
+                "0.28.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-009.md"
+        },
+        {
+            "id": "API-CONTENT-010",
+            "name": "回收站列表",
+            "system": "content",
+            "method": "GET",
+            "path": "/api/v1/content/trash",
+            "operation": "content.trash",
+            "auth": "admin",
+            "permission": "content.read",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.28.0",
+            "summary": "分页列出已软删除的文章，含删除时间与删除前状态。",
+            "scenario": "后台回收站页面；确认哪些内容可以彻底清掉。",
+            "params": [
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "required": false,
+                    "type": "int",
+                    "desc": "每页条数，默认 20，上限 100"
+                },
+                {
+                    "name": "cursor",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "上一页返回的 next_cursor"
+                },
+                {
+                    "name": "keyword",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "在标题与正文中做 LIKE 匹配"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "items",
+                    "type": "object[]",
+                    "desc": "文章字段 + deleted_at"
+                },
+                {
+                    "name": "next_cursor",
+                    "type": "string|null",
+                    "desc": "下一页游标"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "回收站总数"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "GET /api/v1/content/trash?limit=20  Authorization: Bearer <admin>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "items": [
+                        {
+                            "id": 7,
+                            "slug": "old-post",
+                            "title": "旧文",
+                            "status": "archived",
+                            "deleted_at": "2026-11-11 09:00:00"
+                        }
+                    ],
+                    "next_cursor": null,
+                    "total": 1
+                },
+                "request_id": "a5e6f708192a3b4c",
+                "meta": {
+                    "api": "API-CONTENT-010",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "回收站是唯一能读到已删除文章的地方；普通列表与详情一律看不到。status 字段保留删除前的值，恢复时据此回到原位。",
+            "changelog": [
+                "0.28.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-010.md"
+        },
+        {
+            "id": "API-CONTENT-011",
+            "name": "分类与标签列表",
+            "system": "content",
+            "method": "GET",
+            "path": "/api/v1/content/terms",
+            "operation": "content.terms",
+            "auth": "public",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.28.0",
+            "summary": "列出全部分类与标签，附每个术语下已发布文章数。",
+            "scenario": "侧边栏标签云、导航里的分类菜单；后台选择要绑定的术语。",
+            "params": [
+                {
+                    "name": "kind",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "category / tag / any，默认 any"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "items",
+                    "type": "object[]",
+                    "desc": "id / kind / slug / name / description / post_count"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "术语总数"
+                },
+                {
+                    "name": "kinds",
+                    "type": "string[]",
+                    "desc": "支持的术语类型"
+                }
+            ],
+            "errors": [
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "GET /api/v1/content/terms?kind=tag",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "items": [
+                        {
+                            "id": 3,
+                            "kind": "tag",
+                            "slug": "php",
+                            "name": "PHP",
+                            "description": "",
+                            "post_count": 4
+                        }
+                    ],
+                    "total": 1,
+                    "kinds": [
+                        "category",
+                        "tag"
+                    ]
+                },
+                "request_id": "b6f708192a3b4c5d",
+                "meta": {
+                    "api": "API-CONTENT-011",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "post_count 不含回收站文章：读者看到的标签云数字必须与点进去的列表条数一致。需要 MySQL；内存降级模式下返回 50101 而不是空数组 —— 「还没有标签」和「这个功能在当前部署下不可用」不能长得一样。",
+            "changelog": [
+                "0.28.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-011.md"
+        },
+        {
+            "id": "API-CONTENT-012",
+            "name": "管理分类与标签",
+            "system": "content",
+            "method": "POST",
+            "path": "/api/v1/content/terms/manage",
+            "operation": "content.terms.manage",
+            "auth": "admin",
+            "permission": "content.manage_terms",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.28.0",
+            "summary": "创建 / 重命名 / 删除术语；删除会一并清理它的全部文章绑定。",
+            "scenario": "站长整理站点结构：新增「随笔」分类，给「php」改名，删掉一个只用过一次的错标签。",
+            "params": [
+                {
+                    "name": "action",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "create / update / delete"
+                },
+                {
+                    "name": "kind",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "action=create 时必填：category / tag"
+                },
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "action=create 时必填：小写字母、数字与连字符"
+                },
+                {
+                    "name": "name",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "显示名称，最长 60 字（create 必填）"
+                },
+                {
+                    "name": "description",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "可选说明"
+                },
+                {
+                    "name": "id",
+                    "in": "body",
+                    "required": false,
+                    "type": "int",
+                    "desc": "update / delete 时的术语 ID"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "术语 ID"
+                },
+                {
+                    "name": "kind",
+                    "type": "string",
+                    "desc": "category / tag"
+                },
+                {
+                    "name": "slug",
+                    "type": "string",
+                    "desc": "术语 slug"
+                },
+                {
+                    "name": "relations_removed",
+                    "type": "int",
+                    "desc": "删除时清理的绑定条数"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                40404,
+                40911,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "POST /api/v1/content/terms/manage  {\"action\":\"create\",\"kind\":\"category\",\"slug\":\"essay\",\"name\":\"随笔\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 5,
+                    "kind": "category",
+                    "slug": "essay",
+                    "name": "随笔",
+                    "created": true
+                },
+                "request_id": "c708192a3b4c5d6e",
+                "meta": {
+                    "api": "API-CONTENT-012",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "同 kind 下 slug 重复返回 40911，而不是静默复用已有术语 —— 复用会让「新建分类」变成「把文章挂到别人的分类上」。kind 与 slug 不可修改：改 slug 会让所有旧链接 404，需要改就新建再迁移。删除在事务里同时清关系，不留孤儿行。",
+            "changelog": [
+                "0.28.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-012.md"
+        },
+        {
+            "id": "API-CONTENT-013",
+            "name": "绑定文章术语",
+            "system": "content",
+            "method": "POST",
+            "path": "/api/v1/content/post/terms",
+            "operation": "content.attach",
+            "auth": "admin",
+            "permission": "content.edit",
+            "idempotent": true,
+            "side_effects": "database",
+            "since": "0.28.0",
+            "summary": "把文章的分类与标签整体替换为给定集合，返回实际新增与移除的条数。",
+            "scenario": "编辑页右侧的分类勾选与标签输入框；批量整理旧文的归档。",
+            "params": [
+                {
+                    "name": "slug",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "文章 slug"
+                },
+                {
+                    "name": "terms",
+                    "in": "body",
+                    "required": true,
+                    "type": "string[]",
+                    "desc": "术语引用数组，形如 kind:slug；传空数组表示清空"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "added",
+                    "type": "int",
+                    "desc": "新增的绑定条数"
+                },
+                {
+                    "name": "removed",
+                    "type": "int",
+                    "desc": "移除的绑定条数"
+                },
+                {
+                    "name": "terms",
+                    "type": "object[]",
+                    "desc": "绑定后的完整术语列表"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                40403,
+                40404,
+                40909,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "POST /api/v1/content/post/terms  {\"slug\":\"hello\",\"terms\":[\"category:essay\",\"tag:php\"]}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "slug": "hello",
+                    "added": 1,
+                    "removed": 1,
+                    "terms": [
+                        {
+                            "id": 5,
+                            "kind": "category",
+                            "slug": "essay",
+                            "name": "随笔"
+                        }
+                    ]
+                },
+                "request_id": "d8192a3b4c5d6e7f",
+                "meta": {
+                    "api": "API-CONTENT-013",
+                    "version": "v1",
+                    "system": "content"
+                }
+            },
+            "notes": "只接受已存在的术语：拼错的标签会返回 40404，而不是悄悄创建一个「只有一篇」的新词条。一次请求里只要有一个引用不存在，整个操作失败 —— 部分成功会让调用方无法判断到底绑上了哪些。整体替换而不是追加：幂等键就是最终的术语集合。",
+            "changelog": [
+                "0.28.0 初次发布"
+            ],
+            "doc": "docs/api/API-CONTENT-013.md"
         }
     ]
 }

@@ -175,6 +175,13 @@ final class RequestGuard
                 'int'   => is_numeric($value),
                 'bool'  => is_bool($value) || in_array((string) $value, ['0', '1', 'true', 'false'], true),
                 'array' => is_array($value),
+                // 清单里写 `string[]` 是自然写法，若落到 default 分支就恒判 false ——
+                // 一个「永远返回类型错误」的参数比没有校验更难查。列表类型在这里显式支持。
+                'string[]' => is_array($value) && array_filter($value, 'is_scalar') === $value,
+                'int[]'    => is_array($value) && array_filter($value, 'is_numeric') === $value,
+                'bool[]'   => is_array($value) && array_filter(
+                    $value, static fn(mixed $v): bool => is_bool($v) || in_array((string) $v, ['0', '1', 'true', 'false'], true)
+                ) === $value,
                 default => is_scalar($value),
             };
             if (!$valid) {

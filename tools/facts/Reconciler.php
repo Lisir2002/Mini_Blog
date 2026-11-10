@@ -99,6 +99,12 @@ final class Reconciler
                 '/OpenAPI 3\.1（(\d+) 路径 \/ (\d+) 操作）/' => ['api_paths', 'operations'],
                 '/v0\.(\d+)\.0、PHP/' => ['version_minor'],
             ],
+            'docs/PERFORMANCE.md' => [
+                // 性能数字随机器负载波动，不逐项锚定；只锁两件事：
+                // 代价数据必须指向可重跑命令，通过数不得写死（这里曾以 250/50 静默过期）。
+                '/php tools\/bench\.php stability/' => ['literal_ok'],
+                '/全量结果以 `php tests\/run\.php` 为准/' => ['literal_ok'],
+            ],
             'api/registry.json' => [
                 '/"api_operations": (\d+),/' => $op,
                 '/"core_version": "(\d+\.\d+\.\d+)",/' => ['version'],

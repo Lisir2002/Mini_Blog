@@ -242,7 +242,7 @@ upgrade   备份当前 → staging → 替换
     <div class="card"><div class="tag ok">安全</div><h3>鉴权从声明变执行</h3><p>令牌落库只存 SHA-256 摘要、带过期与撤销；40101 / 40102 / 40301 / 40302；CSRF 落库一次性；CSP 可配置。</p></div>
     <div class="card"><div class="tag ok">接口</div><h3>幂等 · 限流 · 分页 · OpenAPI</h3><p><code>Idempotency-Key</code> 服务端去重、429 + Retry-After、游标分页、由清单导出标准 OpenAPI 3.1 文档。</p></div>
     <div class="card"><div class="tag ok">承载包</div><h3>后台与独立页</h3><p>可卸载控制台、工具页、只读安装向导、零 CSS 的 bare-html 主题；<strong>v0.6 起全部改由主题提供布局</strong>，独立页不再持有任何 CSS/JS。</p></div>
-    <div class="card"><div class="tag ok">定案</div><h3>命名 / 版本 / 冲突策略</h3><p>「Mini Blog」<code>Wx\</code>（保留的历史命名空间）、v0.22.0、PHP ≥ 8.1；保留显式 priority + fail-fast + 留痕；包签名验签（HMAC-SHA256）落地。</p></div>
+    <div class="card"><div class="tag ok">定案</div><h3>命名 / 版本 / 冲突策略</h3><p>「Mini Blog」<code>Wx\</code>（保留的历史命名空间）、v0.23.0、PHP ≥ 8.1；保留显式 priority + fail-fast + 留痕；包签名验签（HMAC-SHA256）落地。</p></div>
     <div class="card"><div class="tag ok">规矩 H</div><h3>单文件职责预算</h3><p>行数 / 责任主体 / 扇出 / 职权跨度四指标分层预算，<code>audit-responsibility.php</code> 静态审计。上帝类 563 行 → 188 行编排者 + 7 个协作者。</p></div>
     <div class="card"><div class="tag ok">规矩 I</div><h3>协作全方位验证</h3><p>8 类协作矩阵 C1–C8 + 存在性 / 一致性 / 运行时贯通 / 故障注入四维；C9 断言每一类都有实际跑过的守卫。</p></div>
     <div class="card"><div class="tag ok">规矩 J · v0.6</div><h3>呈现权完全归主题</h3><p>后台布局同样过主题系统。独立页只产数据 + 声明 <code>layout</code> 槽位，主题包持有 site / admin / tool / install 全部模板与 CSS/JS；主题缺某布局 → 该页退化为纯 JSON，框架绝不兜底。<code>standalone</code> 绕过主题的后门已拆除。</p></div>

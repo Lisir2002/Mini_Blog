@@ -1,6 +1,6 @@
 # Mini Blog
 
-![version](https://img.shields.io/badge/version-0.22.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.23.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
 ![tests](https://img.shields.io/badge/tests-all%20passing-2ea44f)
@@ -128,7 +128,7 @@ php tools/data.php verify            # 只读孤儿巡检
 php tools/journey.php                # 全链路旅程（隔离站点 / 真实请求管线）
 php tools/faults.php                 # 故障旅程（依赖缺失 / 凭据过期 / 并发 / 越界 / 启动期真实 SAPI）
 php tools/facts.php verify           # 计数唯一真源对账（含错误码表）
-php tools/bench.php                  # 应用层与部署层性能对比
+php tools/bench.php                  # 应用层 / 部署层 / 稳定性代价对比
 php tools/gen-api-docs.php           # 重新生成 69 份接口文档
 php tools/export-openapi.php         # 导出 OpenAPI 3.1
 ```

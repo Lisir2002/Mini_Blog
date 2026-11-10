@@ -7,6 +7,7 @@ declare(strict_types=1);
  *   php tools/bench.php            应用层 + 部署层完整对比
  *   php tools/bench.php app        只跑应用层开关 off / on
  *   php tools/bench.php deploy     只跑部署层 opcache / CPU 核数对照
+ *   php tools/bench.php stability  只跑稳定性的代价：原子写 / 限流 / 流式下载
  *   php tools/bench.php worker N   内部子命令：单进程跑 N 次真实请求，输出内部耗时
  *
  * 所有数字都是真实执行结果，不估算、不模拟、不用截图。
@@ -17,10 +18,12 @@ use Wx\Core\Http\Request;
 use Wx\Core\Kernel;
 use Wx\Tools\Bench\AppProbe;
 use Wx\Tools\Bench\DeployProbe;
+use Wx\Tools\Bench\StabilityProbe;
 
 $root = require dirname(__DIR__) . '/core/bootstrap.php';
 require_once __DIR__ . '/bench/AppProbe.php';
 require_once __DIR__ . '/bench/DeployProbe.php';
+require_once __DIR__ . '/bench/StabilityProbe.php';
 
 $mode = (string) ($argv[1] ?? 'all');
 
@@ -35,8 +38,8 @@ if ($mode === 'worker') {
     exit(0);
 }
 
-if (!in_array($mode, ['app', 'deploy', 'all'], true)) {
-    fwrite(STDERR, "用法：php tools/bench.php [app|deploy|all|worker N]\n");
+if (!in_array($mode, ['app', 'deploy', 'stability', 'all'], true)) {
+    fwrite(STDERR, "用法：php tools/bench.php [app|deploy|stability|all|worker N]\n");
     exit(2);
 }
 
@@ -54,7 +57,7 @@ function pct(float $before, float $after): string
     return sprintf('%+.1f%%', $d);
 }
 
-if ($mode !== 'deploy') {
+if ($mode === 'app' || $mode === 'all') {
     $probe = new AppProbe($root);
     $off = $probe->run(false, $rounds);
     $on = $probe->run(true, $rounds, $off['canonical']);
@@ -78,7 +81,7 @@ if ($mode !== 'deploy') {
     echo "\n";
 }
 
-if ($mode !== 'app') {
+if ($mode === 'deploy' || $mode === 'all') {
     $deploy = (new DeployProbe($root))->run();
     echo "=== B. 部署层：同一份代码，只改服务器配置 ===\n";
     if ($deploy['skipped']) {
@@ -103,6 +106,36 @@ if ($mode !== 'app') {
     }
 }
 
+if ($mode === 'stability' || $mode === 'all') {
+    $st = (new StabilityProbe($root))->run();
+    $cores = trim((string) @shell_exec('nproc'));
+
+    echo "=== C. 稳定性的代价：原子写 / 限流 / 流式下载 ===\n";
+    echo "口径：单进程 2000 次真实调用；并发 6 进程 × 200 个互不相同的键；\n";
+    echo "      流式在独立子进程测量（stdout 落真实文件），峰值内存不被父进程污染。\n";
+    echo '环境：PHP ' . PHP_VERSION . ' | 可见核 ' . ($cores === '' ? '?' : $cores) . "\n\n";
+
+    $id = $st['idempotency'];
+    $rl = $st['rate_limit'];
+    printf("  %-24s %6d 次  %9.2f ms 合计  %7.1f µs/次\n",
+        '幂等 claim+complete', $id['ops'], $id['total_ms'], $id['us_per_op']);
+    printf("  %-24s %6d 次  %9.2f ms 合计  %7.1f µs/次\n",
+        '限流 check（同键争用）', $rl['ops'], $rl['total_ms'], $rl['us_per_op']);
+
+    $cc = $st['concurrency'];
+    printf("  并发占位 %d×%d  期望 %d  落盘 %d  已回填 %d  墙钟 %.1f ms\n\n",
+        $cc['workers'], $cc['ops_each'], $cc['expected'], $cc['stored'], $cc['done'], $cc['wall_ms']);
+
+    $fs = $st['streaming'];
+    printf("  %-24s %10s %14s %14s\n", '下载 ' . $fs['file_mb'] . 'MB', '耗时 ms', '峰值内存 MB', '写出字节');
+    foreach (['body' => 'setBody（全量）', 'stream' => 'setStream（64KB 分块）'] as $key => $label) {
+        $r = $fs[$key];
+        printf("  %-24s %10.1f %14.1f %14s\n",
+            $label, $r['ms'], $r['peak_mb'], number_format($r['written']));
+    }
+    echo "\n";
+}
+
 echo "=== 结论 ===\n";
 echo "  1. 应用层治理把重复请求传输字节降到 0、整组下降约 86%；SQL 条数一致、\n";
 echo "     服务端总耗时只在 ±3% 噪声内波动 —— 它优化的是传输与可观测，不是计算。\n";
@@ -110,4 +143,9 @@ echo "  2. CPU 层杠杆在部署配置：4 并发 worker 从 1 核放到 4 核�
 echo "     固定 4 核上反而比放开可见核更慢 —— 「绑核 / 动态调核」不该写进应用。\n";
 echo "  3. opcache 在 CLI 模型下方向不稳定，已明确不纳入结论：配置收益必须实测，\n";
 echo "     不能凭直觉「开了一定快」（规矩 T：不猜）。\n";
-echo "  4. 见 docs/PERFORMANCE.md §3 部署清单与规矩 T；重跑本命令即可复核全部数字。\n";
+echo "  4. 原子写不是免费的：每次请求多几十微秒（约请求耗时的 1%），换来并发下\n";
+echo "     条目一条不丢；流式把峰值内存从「文件大小」降为常数（64MB → 2MB），\n";
+echo "     代价是本地落盘约 2 倍耗时 —— 内存是机制决定的，耗时是实测的，两者都报，\n";
+echo "     不合并成一句「更快」或「更慢」。\n";
+echo "  5. 见 docs/PERFORMANCE.md §3 部署清单、§6.4 稳定性代价与规矩 T；\n";
+echo "     重跑本命令即可复核全部数字。\n";

@@ -92,6 +92,12 @@ final class ContentSystem extends AbstractSystem
             if ($slug === '') {
                 $slug = 'post-' . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
             }
+            // slug 是用户给的地址，重复属于「状态冲突」而不是「服务器出错」。
+            // 不预检的话唯一索引会抛 PDOException(23000)，被分发器翻译成 50001 ——
+            // 一个纯粹由客户端输入引发的问题，却报告成服务端故障，重试永远不会成功。
+            if ($repo->findBySlug($slug) !== null) {
+                throw new ApiOperationException('slug 已被占用：' . $slug, 40901);
+            }
             $post = (array) $kernel->hooks()->apply('content.before_save', [
                 'slug'   => $slug,
                 'title'  => (string) ($in['title']  ?? ''),

@@ -48,6 +48,7 @@ final class Reconciler
             'docs/DEVELOPMENT.md' => [
                 '/重新生成 (\d+) 份接口文档/' => $op,
                 '/全量守卫（当前数字见 `php tools\/facts\.php`）/' => ['literal_ok'],
+                '/含 (\d+) 份接口文档/' => $op,
             ],
             'docs/api/SPEC.md' => [
                 '/（(\d+) 条路径 \/ (\d+) 个 operation）/' => ['api_paths', 'operations'],
@@ -71,6 +72,10 @@ final class Reconciler
                 '/\*\*(\d+) 个权限点\*\*/' => ['permissions'],
                 '/(\d+) 个文件共 ([\d,]+) 有效代码行/' => ['php_files', 'total_sloc'],
                 '/(\d+) 个 operation 全部绑定执行者/' => $op,
+                // 项目结构树里的三条：曾长期写着 67（v0.18 已是 69），只因不在锚点里而无人发现。
+                '/接口清单（唯一事实源，(\d+) 条）/' => $op,
+                '/SPEC\.md \+ (\d+) 份 API-\*\.md/' => $op,
+                '/生成 (\d+) 份文档与索引/' => $op,
                 // 历史陈述「v0.14–v0.19 未碰 core/」不带版本尾数，避免被误当当前版本对账。
                 '/v0\.14 – v0\.19 连 `core\/` 一个文件都没碰/' => ['literal_ok'],
             ],

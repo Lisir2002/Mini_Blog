@@ -371,7 +371,7 @@ return [
 | --- | --- |
 | 1:1 | 清单每条接口 → 且仅 → 一份 `docs/api/<ID>.md`；任何 `API-*.md` 必须能对应清单条目 |
 | 8 节固定 | 接口标识 / 功能与适用场景 / 请求规范 / 响应规范 / 错误码 / 调用示例 / 幂等性与副作用 / 变更记录 |
-| 生成 | `php tools/gen-api-docs.php` 依据清单 + `docs/api/_TEMPLATE.md` 生成 67 份文档与索引 |
+| 生成 | `php tools/gen-api-docs.php` 依据清单 + `docs/api/_TEMPLATE.md` 生成 69 份文档与索引 |
 | 禁止手改 | 先改清单 → 重新生成 → 跑守卫测试；直接手写文档视为破坏单一事实源 |
 | 守卫 | `tests/run.php` 第 6、10 组逐条检查 1:1、章节、编号与路径一致、无孤儿、无重复、OpenAPI 与清单一致 |
 
@@ -428,8 +428,8 @@ return [
 ├── themes/Bare/ · BareHtml/ · Glass/ · GlassFront/   主题包（Glass/GlassFront 为磨砂玻璃元主题）
 ├── plugins/Hello/ · plugins/Performance/   插件包（示例；可选性能治理包，默认关闭）
 ├── pages/Home/ Links/ Console/ Toolbox/ Install/   独立页包（后三者 standalone；Install 拆为 InstallPage / Installer / InstallerAccount / InstallerMigrate / InstallState / InstallProbe）
-├── api/registry.json           接口清单（唯一事实源，67 条）
-├── docs/api/                   SPEC.md + 67 份 API-*.md + openapi.json + 模板 + 索引
+├── api/registry.json           接口清单（唯一事实源，69 条）
+├── docs/api/                   SPEC.md + 69 份 API-*.md + openapi.json + 模板 + 索引
 ├── docs/CONVENTIONS.md         工程规矩 A–T（含规矩 T 性能三不）
 ├── docs/PERFORMANCE.md         性能治理：判断、部署清单、对比数据与明确不做
 ├── docs/responsibility-report.json   职责与协作审计报告（每次测试自动刷新）
@@ -558,20 +558,21 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | **v0.17** | **元主题（初始化主题）成对出厂**：`meta` / `surface` / `family` 成为 `theme.json` 一等契约字段；第一款前端主题 `themes/GlassFront`（front）与第一款后台主题 `themes/Glass`（back）同属 `family=glass`、`glass.css` 逐字同源，门户文章流由公开接口驱动、渐进增强；`tools/theme.php list/verify` 只读复核。元主题「开箱即在、一行启用」，`theme.active` 默认仍 `null`，不新增系统层 / 接口 / 规矩字母 / 激活机制，`core/` 零改动；`24a` / `24b` 两组 18 项守卫归入规矩 J |
 | **v0.18** | **主题接口面与可视化操作**：审计发现主题接口面为空、后台无主题管理 UI、且「激活主题」存在双台账语义裂缝。三问法判定能力归 `systems/Theme`：自报 `theme.list` / `theme.activate`（+2 operation / +2 权限点）与两个容器契约，启用态只写 `config/local.php` 覆盖层（主配置仍 `null`、删除即回退、原子替换、经 `package.enabled` 询问准入）；`lifecycle.deactivate` 当前启用主题返回 `40901`。`themes/Glass` 新增「主题」分区（清单卡片 / 启用 / 停用 / 结果回显）。`25a` / `25b` 两组守卫归入规矩 J；不新增系统层 / 规矩字母，`core/` 仍 24 文件 |
 | **v0.19** | **端到端旅程与计数单一真源**：把轴从「横向加能力」转到「纵向压实」。新增 `tools/journey.php`（+ `tools/journey/` 七个协作者）：在 `/tmp` 隔离站点 + 独立表前缀里跑完 安装五步 → 真实令牌 → 文章 / 表情 token → 评论树 → 附件上传下载 → 自定义表情 → 前台门户 → 后台主题分区 → 停用回 Headless，全程走 `Kernel::handle(Request)` 真实请求管线，输出纯文本证据，`finally` 清理并对工作区做零残留指纹复核。新增 `tools/facts.php`（+ `tools/facts/`）：从清单 / 文件系统实时算出唯一事实集，逐项对账文档锚点与守卫硬编码锁。`26a` / `26b` 两组守卫分别守「旅程可重跑 / 零残留」与「文档 == 事实」；不新增系统层 / 接口 / 规矩字母，`core/` 仍 24 文件 |
-| **v0.20（当前）** | **稳定性加固四件套**：DB 连接超时（`PDO::ATTR_TIMEOUT`，默认 2s；DSN `connect_timeout` 在 mysqlnd 下实测无效，已放弃）、`system.health` 从恒 `ok` 改为 `ok/degraded/down` + 逐项 checks（`tables` 数组改为 `table_count`）、限流与幂等改为 `flock` 原子读改写（幂等升级为「先占位后回填」，同键并发返回 `40905`）、附件 >1MB 走 64KB 分块输出。`Response` 增加流式出口（唯一核心改动，不新增文件）。`27a` / `27b` 两组故障注入守卫；`28` 组守卫做 `Envelope::TABLE` ↔ `docs/api/SPEC.md` §3 的双向对账（补上漏登的 `40903` / `40904` / `50002` / `50003` / `50004`），并附反向自检确保对账器不会永远报通过；README 徽章改为「全绿」定性表述、纳入锚点，避免通过数写死后过期；`core/` 仍 24 文件 |
+| v0.20 | **稳定性加固四件套**：DB 连接超时（`PDO::ATTR_TIMEOUT`，默认 2s；DSN `connect_timeout` 在 mysqlnd 下实测无效，已放弃）、`system.health` 从恒 `ok` 改为 `ok/degraded/down` + 逐项 checks（`tables` 数组改为 `table_count`）、限流与幂等改为 `flock` 原子读改写（幂等升级为「先占位后回填」，同键并发返回 `40905`）、附件 >1MB 走 64KB 分块输出。`Response` 增加流式出口（唯一核心改动，不新增文件）。`27a` / `27b` 两组故障注入守卫；`28` 组守卫做 `Envelope::TABLE` ↔ `docs/api/SPEC.md` §3 的双向对账（补上漏登的 `40903` / `40904` / `50002` / `50003` / `50004`），并附反向自检确保对账器不会永远报通过；README 徽章改为「全绿」定性表述、纳入锚点，避免通过数写死后过期；`core/` 仍 24 文件 |
+| **v0.21（当前）** | **故障旅程**：成功路径由 `tools/journey.php` 证明，本轮补上反例——`tools/faults.php` + `tools/faults/` 四个协作者，在真实装好的隔离站点上注入九类故障：库不可达与恢复、附件字节在其生命周期内消失、令牌过期与恢复、同键请求进行中、业务失败按幂等语义重放、上传越界、重复 slug、主题指向不存在的包。断言全部落在「可分支的错误」上（`50001` / `40102` / `40905` / `40901` / `42201` / `degraded`），而不是「没崩就行」。顺带修一处错误翻译：重复 slug 由唯一索引抛 `PDOException(23000)` 被译成 `50001`（把客户端输入问题报成服务端故障），改为写入前预检并返回 `40901`。`29` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略、跨请求共享缓存、把 `request_id` 移到 `X-Request-Id` 响应头 |
 
 ---
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **328 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件），文件数仍 24。
-- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`）。
+- `php -l` 全量 **334 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件），文件数仍 24。
+- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；328 个文件共 19,829 有效代码行，最大单文件 187 行，69 个 operation 全部绑定执行者。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；334 个文件共 20,173 有效代码行，最大单文件 187 行，69 个 operation 全部绑定执行者。
 - **17 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → page`；**13 个契约接口文件**（容器运行时绑定 24 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个内部注册项）、**69 个接口 / 69 份文档**、OpenAPI 3.1（62 路径 / 69 操作）、**29 个承载单元**（17 系统层 + 4 主题 + 6 独立页 + 2 插件）、**46 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
-- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.20.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
+- HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.21.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
 - 装卸全链路与签名验签实测：安装 → 启用 → 升级（留备份）→ 回滚 → 停用 → 完整性校验 → 卸载；重复安装、版本未递增、反向依赖、路径穿越、源包越界、篡改签名、强制缺签名均被正确拒绝。
 - 所有验证均为**可重跑的文本证据**，未使用截图（规矩 A）。
 

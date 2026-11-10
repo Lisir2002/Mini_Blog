@@ -141,7 +141,7 @@ git status && git log --oneline -5   # 版本基线
 | 分支 | `main`，跟踪 `origin/main` |
 | 可见性 | Public |
 | 凭据 | GitHub CLI OAuth（`~/.config/gh/hosts.yml`），git 通过 `gh auth git-credential` 取用 |
-| 当前规模 | 478 个已追踪文件（含 67 份接口文档；提交数随迭代递增） |
+| 当前规模 | 随迭代递增；当前量以 `git ls-files | wc -l` 与 `php tools/facts.php` 为准（含 69 份接口文档） |
 
 **不入库的内容**（`.gitignore` 已覆盖）：`storage/` 除骨架外的全部运行时产物、`storage/install.token`、`storage/install.lock`、`config/local.php`、`docs/responsibility-report.json`。
 

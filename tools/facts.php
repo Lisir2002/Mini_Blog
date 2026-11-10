@@ -17,12 +17,14 @@ declare(strict_types=1);
  * 但「哪里没同步」由这条命令和 26b 守卫明确报出。
  */
 
+use Wx\Tools\Facts\CodeTable;
 use Wx\Tools\Facts\Facts;
 use Wx\Tools\Facts\Reconciler;
 
 $root = require dirname(__DIR__) . '/core/bootstrap.php';
 require_once __DIR__ . '/facts/Facts.php';
 require_once __DIR__ . '/facts/Reconciler.php';
+require_once __DIR__ . '/facts/CodeTable.php';
 
 $mode = (string) ($argv[1] ?? 'text');
 if (!in_array($mode, ['text', 'json', 'verify'], true)) {
@@ -47,11 +49,14 @@ if ($mode === 'text') {
 
 $check = Reconciler::run($root, $facts);
 $locks = Reconciler::guardLocks($root, $facts);
-echo "=== 计数对账（文档锚点 {$check['checked']} 项 + 守卫锁） ===\n";
+$codes = CodeTable::run($root);
+echo "=== 计数对账（文档锚点 {$check['checked']} 项 + 守卫锁 + 错误码表 {$codes['checked']} 项） ===\n";
 foreach ($check['findings'] as $f) echo '  FAIL  ' . $f . "\n";
 foreach ($locks as $l) echo '  FAIL  ' . $l . "\n";
-$n = count($check['findings']) + count($locks);
+foreach ($codes['findings'] as $f) echo '  FAIL  ' . $f . "\n";
+$n = count($check['findings']) + count($locks) + count($codes['findings']);
 echo $n === 0
-    ? "结果：零漂移（{$check['checked']} 项文档数字 + " . count($locks) . " 项守卫锁均与事实一致）\n"
+    ? "结果：零漂移（{$check['checked']} 项文档数字 + " . count($locks) . " 项守卫锁 + "
+        . "{$codes['checked']} 个错误码均与事实一致）\n"
     : "结果：{$n} 处漂移，请同步后重跑\n";
 exit($n === 0 ? 0 : 1);

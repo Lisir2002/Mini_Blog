@@ -92,7 +92,7 @@ curl -i http://127.0.0.1:8080/...    # 真实 HTTP 响应头与响应体
 2. `tests/run.php` 中对应的断言；
 3. 至少一次全绿的运行记录（文本证据，不用截图）。
 
-**当前运行记录**（v0.20）：`php tests/run.php` → **全绿**（分组数见 `php tools/facts.php`）；`php -l` 全量 **326** 个 PHP 文件通过（`core/` 仅 24 个，已达上限，未新增文件）；`php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**（19747 有效代码行，最大单文件 187 行，69 个 operation 全绑定执行者）；`php tools/theme.php verify` 复核两款元主题成对 / 同源 / 覆盖面 / 零外链 / 默认 Headless；`php tools/bench.php` 输出应用层开关关 / 开与部署层 opcache、CPU 核数的真实对比数据；`php tools/gen-api-docs.php` 生成 69 份文档 + 索引；`php tools/export-openapi.php` 导出 OpenAPI 3.1（62 路径 / 69 操作）；`php tools/data.php verify` 只读孤儿巡检、`stats` 表体量；`23a` / `23b` 两组守卫验证 `themes/Glass` 的六布局、磨砂玻璃基元、探针路径与登记清单逐条一致、令牌只存内存；`25a` / `25b` 两组守卫验证主题清单 / 启用接口 / 双台账对齐与后台可视化操作；真实 MariaDB 10.11 上建立 24 张表，完成文章 / 评论树 / 附件内容寻址 / 自定义表情 / 用户 / 令牌 / 权限决策 / 页面会话 / 用户组 / 字段级写 / 契约覆盖授权 / 头衔 / 经验 / 等级 / 长任务状态 / 事务回滚 / 批量表情解析 / 出站字段裁剪读写与 HTTP 端到端冒烟。全部为可重跑的文本证据，未使用截图。
+**当前运行记录**（v0.20）：`php tests/run.php` → **全绿**（分组数见 `php tools/facts.php`）；`php -l` 全量 **328** 个 PHP 文件通过（`core/` 仅 24 个，已达上限，未新增文件）；`php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**（19829 有效代码行，最大单文件 187 行，69 个 operation 全绑定执行者）；`php tools/theme.php verify` 复核两款元主题成对 / 同源 / 覆盖面 / 零外链 / 默认 Headless；`php tools/bench.php` 输出应用层开关关 / 开与部署层 opcache、CPU 核数的真实对比数据；`php tools/gen-api-docs.php` 生成 69 份文档 + 索引；`php tools/export-openapi.php` 导出 OpenAPI 3.1（62 路径 / 69 操作）；`php tools/data.php verify` 只读孤儿巡检、`stats` 表体量；`23a` / `23b` 两组守卫验证 `themes/Glass` 的六布局、磨砂玻璃基元、探针路径与登记清单逐条一致、令牌只存内存；`25a` / `25b` 两组守卫验证主题清单 / 启用接口 / 双台账对齐与后台可视化操作；真实 MariaDB 10.11 上建立 24 张表，完成文章 / 评论树 / 附件内容寻址 / 自定义表情 / 用户 / 令牌 / 权限决策 / 页面会话 / 用户组 / 字段级写 / 契约覆盖授权 / 头衔 / 经验 / 等级 / 长任务状态 / 事务回滚 / 批量表情解析 / 出站字段裁剪读写与 HTTP 端到端冒烟。全部为可重跑的文本证据，未使用截图。
 
 ---
 

@@ -125,9 +125,13 @@ php tools/bench.php                  # 性能基准：应用层开关 + 部署�
 php tools/data.php verify            # 只读孤儿巡检（stats 看表体量）
 php tools/gen-api-docs.php           # 重新生成 69 份接口文档
 php tools/journey.php                # 全链路旅程（需 MariaDB）
-php tools/facts.php verify           # 计数唯一真源对账
+php tools/facts.php verify           # 计数唯一真源对账（锚点 / 守卫锁 / 错误码 / 反向候选）
+php tools/facts.php accept           # 确认新增数字属史实后，更新反向候选快照（唯一写文件的模式）
 git status && git log --oneline -5   # 版本基线
 ```
+
+`verify` 报 `NEW` 时不要直接 `accept`：先判断这个数字**该不该有锚点**。当前基线陈述要补锚点，
+版本记录 / 性能快照才进快照。快照是账本，不是许可 —— 它的价值全在「只增不减地接受」会被下一次审阅看出来。
 
 环境层面的排障顺序：`wx-ssh-setup` → `service mariadb status` → `php -v` → `agent-browser --version`。
 

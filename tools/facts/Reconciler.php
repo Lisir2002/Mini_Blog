@@ -15,8 +15,13 @@ namespace Wx\Tools\Facts;
  */
 final class Reconciler
 {
-    /** @return array<string, array<string, list<string>>> 文件 => 正则 => 各捕获组对应的事实键 */
-    private static function anchors(): array
+    /**
+     * @return array<string, array<string, list<string>>> 文件 => 正则 => 各捕获组对应的事实键
+     *
+     * public 是为了让 Coverage（反向锚点）复用同一张表：两套锚点定义必然漂移，
+     * 反向检测若拿不到「什么算已纳管」，只会把已锚定的数字再报一遍。
+     */
+    public static function anchors(): array
     {
         $op = ['operations'];
         return [
@@ -98,6 +103,11 @@ final class Reconciler
                 '/(\d+) 个接口对应 (\d+) 份文档/' => ['operations', 'operations'],
                 '/OpenAPI 3\.1（(\d+) 路径 \/ (\d+) 操作）/' => ['api_paths', 'operations'],
                 '/v0\.(\d+)\.0、PHP/' => ['version_minor'],
+                // 页眉三处此前从未纳入锚点，长期停在 v0.15 时代的「14 系统层 · 55 接口」。
+                // 手写页面的副本比 Markdown 更容易腐坏：改动时不会有人同时想起它。
+                '/Architecture Overview · v0\.(\d+)/' => ['version_minor'],
+                '/建议全数采纳 · (\d+) 系统层 · (\d+) 接口/' => ['system_layers', 'operations'],
+                '/全量 <strong>(\d+)<\/strong> 个 PHP 文件通过/' => ['php_files'],
             ],
             'docs/PERFORMANCE.md' => [
                 // 性能数字随机器负载波动，不逐项锚定；只锁两件事：

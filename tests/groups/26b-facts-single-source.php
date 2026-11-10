@@ -42,14 +42,35 @@ check('守卫锁未过期：硬编码的 69 / 46 仍等于事实', function () u
     truthy($bad === [], '守卫锁与事实脱节：' . implode(' | ', $bad));
 });
 
-check('工具可重跑：text / json / verify 三种模式都可用且不写文件', function () use ($root): void {
+check('工具可重跑：三种模式都可用，verify 不改任何文件', function () use ($root): void {
     truthy(is_file($root . '/tools/facts.php'), '缺少 tools/facts.php');
-    foreach (['Facts', 'Reconciler'] as $c) {
+    foreach (['Facts', 'Reconciler', 'CodeTable', 'Coverage'] as $c) {
         truthy(is_file($root . '/tools/facts/' . $c . '.php'), '缺少协作者 ' . $c);
     }
     $cli = (string) file_get_contents($root . '/tools/facts.php');
     truthy(str_contains($cli, "'text', 'json', 'verify'"), 'CLI 模式不全');
-    truthy(str_contains($cli, 'file_put_contents') === false, '事实工具不应写文件');
+
+    // 这里原是「源码里不含 file_put_contents」——v0.24 加了 accept 模式（确实要写快照）后
+    // 该写法失效，而它本来也只是近似：能写文件的路径有很多种。改成行为验证。
+    $snapshot = static function () use ($root): array {
+        $out = [];
+        foreach ([$root . '/docs', $root . '/tools/facts', $root . '/README.md'] as $path) {
+            $it = is_dir($path)
+                ? new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS))
+                : [$path];
+            foreach ($it as $f) {
+                $p = $f instanceof SplFileInfo ? $f->getPathname() : (string) $f;
+                if (is_file($p)) $out[$p] = md5_file($p) . ':' . filemtime($p);
+            }
+        }
+        ksort($out);
+        return $out;
+    };
+    $before = $snapshot();
+    $rc = 0;
+    exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($root . '/tools/facts.php') . ' verify 2>&1', $o, $rc);
+    truthy($rc === 0, 'verify 退出码非 0：' . implode(' ', array_slice($o, -3)));
+    truthy($snapshot() === $before, 'verify 改动了文件 —— 对账命令必须是只读的');
     $json = Facts::compute($root);
     truthy(isset($json['operations'], $json['permissions'], $json['version']), '事实集缺字段');
     truthy($GLOBALS['wx_facts'] === $json, '同一轮里事实集不稳定');

@@ -3,7 +3,7 @@
 ![version](https://img.shields.io/badge/version-0.20.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
-![tests](https://img.shields.io/badge/tests-282%20passing-2ea44f)
+![tests](https://img.shields.io/badge/tests-all%20passing-2ea44f)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
 一个零依赖的 PHP 博客框架：把博客拆成系统核心、系统层、承载包与主题四层，核心只做装配与调度，能力、呈现、接口全部可插拔。

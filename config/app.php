@@ -58,6 +58,15 @@ return [
         'per_page' => 10,
     ],
 
+    // 用户系统（第 5 个系统层）：账号生命周期。
+    // 注册默认关闭 —— 开放注册是一个需要站点主明确决定的安全决策。
+    'user' => [
+        'registration' => ['enabled' => false],
+        'login'        => ['max_attempts' => 5, 'lock_seconds' => 900],
+        // 下限 8 位在 CredentialPolicy 内锁死，这里只能调高。
+        'password'     => ['min_length' => 8],
+    ],
+
     // 安全系统：CSP 默认关闭（示例主题使用内联样式，启用时需允许 style-src 'unsafe-inline'）
     'security' => [
         'csp' => '',

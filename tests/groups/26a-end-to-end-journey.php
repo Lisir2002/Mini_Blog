@@ -87,7 +87,7 @@ check('不越界：旅程不新增系统层 / 接口 / 契约，core/ 仍 24 文
         'core/ 文件数被改动');
     truthy(count(glob($root . '/systems/*/system.json') ?: []) === 18, '系统层数量被改动');
     $reg = json_decode((string) file_get_contents($root . '/api/registry.json'), true);
-    truthy(count($reg['endpoints'] ?? []) === 73, '接口清单被改动');
+    truthy(count($reg['endpoints'] ?? []) === 80, '接口清单被改动');
     $perms = 0;
     foreach (glob($root . '/systems/*/permissions.json') ?: [] as $f) {
         $perms += count((array) (json_decode((string) file_get_contents($f), true)['permissions'] ?? []));

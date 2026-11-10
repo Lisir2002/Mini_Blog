@@ -78,5 +78,12 @@
 | `API-METRIC-002` | `GET` | `/api/v1/stats/series` | `metric` | `admin` | 是 | [API-METRIC-002](API-METRIC-002.md) |
 | `API-METRIC-003` | `GET` | `/api/v1/stats/operations` | `metric` | `admin` | 是 | [API-METRIC-003](API-METRIC-003.md) |
 | `API-METRIC-004` | `GET` | `/api/v1/stats/catalog` | `metric` | `admin` | 是 | [API-METRIC-004](API-METRIC-004.md) |
+| `API-AUTH-005` | `POST` | `/api/v1/auth/register` | `user` | `public` | 否 | [API-AUTH-005](API-AUTH-005.md) |
+| `API-AUTH-006` | `POST` | `/api/v1/auth/password` | `user` | `user` | 否 | [API-AUTH-006](API-AUTH-006.md) |
+| `API-AUTH-007` | `POST` | `/api/v1/auth/logout` | `user` | `user` | 是 | [API-AUTH-007](API-AUTH-007.md) |
+| `API-USER-002` | `POST` | `/api/v1/users/me` | `user` | `user` | 是 | [API-USER-002](API-USER-002.md) |
+| `API-USER-003` | `GET` | `/api/v1/users` | `user` | `admin` | 是 | [API-USER-003](API-USER-003.md) |
+| `API-USER-004` | `GET` | `/api/v1/users/view` | `user` | `admin` | 是 | [API-USER-004](API-USER-004.md) |
+| `API-USER-005` | `POST` | `/api/v1/users/manage` | `user` | `admin` | 否 | [API-USER-005](API-USER-005.md) |
 
-共 73 个接口，接口版本 `v1`。
+共 80 个接口，接口版本 `v1`。

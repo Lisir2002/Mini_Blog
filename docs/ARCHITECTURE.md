@@ -324,7 +324,7 @@ return [
 
 ### 10.1 清单是唯一事实源
 
-`api/registry.json` 定义 **73 个接口**：`API-CORE-001~004`、`API-LOG-001`、`API-LC-001~009`、`API-AUTH-001~004`、`API-USER-001`、`API-CONTENT-001~005`、`API-COMMENT-001~005`、`API-ATTACH-001~005`、`API-EMOJI-001~003`、`API-PERM-001~014`、`API-MEMBER-001~010`、`API-REL-001~005`、`API-STATE-001`。每条必须声明 `id / name / system / method / path / operation / auth / idempotent / side_effects / since / summary / scenario / params / response_fields / errors / example_request / example_response / notes / changelog / doc`。
+`api/registry.json` 定义 **80 个接口**：`API-CORE-001~004`、`API-LOG-001`、`API-LC-001~009`、`API-AUTH-001~004`、`API-USER-001`、`API-CONTENT-001~005`、`API-COMMENT-001~005`、`API-ATTACH-001~005`、`API-EMOJI-001~003`、`API-PERM-001~014`、`API-MEMBER-001~010`、`API-REL-001~005`、`API-STATE-001`。每条必须声明 `id / name / system / method / path / operation / auth / idempotent / side_effects / since / summary / scenario / params / response_fields / errors / example_request / example_response / notes / changelog / doc`。
 
 `ApiRegistry` 构造时强校验：ID 唯一、`method+path` 唯一、`operation` 唯一；`registerOperation` 拒绝重复执行者。
 
@@ -363,7 +363,7 @@ return [
 | 幂等键 | `IdempotencyStore`（文件 JSON） | 同键同参数重放首次结果并回 `Idempotency-Replayed: true`；同键不同参数 `40902`；参数校验失败不写缓存；429 不被缓存 |
 | 429 限流 | `RateLimiter`（固定窗口） | `Retry-After` + `X-RateLimit-Limit/Remaining/Reset`；CLI 用 PID 隔离避免跨轮累积 |
 | 游标分页 | `content.posts` | `limit + cursor`，cursor 为 base64 编码的记录 ID，走 `id > cursor` 的 keyset 分页，避免 OFFSET 深翻页 |
-| OpenAPI 3.1 | `tools/export-openapi.php` | 由清单导出 `docs/api/openapi.json`（66 条路径 / 73 个 operation，同路径多方法合并），含 `bearerAuth` 安全声明与统一 schema |
+| OpenAPI 3.1 | `tools/export-openapi.php` | 由清单导出 `docs/api/openapi.json`（72 条路径 / 80 个 operation，同路径多方法合并），含 `bearerAuth` 安全声明与统一 schema |
 
 ### 10.5 一个接口 = 一份规范化操作文档
 
@@ -371,7 +371,7 @@ return [
 | --- | --- |
 | 1:1 | 清单每条接口 → 且仅 → 一份 `docs/api/<ID>.md`；任何 `API-*.md` 必须能对应清单条目 |
 | 8 节固定 | 接口标识 / 功能与适用场景 / 请求规范 / 响应规范 / 错误码 / 调用示例 / 幂等性与副作用 / 变更记录 |
-| 生成 | `php tools/gen-api-docs.php` 依据清单 + `docs/api/_TEMPLATE.md` 生成 73 份文档与索引 |
+| 生成 | `php tools/gen-api-docs.php` 依据清单 + `docs/api/_TEMPLATE.md` 生成 80 份文档与索引 |
 | 禁止手改 | 先改清单 → 重新生成 → 跑守卫测试；直接手写文档视为破坏单一事实源 |
 | 守卫 | `tests/run.php` 第 6、10 组逐条检查 1:1、章节、编号与路径一致、无孤儿、无重复、OpenAPI 与清单一致 |
 
@@ -428,8 +428,8 @@ return [
 ├── themes/Bare/ · BareHtml/ · Glass/ · GlassFront/   主题包（Glass/GlassFront 为磨砂玻璃元主题）
 ├── plugins/Hello/ · plugins/Performance/   插件包（示例；可选性能治理包，默认关闭）
 ├── pages/Home/ Links/ Console/ Toolbox/ Install/   独立页包（后三者 standalone；Install 拆为 InstallPage / Installer / InstallerAccount / InstallerMigrate / InstallState / InstallProbe）
-├── api/registry.json           接口清单（唯一事实源，73 条）
-├── docs/api/                   SPEC.md + 73 份 API-*.md + openapi.json + 模板 + 索引
+├── api/registry.json           接口清单（唯一事实源，80 条）
+├── docs/api/                   SPEC.md + 80 份 API-*.md + openapi.json + 模板 + 索引
 ├── docs/CONVENTIONS.md         工程规矩 A–T（含规矩 T 性能三不）
 ├── docs/PERFORMANCE.md         性能治理：判断、部署清单、对比数据与明确不做
 ├── docs/responsibility-report.json   职责与协作审计报告（每次测试自动刷新）
@@ -563,7 +563,8 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | v0.22 | **启动期边界**：把「构造」纳入异常边界——`Kernel::serve()` 包住构造与 `run()`，`public/index.php` 只留一行调用。此前 `config/local.php`（主题启用唯一会写的文件）损坏会在构造期抛出、落在 `run()` 之外：`display_errors=0` 时 HTTP/1.0 500 空 body（白屏），`display_errors=1` 时 **HTTP 200** + 绝对路径与 `Parse error`（监控看到成功，缓存与爬虫把错误页当正常页收下）。新增 `tools/journey/Server.php`（内置服务器：端口探测 / 就绪等待 / 原始响应读出 / 强制回收）与 `tools/faults/StartupFaults.php`（装配期、构造期各含自愈，全程 `display_errors=1`），`faults` 从九类扩到十一类；`30` 组守卫做入口唯一性、兜底正文唯一性、子进程构造期断言。故障只进 SAPI 日志、不进响应体；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.23 | **稳定性的代价**：v0.20 的原子写与流式下载此前只有正确性守卫、没有数字。新增 `tools/bench/StabilityProbe.php` 与 `php tools/bench.php stability`：幂等 `claim`+`complete` 45 µs/次、限流 `check` 11 µs/次（约占一次请求 3.7 ms 的 1%）、6 进程 × 200 键并发落盘 **1200/1200** 一条不丢；附件 64 MB 全量 **66.0 MB** 峰值 / 分块 **2.0 MB**（−97%），本地落盘耗时约 1.8 倍。文档只锁「可重跑命令」，数值标注为机器快照；顺带修掉 PERFORMANCE §8 里写死的「250 passed / 50 分组文件」（早已静默过期），并把性能文档纳入事实对账。`31` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.24 | **反向锚点**：正向锚点只能核对「已经想到要核对的句子」——v0.20 起查出的四处漂移（README 徽章 `282 passing`、SPEC 漏登 5 个错误码、architecture.html 页眉「14 系统层 · 55 接口」、结构树「40 个分组 200 项守卫」）都不是写错，而是**没有锚点**，坏掉时对账仍报零漂移。新增 `tools/facts/Coverage.php`：扫「有单一真源的名词」前的数字，未被任一锚点覆盖且非史实句即为候选；候选不与绝对值比对（那会立刻产生 611 条噪音），而与 `coverage-baseline.php` 快照比增量，只报**新出现的组合**（611 → 32 条，当前零假红）。`php tools/facts.php verify` 输出 `NEW` 行并以非 0 退出；`accept` 是唯一写文件的模式，且只覆盖该快照。顺带把 26b 里「源码不含 `file_put_contents`」这条字符串近似断言改为行为验证（跑 verify 前后比对 docs / tools/facts 的 md5 与 mtime）。`32` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
-| **v0.26（当前）** | **统计系统（第 18 层）**：此前只有零散计数（`QueryProfiler`、`health`、`data stats`），没有统一口径回答「多少请求、错多少、多慢、谁被调得多、存量多少」。新增 `systems/Metric`：三类指标（counter / gauge / histogram）、小时聚合表、四通道自动埋点（HTTP / 接口 / SQL / 业务事件）、四个只读接口、`tools/metrics.php report/prune/verify`；白名单字典 + 标签收窄 + `metric_dropped`，同时挡住基数爆炸与拼写黑洞；写入失败只降级不反噬业务。`core/` 仍 24 文件，仅 `Kernel` 给关闭钩子补时长参数、`ApiDispatcher` 广播 `api.executed`；系统层 18、接口 73、权限点 47、`34` 组守卫 12 项。 |
+| **v0.27（当前）** | **账号体系闭环**：此前全站只有一个 `seed()` 出来的 `admin/admin123`，不能注册、不能改密、不能改资料、爆破无成本。新增注册（默认关闭 + 口令策略）、改密（保留当前令牌、踢掉其他设备）、登出、改资料，以及管理端列表 / 详情 / 禁用 / 启用 / 改角色 / 重置口令；登录失败计数与锁定、禁用立即吊销全部令牌、禁止禁用自己与移除最后一个管理员。错误码补 40103 / 40105 / 40304 / 40906 / 40907 / 42902，登录失败不再与「令牌无效」共用 40102。`core/` 仍 24 文件；接口 80、权限点 47、`35` 组守卫 16 项。 |
+| **v0.26** | **统计系统（第 18 层）**：此前只有零散计数（`QueryProfiler`、`health`、`data stats`），没有统一口径回答「多少请求、错多少、多慢、谁被调得多、存量多少」。新增 `systems/Metric`：三类指标（counter / gauge / histogram）、小时聚合表、四通道自动埋点（HTTP / 接口 / SQL / 业务事件）、四个只读接口、`tools/metrics.php report/prune/verify`；白名单字典 + 标签收窄 + `metric_dropped`，同时挡住基数爆炸与拼写黑洞；写入失败只降级不反噬业务。`core/` 仍 24 文件，仅 `Kernel` 给关闭钩子补时长参数、`ApiDispatcher` 广播 `api.executed`；系统层 18、接口 73、权限点 47、`34` 组守卫 12 项。 |
 | **v0.25** | **规模验证**：v0.24 以前所有证据都在几十行夹具上跑，「用了 keyset 所以分页快」「建了索引所以走索引」都只是读代码的推断。新增 `tools/scale.php`（+ `scale/{Seeder,Probe}`）在独立前缀临时表上灌万级数据实测，第一次上量就查出两处真缺陷：①带 `keyword` 的搜索必抛 `PDOException: Invalid parameter number`（`:kw` 在 SQL 里用了两次，而连接是原生预处理）—— 功能从上线起完全不可用，内存实现走 `str_contains` 故两组测试都没发现；②单篇评论无上限，5 万条读出 **90 MB**。修复：搜索改用独立占位符；`forPost()` 增加可选 `$limit`、`comment.read_limit` 默认 2000、响应新增 `truncated` 字段（截断显式声明，`total` 仍为真实值）。实测结论：分页 O(1)（10 万行深翻 12.8 ms，其中 11.8 ms 是每页一次 `count()`）、搜索无命中为全表扫描（10 万行 188.9 ms）、热文 2 万条 44 ms / 21 MB vs 限额 4.7 ms / 2.1 MB。`33` 组守卫；不新增系统层，`core/` 仍 24 文件 |
 | v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略、跨请求共享缓存、把 `request_id` 移到 `X-Request-Id` 响应头 |
 
@@ -571,11 +572,11 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **359 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
-- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`）。
+- `php -l` 全量 **365 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
+- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；359 个文件共 22,404 有效代码行，最大单文件 187 行，73 个 operation 全部绑定执行者。
-- **18 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → metric → page`；**13 个契约接口文件**（容器运行时绑定 26 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个内部注册项）、**73 个接口 / 73 份文档**、OpenAPI 3.1（66 路径 / 73 操作）、**30 个承载单元**（18 系统层 + 4 主题 + 6 独立页 + 2 插件）、**47 个权限点**。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；365 个文件共 23,127 有效代码行，最大单文件 187 行，80 个 operation 全部绑定执行者。
+- **18 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → metric → page`；**13 个契约接口文件**（容器运行时绑定 26 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个内部注册项）、**80 个接口 / 80 份文档**、OpenAPI 3.1（72 路径 / 80 操作）、**30 个承载单元**（18 系统层 + 4 主题 + 6 独立页 + 2 插件）、**47 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
 - HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.25.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
 - 装卸全链路与签名验签实测：安装 → 启用 → 升级（留备份）→ 回滚 → 停用 → 完整性校验 → 卸载；重复安装、版本未递增、反向依赖、路径穿越、源包越界、篡改签名、强制缺签名均被正确拒绝。
@@ -1543,6 +1544,33 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 **实现中抓到的一个真问题**：首版 HTTP 耗时用 `$_SERVER['REQUEST_TIME_FLOAT']` 起算。Web SAPI 下正确，但 CLI / 守卫里那是**进程启动时间**，于是测试跑了 3 秒，统计就记成「这次请求慢了 3 秒」，报告里出现 p50=5000ms 的假数据。改为由 `Kernel::handle()` 计时并通过 `kernel.shutdown` 传入（进入 handle → 渲染完成），CLI 与 Web 口径一致。这个缺陷没有让任何请求失败，只会让运维对着假曲线做决策 —— 正是本项目要消灭的「安静地错」。
 
 **边界**：`systems/Metric` 不读业务表（存量由 `metric.collect` 自报）、不产 HTML（看板归主题）、不新增核心契约（存储契约是系统层内部契约，与 `QueryProfilerInterface` 同级）。`core/` 仍 24 个文件，新增能力全部落在系统层与工具层。详见 [`docs/METRICS.md`](METRICS.md)。
+
+---
+
+## 37. 账号体系闭环：从「一个种子账号」到能真正部署（v0.27）
+
+**此前的状态不能叫「用户系统」，只能叫「身份读取器」。** `systems/User` 对外只有两个接口：凭据换令牌、查当前身份。账号来源是 `seed()` 里硬编码的 `admin/admin123`；没有注册，没有改密，没有资料，`verifyCredentials()` 失败不计次数，爆破零成本。任何真实部署的第一步都会卡在这里。
+
+**为什么先做它，而不是分类 / 标签 / 点赞**：账号是所有写操作的前置条件。分类标签可以让文章更好找，但如果站点连第二个账号都建不出来，「多人博客」这件事根本不成立。这也是四个方向里验收标准最硬的一个 —— 旧口令错必须拒、锁定后正确口令也必须拒、禁用后已签发令牌必须立即失效，三条都能写成断言。
+
+| 设计问题 | 选择 | 理由 |
+| --- | --- | --- |
+| 注册是否默认开放 | **默认关闭，配置开启** | 开放注册是需要站点主明确决定的安全决策，不能因为「接口存在」就默认敞开 |
+| 注册失败怎么表达 | **40304 未开放 / 40907 用户名被占用** | 「功能没开」与「接口不存在」、「名字被占用」与「服务器出错」必须能区分 |
+| 登录失败如何区分 | **40105 口令错 / 40103 禁用 / 42902 锁定** | 三种失败的处置完全不同：重输、找管理员、等一会儿。压成一个 401 会让用户永远重试一个不会成功的口令 |
+| 改密后旧令牌 | **保留当前、吊销其他** | 改密是止损动作，不是「把自己也踢下线」；其他设备必须立刻失效 |
+| 禁用后旧令牌 | **立即全部吊销** | 否则「禁用」只是登录被拒，手里的令牌照样能调写接口 —— 假动作 |
+| 锁定策略 | **5 次失败锁 15 分钟，到期计数归零** | 计数不清零会让用户在解锁后第一次手滑就再锁十五分钟 |
+| 用户名是否可枚举 | **不存在与口令错同码，且对固定 hash 空转一次** | 返回快慢本身就是信号；账号不存在的分支必须付出同等的 bcrypt 代价 |
+| 能否禁用自己 / 降级最后一个 admin | **都不允许，40906** | 这两次误操作会把站点彻底锁死，前端置灰不算防护 |
+
+**实现中抓到的三个真问题**：
+
+1. **同一命名占位符不能复用**。`markLogin()` 首版写的是 `SET last_login_at = :now, updated_at = :now`，原生预处理直接抛 `HY093`，登录返回 500。注册能成功、改密能成功，只有「登录成功那一次」失败 —— 因为失败路径不写 `last_login_at`。这类缺陷只有在成功路径上才会显形。
+2. **`mb_substr` 在本环境不存在**。改资料首版用 `mb_substr` 截断显示名，直接 fatal。更深一层：用 `substr` 兜底会把中文截出半个 UTF-8 字节，`json_encode` 随后返回 `false`，整个响应变成空白 —— 一个昵称就能让接口「200 但没内容」。改用 `iconv_substr` / `iconv_strlen`，并把非法 UTF-8 显式拒绝。
+3. **错误码语义错位**。登录口令错原本复用 `40102`（令牌无效或已过期），对外 message 是「令牌无效或已过期」—— 用户看到的提示与发生的事完全无关。新增 `40105` 专表凭据失败，`40102` 只留给「携带的令牌无效」。
+
+**边界**：`systems/User` 不产 HTML（登录页归主题）、不实现令牌签发（归安全层）、不定义权限模型（归权限层）。账号禁用时需要吊销令牌，这是唯一一处跨层写（`AccountRevocation` 直接 UPDATE `user_tokens`），理由是安全不变量优先于表所有权：改发钩子会让「安全层缺席 → 钩子静默无操作 → 禁用变假动作」。详见 [`docs/ACCOUNTS.md`](ACCOUNTS.md)。
 
 ---
 

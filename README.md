@@ -1,6 +1,6 @@
 # Mini Blog
 
-![version](https://img.shields.io/badge/version-0.26.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.27.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
 ![tests](https://img.shields.io/badge/tests-all%20passing-2ea44f)
@@ -13,7 +13,7 @@
 
 ## 简介
 
-Mini Blog 用原生 PHP 8.1+ 写成，没有 Composer、vendor、模板引擎与 ORM。18 个系统层各自声明 `system.json` 并由内核按依赖装配；主题包是 HTML/CSS/JS 的唯一合法住所；73 个接口由 `api/registry.json` 单向生成文档与 OpenAPI。新增系统层或接口均无需改动 `core/`——它固定 24 个 PHP 文件，不写一条 SQL，也不输出任何标签或样式。
+Mini Blog 用原生 PHP 8.1+ 写成，没有 Composer、vendor、模板引擎与 ORM。18 个系统层各自声明 `system.json` 并由内核按依赖装配；主题包是 HTML/CSS/JS 的唯一合法住所；80 个接口由 `api/registry.json` 单向生成文档与 OpenAPI。新增系统层或接口均无需改动 `core/`——它固定 24 个 PHP 文件，不写一条 SQL，也不输出任何标签或样式。
 
 默认状态是 Headless 数据服务（`theme.active = null`），接入主题后成为站点。当前为可运行的内核原型，部署配置见 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)。
 
@@ -24,10 +24,11 @@ Mini Blog 用原生 PHP 8.1+ 写成，没有 Composer、vendor、模板引擎与
 | 四层模型 | 系统核心 / 系统层 / 承载包 / 数据与呈现，层间只通过契约、事件、装配清单与数据接口通信 |
 | 可插拔系统层 | 18 层覆盖日志、数据、安全、权限、内容、评论、附件、表情、状态、版本、统计等，各带 `system.json` |
 | 呈现归主题 | 无主题或主题缺布局时一律退化为纯 JSON，框架不兜底 HTML/CSS/JS |
-| 接口清单驱动 | 73 个接口 = 73 份文档 = 73 个 operation，全部由 `api/registry.json` 生成 |
+| 接口清单驱动 | 80 个接口 = 80 份文档 = 80 个 operation，全部由 `api/registry.json` 生成 |
 | 内容与交互 | 文章、评论树、SHA-256 内容寻址附件、表情 token、五态状态反馈 |
 | 数据平面 | 事务会话、查询观测、严格 `sql_mode`、显式出站字段白名单、只读孤儿巡检 |
 | 统计与可观测 | 计数器 / 仪表 / 直方图三类指标，按小时聚合；HTTP、接口、SQL、业务事件自动埋点，四个只读接口回答「现在发生了什么」 |
+| 账号体系 | 注册（默认关闭）、改密、登出、改资料；禁用 / 启用 / 改角色 / 重置口令；登录失败锁定、禁用即吊销全部令牌 |
 | 安装与版本 | 五步安装向导、迁移台账与 checksum、按版本快照升级与回退 |
 | 出厂元主题 | `Glass`（后台面）/ `GlassFront`（前端面）：半透明磨砂玻璃质感，同材质家族、可独立启用 |
 | 可重跑证据 | 全量自动化守卫、单文件职责审计、出厂主题复核、应用层与部署层性能基准 |
@@ -111,9 +112,9 @@ Mini_Blog/
 ├── themes/                   Bare · BareHtml · Glass · GlassFront（磨砂玻璃元主题）
 ├── plugins/                  Hello · Performance（默认关闭）
 ├── pages/                    Home · Links · Post · Console · Toolbox · Install
-├── api/registry.json         接口清单（唯一事实源，73 条）
+├── api/registry.json         接口清单（唯一事实源，80 条）
 ├── config/app.php            装配清单
-├── docs/                     架构、规矩、专题与 73 份接口文档
+├── docs/                     架构、规矩、专题与 80 份接口文档
 ├── tests/                    守卫分组（见 tests/groups/）
 ├── tools/                    文档生成 / OpenAPI / 审计 / 基准 / 旅程 / 故障旅程 / 事实对账 / 签名
 └── storage/                  运行时产物
@@ -131,11 +132,11 @@ php tools/faults.php                 # 故障旅程（依赖缺失 / 凭据过�
 php tools/facts.php verify           # 计数唯一真源对账（含错误码表）
 php tools/bench.php                  # 应用层 / 部署层 / 稳定性代价对比
 php tools/scale.php run              # 规模验证（万级数据下的分页 / 索引 / 读取上限）
-php tools/gen-api-docs.php           # 重新生成 73 份接口文档
+php tools/gen-api-docs.php           # 重新生成 80 份接口文档
 php tools/export-openapi.php         # 导出 OpenAPI 3.1
 ```
 
-当前基线：php tests/run.php 全绿、0 职责违规 / 0 孤儿协作、18 系统层、73 接口、25 张业务表、`core/` 24 文件。均为可重跑的文本证据，不依赖截图。
+当前基线：php tests/run.php 全绿、0 职责违规 / 0 孤儿协作、18 系统层、80 接口、25 张业务表、`core/` 24 文件。均为可重跑的文本证据，不依赖截图。
 
 ## 文档
 
@@ -151,8 +152,9 @@ php tools/export-openapi.php         # 导出 OpenAPI 3.1
 | [`docs/DATA.md`](docs/DATA.md) | 数据层四个维度与巡检 |
 | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | 性能治理判断、部署清单与对比数据 |
 | [`docs/METRICS.md`](docs/METRICS.md) | 统计系统：三类指标、采集链路、基数治理与失败模式 |
-| [`docs/api/README.md`](docs/api/README.md) | 73 个接口索引 |
-| [`docs/api/openapi.json`](docs/api/openapi.json) | OpenAPI 3.1（66 路径 / 73 操作） |
+| [`docs/ACCOUNTS.md`](docs/ACCOUNTS.md) | 账号模型、登录判定顺序、口令策略与令牌吊销语义 |
+| [`docs/api/README.md`](docs/api/README.md) | 80 个接口索引 |
+| [`docs/api/openapi.json`](docs/api/openapi.json) | OpenAPI 3.1（72 路径 / 80 操作） |
 | [`docs/architecture.html`](docs/architecture.html) | 可视化架构总览 |
 | `tools/journey.php` · `tools/facts.php` | 全链路旅程 · 计数唯一真源对账 |
 

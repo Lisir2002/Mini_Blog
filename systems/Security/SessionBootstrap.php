@@ -36,7 +36,7 @@ final class SessionBootstrap
         );
         $users = $container->has(UserProviderInterface::class)
             ? $container->resolve(UserProviderInterface::class) : null;
-        (new SessionOperations($sessions, $users))->register(
+        (new SessionOperations($sessions, $users, $this->kernel))->register(
             $container->resolve(ApiRegistryInterface::class)
         );
     }

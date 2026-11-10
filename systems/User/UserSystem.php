@@ -62,6 +62,13 @@ final class UserSystem extends AbstractSystem
             $provider->seed();
         }
 
+        // 写侧协作者只在真实库存在时构造；没有库时操作仍被登记，
+        // 调用会得到 50101，而不是「接口不存在」或「执行者未实现」的白屏。
+        $db = Db::optional($kernel);
+        $store = $provider instanceof PdoUserProvider && $db !== null ? new UserAccountStore($db) : null;
+        $revocation = $db !== null ? new AccountRevocation($db) : null;
+        $policy = new CredentialPolicy((int) $kernel->config()->get('user.password.min_length', CredentialPolicy::MIN_LENGTH));
+
         // 账号存量自报给统计层：只给一个数字，不给任何账号字段。
         $kernel->hooks()->filter('metric.collect', static function (array $samples) use ($provider): array {
             $samples[] = ['name' => 'user_accounts', 'labels' => [], 'value' => $provider->count()];
@@ -77,20 +84,39 @@ final class UserSystem extends AbstractSystem
             : null;
 
         // 凭据换令牌：明文口令只在此处出现一次，库里只存 password_hash；令牌库里只存 hash
-        $registry->registerOperation('auth.token', static function (array $in) use ($provider, $auth): array {
+        $registry->registerOperation('auth.token', static function (array $in) use ($provider, $auth, $kernel): array {
             if (!$provider instanceof PdoUserProvider || $auth === null) {
                 throw new ApiOperationException('未接入 MySQL 用户存储或鉴权契约，无法签发令牌', 50101);
             }
             $username = (string) ($in['username'] ?? '');
             $password = (string) ($in['password'] ?? '');
-            $user = $provider->verifyCredentials($username, $password);
-            if ($user === null) {
-                throw new ApiOperationException('用户名或口令不正确', 40102);
+            $result = $provider->attemptLogin(
+                $username,
+                $password,
+                (int) $kernel->config()->get('user.login.max_attempts', 5),
+                (int) $kernel->config()->get('user.login.lock_seconds', 900)
+            );
+            if (!$result['ok']) {
+                // 三种失败必须能被调用方区分：锁定可以等，禁用要找管理员，
+                // 口令错要重输。全都压成 40102 会让用户永远在重试一个不会成功的口令。
+                throw match ($result['reason']) {
+                    PdoUserProvider::LOGIN_LOCKED => new ApiOperationException(
+                        '账号已临时锁定，请在 ' . (int) ($result['retry_after'] ?? 0) . ' 秒后重试', 42902
+                    ),
+                    PdoUserProvider::LOGIN_DISABLED => new ApiOperationException('账号已被禁用', 40103),
+                    default => new ApiOperationException('用户名或口令不正确', 40105),
+                };
             }
-            $issued = $auth->issue($user['id'], (string) $user['username'], (string) $user['role']);
+            $user = (array) $result['user'];
+            $issued = $auth->issue((int) $user['id'], (string) $user['username'], (string) $user['role']);
             return ['token' => $issued['token'], 'expires_at' => $issued['expires_at'],
                     'role' => $issued['role'], 'token_type' => 'Bearer'];
         });
+
+        // 自助操作与管理操作分两个协作者：权限级别不同，混在一起容易把
+        // 「改自己」的宽松规则漏到「改别人」上。
+        (new AccountOperations($store, $revocation, $policy, $auth, $kernel))->register($registry);
+        (new AdminOperations($store, $revocation, $policy, $kernel))->register($registry);
 
         // 当前身份：由分发器把鉴权结果注入 _identity，业务执行者无需自己解析请求头。
         // user.profile.enrich 是公开扩展点（v0.10 起成员系统在此追加经验 / 等级 / 头衔），

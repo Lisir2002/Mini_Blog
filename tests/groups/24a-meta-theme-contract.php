@@ -76,7 +76,7 @@ check('元主题是承载包内容，不改核心 / 系统层；接口增量归�
         'core/ 文件数被改动');
     truthy(count(glob($root . '/systems/*/system.json') ?: []) === 18, '系统层数量被改动');
     $registry = json_decode((string) file_get_contents($root . '/api/registry.json'), true);
-    truthy(count($registry['endpoints'] ?? []) === 73, '接口清单被改动');
+    truthy(count($registry['endpoints'] ?? []) === 80, '接口清单被改动');
     // 两款元主题都是承载包：注册接口是 theme 系统层的职责，不是主题包的职责。
     foreach (['Glass', 'GlassFront'] as $dir) {
         foreach (glob($root . '/themes/' . $dir . '/*.php') ?: [] as $php) {

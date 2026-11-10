@@ -56,13 +56,13 @@
                 }
             ],
             "errors": [
-                40102,
+                40105,
                 40302,
                 40902,
                 42201,
                 42901,
-                50101,
-                50001
+                50001,
+                50101
             ],
             "example_request": "POST /api/v1/auth/token  {\"username\":\"admin\",\"password\":\"***\"}",
             "example_response": {
@@ -81,10 +81,10 @@
                     "system": "user"
                 }
             },
-            "notes": "口令校验用 password_verify()，库里只存 password_hash。演示账号 admin/admin123 仅供本地原型，投产前必须删除或改密。令牌表归安全系统层自持。 v0.9 起清单显式声明 public_write=true：登录端点必须公网可达，写接口默认「仅本机」的边界不为它开隐式例外。",
+            "notes": "口令校验用 password_verify()，库里只存 password_hash。演示账号 admin/admin123 仅供本地原型，投产前必须删除或改密。令牌表归安全系统层自持。 v0.27 起登录失败改为 40105（文案「用户名或口令不正确」），40102 只表示「携带的令牌无效」，两者语义不再混用。 v0.9 起清单显式声明 public_write=true：登录端点必须公网可达，写接口默认「仅本机」的边界不为它开隐式例外。",
             "changelog": [
                 "0.4.0 初次发布",
-                "0.25.0 新增 truncated：超过 comment.read_limit 时只返回最早 N 条并显式声明"
+                "0.27.0 新增登录锁定与禁用判定：锁定返回 42902，禁用返回 40103"
             ],
             "doc": "docs/api/API-AUTH-001.md",
             "public_write": true
@@ -659,13 +659,13 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.26.0",
+                    "core_version": "0.27.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
                     "systems": 18,
                     "contracts": 26,
-                    "api_operations": 73,
+                    "api_operations": 80,
                     "database": "mysql",
                     "theme_active": null,
                     "headless": true
@@ -1617,12 +1617,11 @@
                     "system": "user"
                 }
             },
-            "notes": "身份由分发器以 _identity 注入 input，业务执行者不解析请求头；鉴权执行顺序早于参数校验。",
+            "notes": "身份由分发器以 _identity 注入 input，业务执行者不解析请求头；鉴权执行顺序早于参数校验。本接口只返回调用者自己，因此不声明权限点：把「看自己的身份」也交给可编程授权，会让新注册用户登录后连「我是谁」都读不到。",
             "changelog": [
                 "0.4.0 初次发布"
             ],
-            "doc": "docs/api/API-USER-001.md",
-            "permission": "user.read"
+            "doc": "docs/api/API-USER-001.md"
         },
         {
             "id": "API-PERM-001",
@@ -5974,6 +5973,568 @@
                 "0.26.0 初次发布"
             ],
             "doc": "docs/api/API-METRIC-004.md"
+        },
+        {
+            "id": "API-AUTH-005",
+            "name": "注册账号",
+            "system": "user",
+            "method": "POST",
+            "path": "/api/v1/auth/register",
+            "operation": "auth.register",
+            "auth": "public",
+            "public_write": true,
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.27.0",
+            "summary": "在站点开放注册时创建账号，校验用户名与口令强度，成功后直接签发令牌（注册即登录）。",
+            "scenario": "开放注册的站点让读者自助开户；或初始化后创建第二个账号，避免全站只有一个种子管理员。",
+            "params": [
+                {
+                    "name": "username",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "3~32 位字母、数字或下划线，不能是纯数字"
+                },
+                {
+                    "name": "password",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "至少 8 位、不超过 72 字节，不能等于用户名或常见弱口令"
+                },
+                {
+                    "name": "display_name",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "显示名称，缺省等于用户名，最长 64 字"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "user",
+                    "type": "object",
+                    "desc": "id / username / display_name / role / status / created_at"
+                },
+                {
+                    "name": "token",
+                    "type": "string",
+                    "desc": "一次性返回的明文令牌"
+                },
+                {
+                    "name": "expires_at",
+                    "type": "string",
+                    "desc": "令牌过期时间"
+                },
+                {
+                    "name": "token_type",
+                    "type": "string",
+                    "desc": "固定为 Bearer"
+                }
+            ],
+            "errors": [
+                40302,
+                40304,
+                40907,
+                42201,
+                42901,
+                50101,
+                50001
+            ],
+            "example_request": "POST /api/v1/auth/register  {\"username\":\"alice\",\"password\":\"***\",\"display_name\":\"Alice\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "user": {
+                        "id": 2,
+                        "username": "alice",
+                        "display_name": "Alice",
+                        "role": "subscriber",
+                        "status": "active",
+                        "created_at": "2026-11-11 00:58:12"
+                    },
+                    "token": "c3d4...(64 位)",
+                    "expires_at": "2026-11-11 01:58:12",
+                    "token_type": "Bearer"
+                },
+                "request_id": "4c5d6e7f80912345",
+                "meta": {
+                    "api": "API-AUTH-005",
+                    "version": "v1",
+                    "system": "user"
+                }
+            },
+            "notes": "注册默认关闭（config user.registration.enabled=false），关闭时返回 40304 而不是 404 —— 「没开这个功能」与「没有这个接口」必须能区分。用户名冲突返回 40907，不是 50001：名字被占用是客户端能修正的状态。口令超过 72 字节会被直接拒绝，因为 bcrypt 会静默截断，后半段任意输入都能通过校验。",
+            "changelog": [
+                "0.27.0 初次发布"
+            ],
+            "doc": "docs/api/API-AUTH-005.md"
+        },
+        {
+            "id": "API-AUTH-006",
+            "name": "修改口令",
+            "system": "user",
+            "method": "POST",
+            "path": "/api/v1/auth/password",
+            "operation": "auth.password.change",
+            "auth": "user",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.27.0",
+            "summary": "校验旧口令后设置新口令，并吊销该账号在其他设备上的全部令牌（当前令牌保留）。",
+            "scenario": "用户主动改密；口令疑似泄露后的止损操作。",
+            "params": [
+                {
+                    "name": "old_password",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "当前口令"
+                },
+                {
+                    "name": "new_password",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "新口令，规则同注册"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "是否完成修改"
+                },
+                {
+                    "name": "revoked_tokens",
+                    "type": "int",
+                    "desc": "被一并吊销的其他令牌数量"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40105,
+                40301,
+                40303,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "POST /api/v1/auth/password  Authorization: Bearer <token>  {\"old_password\":\"***\",\"new_password\":\"***\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "changed": true,
+                    "revoked_tokens": 2
+                },
+                "request_id": "5d6e7f8091234567",
+                "meta": {
+                    "api": "API-AUTH-006",
+                    "version": "v1",
+                    "system": "user"
+                }
+            },
+            "notes": "新旧口令相同会被拒绝（42201）：那看起来成功了，实际口令没变，用户会误以为已经换过。改密后其他设备下线是止损动作，不是可选项。",
+            "changelog": [
+                "0.27.0 初次发布"
+            ],
+            "doc": "docs/api/API-AUTH-006.md"
+        },
+        {
+            "id": "API-AUTH-007",
+            "name": "登出",
+            "system": "user",
+            "method": "POST",
+            "path": "/api/v1/auth/logout",
+            "operation": "auth.logout",
+            "auth": "user",
+            "accept_session": true,
+            "idempotent": true,
+            "side_effects": "database",
+            "since": "0.27.0",
+            "summary": "撤销当前请求所用的令牌；已撤销或静态令牌返回 revoked=false，不假装成功。",
+            "scenario": "退出登录；令牌疑似泄露时吊销单枚凭据。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "revoked",
+                    "type": "bool",
+                    "desc": "是否真的撤销了一枚令牌"
+                },
+                {
+                    "name": "kind",
+                    "type": "string",
+                    "desc": "api / session / static"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                42901,
+                50001
+            ],
+            "example_request": "POST /api/v1/auth/logout  Authorization: Bearer <token>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "revoked": true,
+                    "kind": "api"
+                },
+                "request_id": "6e7f80912345678a",
+                "meta": {
+                    "api": "API-AUTH-007",
+                    "version": "v1",
+                    "system": "user"
+                }
+            },
+            "notes": "接受 accept_session=true：浏览器里的 HttpOnly 会话 Cookie 脚本读不到，只能由服务端从 Cookie 取出撤销。已撤销的令牌在鉴权阶段就被拒绝（40102），不会走到这里；静态令牌没有落库摘要，返回 revoked=false。",
+            "changelog": [
+                "0.27.0 初次发布"
+            ],
+            "doc": "docs/api/API-AUTH-007.md"
+        },
+        {
+            "id": "API-USER-002",
+            "name": "修改自身资料",
+            "system": "user",
+            "method": "POST",
+            "path": "/api/v1/users/me",
+            "operation": "users.me.update",
+            "auth": "user",
+            "idempotent": true,
+            "side_effects": "database",
+            "since": "0.27.0",
+            "summary": "更新当前账号的显示名称，返回补全后的资料（含成员系统追加的经验 / 等级）。",
+            "scenario": "用户在个人设置里改昵称；后台右上角头像旁的名字来源。",
+            "params": [
+                {
+                    "name": "display_name",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "显示名称，1~64 字"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "user",
+                    "type": "object",
+                    "desc": "id / username / display_name / role / status / created_at / last_login_at"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "POST /api/v1/users/me  Authorization: Bearer <token>  {\"display_name\":\"爱丽丝\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "user": {
+                        "id": 2,
+                        "username": "alice",
+                        "display_name": "爱丽丝",
+                        "role": "subscriber",
+                        "status": "active",
+                        "created_at": "2026-11-11 00:58:12",
+                        "last_login_at": "2026-11-11 00:58:12"
+                    }
+                },
+                "request_id": "7f80912345678abc",
+                "meta": {
+                    "api": "API-USER-002",
+                    "version": "v1",
+                    "system": "user"
+                }
+            },
+            "notes": "字段白名单只含 display_name：角色、状态、口令都有各自的管理入口，不能从「改资料」这条路上顺带写入。不声明权限点，理由同 users.me：主体是自己，auth=user 已是完整边界。",
+            "changelog": [
+                "0.27.0 初次发布"
+            ],
+            "doc": "docs/api/API-USER-002.md"
+        },
+        {
+            "id": "API-USER-003",
+            "name": "账号列表",
+            "system": "user",
+            "method": "GET",
+            "path": "/api/v1/users",
+            "operation": "users.list",
+            "auth": "admin",
+            "permission": "user.read",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.27.0",
+            "summary": "按状态筛选并分页读取账号，返回 id、用户名、显示名、角色、状态与最后登录时间。",
+            "scenario": "后台成员管理页；排查「谁被禁用了」「最后一次登录是什么时候」。",
+            "params": [
+                {
+                    "name": "status",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "active / disabled，缺省为全部"
+                },
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "required": false,
+                    "type": "int",
+                    "desc": "每页条数，默认 50，上限 200"
+                },
+                {
+                    "name": "offset",
+                    "in": "query",
+                    "required": false,
+                    "type": "int",
+                    "desc": "偏移量，默认 0"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "items",
+                    "type": "object[]",
+                    "desc": "账号公开字段数组，永不包含 password_hash"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "符合条件的总数"
+                },
+                {
+                    "name": "truncated",
+                    "type": "bool",
+                    "desc": "offset + 返回条数 是否小于 total"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "GET /api/v1/users?status=active&limit=20  Authorization: Bearer <admin>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "items": [
+                        {
+                            "id": 1,
+                            "username": "admin",
+                            "display_name": "站点管理员",
+                            "role": "admin",
+                            "status": "active",
+                            "created_at": "2026-11-10 12:00:00",
+                            "last_login_at": "2026-11-11 00:58:12"
+                        }
+                    ],
+                    "total": 1,
+                    "limit": 20,
+                    "offset": 0,
+                    "truncated": false
+                },
+                "request_id": "80912345678abcde",
+                "meta": {
+                    "api": "API-USER-003",
+                    "version": "v1",
+                    "system": "user"
+                }
+            },
+            "notes": "列表使用 offset 分页而不是游标：账号表规模有限且需要 total 支撑「第几页」。口令摘要不在 SELECT 列表里，不是取回后再删。",
+            "changelog": [
+                "0.27.0 初次发布"
+            ],
+            "doc": "docs/api/API-USER-003.md"
+        },
+        {
+            "id": "API-USER-004",
+            "name": "账号详情",
+            "system": "user",
+            "method": "GET",
+            "path": "/api/v1/users/view",
+            "operation": "users.view",
+            "auth": "admin",
+            "permission": "user.read",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.27.0",
+            "summary": "按数字 ID 或用户名读取单个账号的公开字段与状态。",
+            "scenario": "后台点开某个成员；对账时确认某个用户名对应的账号 ID。",
+            "params": [
+                {
+                    "name": "key",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "账号 ID 或用户名"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "user",
+                    "type": "object",
+                    "desc": "公开字段；含 status 与 last_login_at"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                40403,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "GET /api/v1/users/view?key=admin  Authorization: Bearer <admin>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "user": {
+                        "id": 1,
+                        "username": "admin",
+                        "display_name": "站点管理员",
+                        "role": "admin",
+                        "status": "active",
+                        "created_at": "2026-11-10 12:00:00",
+                        "last_login_at": "2026-11-11 00:58:12"
+                    }
+                },
+                "request_id": "912345678abcdef0",
+                "meta": {
+                    "api": "API-USER-004",
+                    "version": "v1",
+                    "system": "user"
+                }
+            },
+            "notes": "数字按 ID 解释，其余按用户名解释 —— 与 user.lookup 钩子同一口径，避免同名账号与 ID 撞车。",
+            "changelog": [
+                "0.27.0 初次发布"
+            ],
+            "doc": "docs/api/API-USER-004.md"
+        },
+        {
+            "id": "API-USER-005",
+            "name": "管理账号",
+            "system": "user",
+            "method": "POST",
+            "path": "/api/v1/users/manage",
+            "operation": "users.manage",
+            "auth": "admin",
+            "permission": "user.manage",
+            "idempotent": false,
+            "side_effects": "database",
+            "since": "0.27.0",
+            "summary": "对指定账号执行禁用 / 启用 / 改角色 / 重置口令，并在需要时立即吊销其全部令牌。",
+            "scenario": "离职或异常账号的停用；把某个成员提升为管理员；用户忘记口令时的管理员重置。",
+            "params": [
+                {
+                    "name": "user_id",
+                    "in": "body",
+                    "required": true,
+                    "type": "int",
+                    "desc": "目标账号 ID"
+                },
+                {
+                    "name": "action",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "disable / enable / set_role / reset_password"
+                },
+                {
+                    "name": "role",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "action=set_role 时的目标角色"
+                },
+                {
+                    "name": "new_password",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "action=reset_password 时的新口令"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "user",
+                    "type": "object",
+                    "desc": "操作后的账号公开字段"
+                },
+                {
+                    "name": "revoked_tokens",
+                    "type": "int",
+                    "desc": "被吊销的令牌数（disable / reset_password）"
+                },
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "set_role 是否真的改变了角色"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                40403,
+                40906,
+                42201,
+                42901,
+                50001,
+                50101
+            ],
+            "example_request": "POST /api/v1/users/manage  Authorization: Bearer <admin>  {\"user_id\":2,\"action\":\"disable\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "user": {
+                        "id": 2,
+                        "username": "alice",
+                        "display_name": "爱丽丝",
+                        "role": "subscriber",
+                        "status": "disabled",
+                        "created_at": "2026-11-11 00:58:12",
+                        "last_login_at": "2026-11-11 00:58:12"
+                    },
+                    "revoked_tokens": 1
+                },
+                "request_id": "a2345678abcdef01",
+                "meta": {
+                    "api": "API-USER-005",
+                    "version": "v1",
+                    "system": "user"
+                }
+            },
+            "notes": "两条防呆不变量都以 40906 拒绝：不能禁用当前登录账号（会把自己关在门外），不能移除最后一个管理员（会让站点再也没人能进管理端）。禁用与重置口令都会调用 AccountRevocation 立即吊销令牌，否则「禁用」只是登录被拒，旧令牌照样能调接口。",
+            "changelog": [
+                "0.27.0 初次发布"
+            ],
+            "doc": "docs/api/API-USER-005.md"
         }
     ]
 }

@@ -38,12 +38,13 @@ final class PdoCommentStore implements CommentStoreInterface
         return (int) $this->db->pdo()->lastInsertId();
     }
 
-    public function forPost(string $slug): array
+    public function forPost(string $slug, int $limit = 0): array
     {
-        $stmt = $this->db->pdo()->prepare(
-            'SELECT id,' . implode(',', self::COLUMNS) . ' FROM ' . $this->table()
-            . ' WHERE post_slug = :slug ORDER BY id ASC'
-        );
+        $sql = 'SELECT id,' . implode(',', self::COLUMNS) . ' FROM ' . $this->table()
+            . ' WHERE post_slug = :slug ORDER BY id ASC';
+        // 上限走 SQL 而不是读回来再切：目的就是不让这几万行进 PHP 内存。
+        if ($limit > 0) $sql .= ' LIMIT ' . $limit;
+        $stmt = $this->db->pdo()->prepare($sql);
         $stmt->execute([':slug' => $slug]);
         return array_map($this->hydrate(...), $stmt->fetchAll());
     }

@@ -83,7 +83,8 @@
             },
             "notes": "口令校验用 password_verify()，库里只存 password_hash。演示账号 admin/admin123 仅供本地原型，投产前必须删除或改密。令牌表归安全系统层自持。 v0.9 起清单显式声明 public_write=true：登录端点必须公网可达，写接口默认「仅本机」的边界不为它开隐式例外。",
             "changelog": [
-                "0.4.0 初次发布"
+                "0.4.0 初次发布",
+                "0.25.0 新增 truncated：超过 comment.read_limit 时只返回最早 N 条并显式声明"
             ],
             "doc": "docs/api/API-AUTH-001.md",
             "public_write": true
@@ -122,6 +123,11 @@
                     "desc": "公开条数（不含待审 / 隐藏 / 垃圾）"
                 },
                 {
+                    "name": "truncated",
+                    "type": "bool",
+                    "desc": "是否因 comment.read_limit 被截断；true 时 items 只是最早的 N 条，total 仍为真实总数"
+                },
+                {
                     "name": "items",
                     "type": "array",
                     "desc": "扁平评论数组，按 id 升序"
@@ -153,7 +159,7 @@
                     "system": "comment"
                 }
             },
-            "notes": "可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。",
+            "notes": "可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。read_limit 默认 2000：热文被刷到数万条时全量读会占几十 MB，超出只返回最早的 N 条并置 truncated=true，total 不受影响。",
             "changelog": [
                 "0.4.0 初次发布"
             ],
@@ -653,7 +659,7 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.24.0",
+                    "core_version": "0.25.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",

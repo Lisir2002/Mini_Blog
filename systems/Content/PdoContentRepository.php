@@ -62,8 +62,13 @@ final class PdoContentRepository implements ContentRepositoryInterface
         if ($status !== 'any') { $where[] = 'status = :status'; $params[':status'] = $status; }
         if ($after > 0)       { $where[] = 'id > :after';       $params[':after']  = $after; }
         if ($kw !== '') {
-            $where[] = '(title LIKE :kw OR body LIKE :kw)';
-            $params[':kw'] = '%' . $kw . '%';
+            // 两个独立占位符，不能复用 :kw —— 连接是 ATTR_EMULATE_PREPARES=false（原生预处理），
+            // MySQL 协议不支持同一个命名参数出现两次，复用会在 prepare 后的 execute 抛
+            // 「Invalid parameter number」。搜索从上线起就是 500，而内存实现用的是 str_contains，
+            // 行为不一致，所以两组测试都没发现。
+            $where[] = '(title LIKE :kw_title OR body LIKE :kw_body)';
+            $params[':kw_title'] = '%' . $kw . '%';
+            $params[':kw_body']  = '%' . $kw . '%';
         }
         $sql = 'SELECT id,slug,title,body,excerpt,status,author,created_at,updated_at FROM ' . $this->table()
              . ($where !== [] ? ' WHERE ' . implode(' AND ', $where) : '')

@@ -30,14 +30,14 @@ final class MemoryCommentStore implements CommentStoreInterface
         return $id;
     }
 
-    public function forPost(string $slug): array
+    public function forPost(string $slug, int $limit = 0): array
     {
         $out = [];
         foreach (self::$rows as $row) {
             if ($row['post_slug'] === $slug) $out[] = $row;
         }
         usort($out, static fn(array $a, array $b): int => $a['id'] <=> $b['id']);
-        return $out;
+        return $limit > 0 ? array_slice($out, 0, $limit) : $out;
     }
 
     public function find(int $id): ?array

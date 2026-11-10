@@ -113,6 +113,8 @@ final class Reconciler
                 // 性能数字随机器负载波动，不逐项锚定；只锁两件事：
                 // 代价数据必须指向可重跑命令，通过数不得写死（这里曾以 250/50 静默过期）。
                 '/php tools\/bench\.php stability/' => ['literal_ok'],
+                // 规模数据同属机器快照，不锚数值；只锁「结论必须指向可重跑命令」。
+                '/php tools\/scale\.php run/' => ['literal_ok'],
                 '/全量结果以 `php tests\/run\.php` 为准/' => ['literal_ok'],
             ],
             'api/registry.json' => [

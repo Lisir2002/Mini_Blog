@@ -165,6 +165,7 @@ final class CollaborationGraph
             'Wx\\Tools\\Journey\\' => 'tools/journey/',
             'Wx\\Tools\\Facts\\' => 'tools/facts/',
             'Wx\\Tools\\Faults\\' => 'tools/faults/',
+            'Wx\\Tools\\Scale\\' => 'tools/scale/',
         ];
         foreach ($map as $prefix => $dir) {
             if (str_starts_with($fqcn, $prefix)) {

@@ -13,9 +13,10 @@ interface CommentStoreInterface
     /** @param array<string, mixed> $comment @return int 评论 ID */
     public function add(array $comment): int;
 
-    /** 一篇文章的全部评论，按 id 升序；含待审核与已删除占位，由上层决定怎么展示
+    /** 一篇文章的评论，按 id 升序；含待审核与已删除占位，由上层决定怎么展示。
+     *  $limit > 0 时只取最早的 N 条 —— 热文被刷到数万条时，全量读会占掉几十 MB（v0.25 实测）。
      *  @return list<array<string, mixed>> */
-    public function forPost(string $slug): array;
+    public function forPost(string $slug, int $limit = 0): array;
 
     /** @return array<string, mixed>|null */
     public function find(int $id): ?array;

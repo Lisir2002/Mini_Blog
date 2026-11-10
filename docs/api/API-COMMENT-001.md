@@ -24,7 +24,7 @@
 
 **适用场景**：文章详情页渲染评论区；Headless 客户端拉取评论。
 
-**实现备注**：可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。
+**实现备注**：可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。read_limit 默认 2000：热文被刷到数万条时全量读会占几十 MB，超出只返回最早的 N 条并置 truncated=true，total 不受影响。
 
 ## 3. 请求规范
 
@@ -66,6 +66,7 @@
 | --- | --- | --- |
 | `post_slug` | `string` | 文章 slug |
 | `total` | `int` | 公开条数（不含待审 / 隐藏 / 垃圾） |
+| `truncated` | `bool` | 是否因 comment.read_limit 被截断；true 时 items 只是最早的 N 条，total 仍为真实总数 |
 | `items` | `array` | 扁平评论数组，按 id 升序 |
 | `tree` | `array` | 嵌套评论树，每项含 children |
 

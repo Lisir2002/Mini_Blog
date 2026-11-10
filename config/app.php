@@ -89,6 +89,9 @@ return [
         'max_depth'    => 5,
         'max_length'   => 5000,
         'max_links'    => 3,
+        // 单篇一次最多读多少条：热文被刷到数万条时，全量读会占掉几十 MB（v0.25 实测 5 万条 = 90 MB）。
+        // 0 = 不限制（旧行为）。截断时响应带 truncated=true，总数仍是真的 —— 不静默丢数据。
+        'read_limit'   => 2000,
     ],
 
     // 附件系统：超过 stream_threshold 字节的下载走分块输出，避免整文件读进内存。

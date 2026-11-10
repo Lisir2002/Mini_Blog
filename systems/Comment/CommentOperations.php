@@ -29,14 +29,22 @@ final class CommentOperations
             $slug = (string) ($in['post_slug'] ?? $in['slug'] ?? '');
             $acl  = $this->acl();
             $identity = $in['_identity'] ?? null;
+            // 多读一条只用于判断「还有没有」：limit 本身只保证上限，不表达是否被截断。
+            $limit = max(0, (int) $this->kernel->config()->get('comment.read_limit', 2000));
+            $raw = $this->store->forPost($slug, $limit > 0 ? $limit + 1 : 0);
+            $truncated = $limit > 0 && count($raw) > $limit;
+            if ($truncated) $raw = array_slice($raw, 0, $limit);
+
             $rows = $this->pruneHidden(array_values(array_filter(
-                $this->store->forPost($slug),
+                $raw,
                 static fn(array $row): bool => CommentPolicy::visible($identity, $row, $acl)
             )));
             $items = array_map(fn(array $row): array => $this->present($row, $identity, $acl), $rows);
             return [
                 'post_slug' => $slug,
                 'total'     => $this->store->countForPost($slug),
+                // 截断必须显式声明：静默只返回前 2000 条，客户端会以为评论就这么多。
+                'truncated' => $truncated,
                 'items'     => $items,
                 'tree'      => CommentTree::build($items),
             ];

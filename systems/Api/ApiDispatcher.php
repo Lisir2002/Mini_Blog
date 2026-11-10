@@ -28,8 +28,30 @@ final class ApiDispatcher
         $this->guard = new RequestGuard($kernel);
     }
 
-    /** @return array{status: int, body: array<string, mixed>, headers: array<string, string>} */
+    /**
+     * 对外入口只多做一件事：把「哪个操作、什么结果、花了多久」广播出去。
+     * 重新匹配一次 endpoint 是有意为之 —— 避免为了统计给每个 return 都插一段收尾代码，
+     * 那种写法在新增分支时必定漏记，而漏记正是统计系统最不该犯的错。
+     *
+     * @return array{status: int, body: array<string, mixed>, headers: array<string, string>}
+     */
     public function dispatch(Request $request): array
+    {
+        $started = microtime(true);
+        $result  = $this->dispatchOnce($request);
+        $endpoint = $this->registry->match($request->method(), $request->path());
+        $this->kernel->hooks()->emit(
+            'api.executed',
+            (string) ($endpoint['operation'] ?? ''),
+            (int) ($result['body']['code'] ?? 0),
+            (int) $result['status'],
+            round((microtime(true) - $started) * 1000, 3)
+        );
+        return $result;
+    }
+
+    /** @return array{status: int, body: array<string, mixed>, headers: array<string, string>} */
+    private function dispatchOnce(Request $request): array
     {
         $requestId = $request->header('X-Request-Id') ?? bin2hex(random_bytes(8));
         $endpoint  = $this->registry->match($request->method(), $request->path());

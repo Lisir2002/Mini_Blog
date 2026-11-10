@@ -94,6 +94,15 @@ return [
         'read_limit'   => 2000,
     ],
 
+    // 统计系统（第 18 个系统层）：按小时聚合，不存单请求明细。
+    // 四条采集通道可分别关闭；关掉后业务语义不变，只是对应指标不再增长。
+    'metric' => [
+        'enabled'  => true,
+        'channels' => ['http' => true, 'api' => true, 'db' => true, 'business' => true],
+        // 历史保留天数：由 `php tools/metrics.php prune` 按此默认值裁剪（需配定时任务）
+        'retention_days' => 30,
+    ],
+
     // 附件系统：超过 stream_threshold 字节的下载走分块输出，避免整文件读进内存。
     // 0 表示关闭流式（一律按字节返回，与 v0.19 行为一致）。
     'attachment' => [

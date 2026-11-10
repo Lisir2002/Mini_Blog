@@ -58,6 +58,14 @@ final class CommentSystem extends AbstractSystem
             $relations->declare('comment.root', 'comments', 'root_id', 'comments', 'id', true);
         }
 
+        // 评论存量按状态自报：统计层只拿到 {published: 12, pending: 3}，看不到任何正文。
+        $kernel->hooks()->filter('metric.collect', static function (array $samples) use ($store): array {
+            foreach ($store->counts() as $status => $count) {
+                $samples[] = ['name' => 'comment_total', 'labels' => ['status' => $status], 'value' => $count];
+            }
+            return $samples;
+        }, 10);
+
         if (!$kernel->container()->has(ApiRegistryInterface::class)) return;
 
         $guard = new CommentGuard(

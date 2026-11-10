@@ -39,11 +39,11 @@ check('同级 priority 的冲突绑定被拒绝（不静默覆盖）', function 
     truthy($threw, '冲突绑定应抛出 RuntimeException');
 });
 
-check('17 个系统层自动发现，依赖拓扑有序', function (): void {
+check('18 个系统层自动发现，依赖拓扑有序', function (): void {
     $k = kernel(null);
     $k->boot();
     $order = $k->systems()->order();
-    truthy(count($order) === 17, '系统层数量异常：' . count($order) . ' → ' . implode(',', $order));
+    truthy(count($order) === 18, '系统层数量异常：' . count($order) . ' → ' . implode(',', $order));
     $pos = array_flip($order);
     truthy($pos['log'] < $pos['security'], 'log 应先于 security');
     truthy($pos['data'] < $pos['content'], 'data 应先于 content');

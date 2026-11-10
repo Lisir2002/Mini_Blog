@@ -86,6 +86,17 @@ final class PdoCommentStore implements CommentStoreInterface
         return (int) $stmt->fetchColumn();
     }
 
+    public function counts(): array
+    {
+        $rows = $this->db->query(
+            'SELECT status, COUNT(*) AS c FROM ' . $this->table() . ' GROUP BY status'
+        );
+        $out = [];
+        foreach ($rows as $row) $out[(string) $row['status']] = (int) $row['c'];
+        ksort($out);
+        return $out;
+    }
+
     public function dropSchema(): void
     {
         $this->db->pdo()->exec('DROP TABLE IF EXISTS ' . $this->table());

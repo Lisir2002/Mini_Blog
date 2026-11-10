@@ -137,5 +137,5 @@ check('主题能力归系统层：两个契约在容器内可替换，core/ 仍 
     truthy($k->container()->has(\Wx\Systems\Theme\ThemeActivationInterface::class), '启用契约未绑定');
     truthy(count(glob($root . '/core/*.php') ?: []) + count(glob($root . '/core/*/*.php') ?: []) === 24,
         'core/ 文件数被改动');
-    truthy(count(glob($root . '/systems/*/system.json') ?: []) === 17, '系统层数量被改动');
+    truthy(count(glob($root . '/systems/*/system.json') ?: []) === 18, '系统层数量被改动');
 });

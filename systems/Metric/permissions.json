@@ -1,0 +1,6 @@
+{
+  "system": "metric",
+  "permissions": [
+    {"name": "metric.read", "description": "读取站点统计：流量、错误率、分位耗时、操作排行与指标序列"}
+  ]
+}

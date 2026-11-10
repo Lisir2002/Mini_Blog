@@ -1,0 +1,12 @@
+{
+  "name": "metric",
+  "class": "Wx\\Systems\\Metric\\MetricSystem",
+  "version": "0.1.0",
+  "requires": [
+    "data",
+    "api"
+  ],
+  "priority": 70,
+  "enabled": true,
+  "_note": "v0.26：第 18 系统层。计数器 / 仪表 / 直方图三类指标，按小时聚合落库；HTTP、API、SQL、业务事件自动埋点，业务存量由 metric.collect 过滤器自报。"
+}

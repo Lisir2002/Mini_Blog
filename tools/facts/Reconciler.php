@@ -71,6 +71,8 @@ final class Reconciler
                 '/`php -l` 全量 \*\*(\d+) 个 PHP 文件\*\*/' => ['php_files'],
                 '/其中 `core\/` 仅 \*\*(\d+) 个\*\*/' => ['core_files'],
                 '/\*\*(\d+) 个系统层\*\*自动装配/' => ['system_layers'],
+                '/(\d+) 个系统层，每目录/' => ['system_layers'],
+                '/（(\d+) 系统层 \+ 4 主题/' => ['system_layers'],
                 '/\*\*(\d+) 个契约接口文件\*\*/' => ['contracts_files'],
                 '/\*\*(\d+) 个接口 \/ (\d+) 份文档\*\*/' => ['operations', 'operations'],
                 '/OpenAPI 3\.1（(\d+) 路径 \/ (\d+) 操作）/' => ['api_paths', 'operations'],
@@ -100,6 +102,7 @@ final class Reconciler
                 // 只锁当前基线那一张卡片；历史版本里的「新增 5 个 / 3 个权限点」是史实，不纳入。
                 '/留痕。(\d+) 个权限点、14 个权限接口/' => ['permissions'],
                 '/(\d+) 个系统层 \/ 全部承载包/' => ['system_layers'],
+                '/(\d+) 个系统层自动装配、13 个契约/' => ['system_layers'],
                 '/(\d+) 个接口对应 (\d+) 份文档/' => ['operations', 'operations'],
                 '/OpenAPI 3\.1（(\d+) 路径 \/ (\d+) 操作）/' => ['api_paths', 'operations'],
                 '/v0\.(\d+)\.0、PHP/' => ['version_minor'],
@@ -108,6 +111,9 @@ final class Reconciler
                 '/Architecture Overview · v0\.(\d+)/' => ['version_minor'],
                 '/建议全数采纳 · (\d+) 系统层 · (\d+) 接口/' => ['system_layers', 'operations'],
                 '/全量 <strong>(\d+)<\/strong> 个 PHP 文件通过/' => ['php_files'],
+            ],
+            'docs/METRICS.md' => [
+                '/内置 \*\*(\d+)\*\* 个指标/' => ['metrics'],
             ],
             'docs/PERFORMANCE.md' => [
                 // 性能数字随机器负载波动，不逐项锚定；只锁两件事：

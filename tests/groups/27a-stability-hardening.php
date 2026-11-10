@@ -99,7 +99,7 @@ check('限流计数原子：连续请求不丢计数，读改写带排他锁', f
 check('稳定性加固未新增系统层 / 接口 / 核心文件', function () use ($root): void {
     truthy(count(glob($root . '/core/*.php') ?: []) + count(glob($root . '/core/*/*.php') ?: []) === 24,
         'core/ 文件数被改动');
-    truthy(count(glob($root . '/systems/*/system.json') ?: []) === 17, '系统层数量被改动');
+    truthy(count(glob($root . '/systems/*/system.json') ?: []) === 18, '系统层数量被改动');
     $registry = json_decode((string) file_get_contents($root . '/api/registry.json'), true);
-    truthy(count($registry['endpoints'] ?? []) === 69, '接口清单被改动');
+    truthy(count($registry['endpoints'] ?? []) === 73, '接口清单被改动');
 });

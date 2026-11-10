@@ -22,4 +22,9 @@ final class SessionUserProvider implements UserProviderInterface
     {
         return null;
     }
+
+    public function count(): int
+    {
+        return $this->current() === null ? 0 : 1;
+    }
 }

@@ -39,7 +39,6 @@ return [
     'docs/STATE.md|24|PHP 文件',
     'docs/THEMES.md|24|PHP 文件',
     'docs/architecture.html|11|接口',
-    'docs/architecture.html|17|系统层',
     'docs/architecture.html|1|接口',
     'docs/architecture.html|2|系统层',
 ];

@@ -48,6 +48,7 @@ final class Facts
             'core_files'      => count(glob($root . '/core/*.php') ?: [])
                                + count(glob($root . '/core/*/*.php') ?: []),
             'system_layers'   => count(glob($root . '/systems/*/system.json') ?: []),
+            'metrics'         => count(\Wx\Systems\Metric\MetricCatalog::builtin()),
             'themes'          => count(glob($root . '/themes/*/theme.json') ?: []),
             'meta_themes'     => $metas,
             'guard_groups'    => count(glob($root . '/tests/groups/*.php') ?: []),
@@ -63,7 +64,7 @@ final class Facts
             'version' => '核心版本', 'operations' => '接口 operation', 'api_paths' => '接口去重路径',
             'openapi_paths' => 'OpenAPI 路径', 'permissions' => '权限点', 'contracts_files' => '契约接口文件',
             'core_files' => 'core/ PHP 文件', 'system_layers' => '系统层', 'themes' => '出厂主题',
-            'meta_themes' => '元主题', 'guard_groups' => '守卫分组',
+            'meta_themes' => '元主题', 'metrics' => '内置指标', 'guard_groups' => '守卫分组',
             'php_files' => '全仓 PHP 文件（快照）', 'total_sloc' => '有效代码行（快照）',
         ];
         $out = [];

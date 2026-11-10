@@ -65,6 +65,17 @@ final class MemoryCommentStore implements CommentStoreInterface
         return $count;
     }
 
+    public function counts(): array
+    {
+        $out = [];
+        foreach (self::$rows as $row) {
+            $status = (string) $row['status'];
+            $out[$status] = ($out[$status] ?? 0) + 1;
+        }
+        ksort($out);
+        return $out;
+    }
+
     /** 仅测试用：清空静态状态，避免不同用例互相污染。 */
     public static function reset(): void
     {

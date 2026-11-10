@@ -70,7 +70,7 @@ check('关键结论守在守卫里：错误可分支，故障不固化', functio
 check('不越界：故障旅程不新增系统层 / 接口 / 契约，core/ 仍 24 文件', function () use ($root): void {
     truthy(count(glob($root . '/core/*.php') ?: []) + count(glob($root . '/core/*/*.php') ?: []) === 24,
         'core/ 文件数被改动');
-    truthy(count(glob($root . '/systems/*/system.json') ?: []) === 17, '系统层数量被改动');
+    truthy(count(glob($root . '/systems/*/system.json') ?: []) === 18, '系统层数量被改动');
     $reg = json_decode((string) file_get_contents($root . '/api/registry.json'), true);
-    truthy(count($reg['endpoints'] ?? []) === 69, '接口清单被改动');
+    truthy(count($reg['endpoints'] ?? []) === 73, '接口清单被改动');
 });

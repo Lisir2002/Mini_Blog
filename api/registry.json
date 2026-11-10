@@ -659,13 +659,13 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.25.0",
+                    "core_version": "0.26.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
-                    "systems": 17,
-                    "contracts": 24,
-                    "api_operations": 69,
+                    "systems": 18,
+                    "contracts": 26,
+                    "api_operations": 73,
                     "database": "mysql",
                     "theme_active": null,
                     "headless": true
@@ -5536,6 +5536,444 @@
             ],
             "doc": "docs/api/API-THEME-002.md",
             "permission": "theme.manage"
+        },
+        {
+            "id": "API-METRIC-001",
+            "name": "站点统计概览",
+            "system": "metric",
+            "method": "GET",
+            "path": "/api/v1/stats/overview",
+            "operation": "stats.overview",
+            "auth": "admin",
+            "permission": "metric.read",
+            "idempotent": true,
+            "side_effects": "database",
+            "since": "0.26.0",
+            "summary": "返回窗口内的请求量、5xx/4xx、错误率、耗时分位与接口调用概览，并附带文章 / 评论 / 账号存量与采集器健康状态。",
+            "scenario": "后台仪表盘首屏、值班巡检、故障后判断「影响面多大」；窗口支持 1h / 6h / 24h / 7d / 30d。",
+            "params": [
+                {
+                    "name": "window",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "时间窗口，形如 1h / 24h / 7d，最长 30d，默认 24h"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "window",
+                    "type": "object",
+                    "desc": "实际生效的窗口：key / since / hours / seconds"
+                },
+                {
+                    "name": "traffic",
+                    "type": "object",
+                    "desc": "requests / errors / client_errors / error_rate / rps / latency（p50·p95·p99·avg·samples·approx）"
+                },
+                {
+                    "name": "api",
+                    "type": "object",
+                    "desc": "calls / failures / failure_rate / top（调用量前十的 operation）"
+                },
+                {
+                    "name": "data",
+                    "type": "object[]",
+                    "desc": "业务存量采样：name / labels / value，由各系统层通过 metric.collect 自报"
+                },
+                {
+                    "name": "collector",
+                    "type": "object",
+                    "desc": "durable / driver / degraded / last_error / buffered / rejected / bucket"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                42201,
+                50001
+            ],
+            "example_request": "GET /api/v1/stats/overview?window=24h",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "window": {
+                        "key": "24h",
+                        "since": "2026-11-09 23:00:00",
+                        "hours": 24,
+                        "seconds": 86400
+                    },
+                    "traffic": {
+                        "requests": 1280,
+                        "errors": 3,
+                        "client_errors": 42,
+                        "error_rate": 0.0023,
+                        "rps": 0.0148,
+                        "latency": {
+                            "p50": 10.0,
+                            "p95": 50.0,
+                            "p99": 100.0,
+                            "avg": 18.42,
+                            "samples": 1275,
+                            "approx": true
+                        }
+                    },
+                    "api": {
+                        "calls": 1102,
+                        "failures": 6,
+                        "failure_rate": 0.0054,
+                        "top": [
+                            {
+                                "operation": "content.posts",
+                                "calls": 320,
+                                "failures": 0
+                            }
+                        ]
+                    },
+                    "data": [
+                        {
+                            "name": "content_posts",
+                            "labels": {
+                                "status": "published"
+                            },
+                            "value": 12
+                        }
+                    ],
+                    "collector": {
+                        "durable": true,
+                        "driver": "mysql",
+                        "degraded": false,
+                        "last_error": "",
+                        "buffered": 0,
+                        "rejected": 0,
+                        "bucket": "hour"
+                    }
+                },
+                "request_id": "3f1c9a2b7d4e8061",
+                "meta": {
+                    "api": "API-METRIC-001",
+                    "version": "v1",
+                    "system": "metric"
+                }
+            },
+            "notes": "只读业务数据；唯一副作用是把 metric.collect 的存量写成 gauge 采样。统计按小时聚合、非单请求明细。durable=false 表示库不可用、数据只在本进程内有效，不能当历史账本。",
+            "changelog": [
+                "0.26.0 初次发布"
+            ],
+            "doc": "docs/api/API-METRIC-001.md"
+        },
+        {
+            "id": "API-METRIC-002",
+            "name": "查询指标序列",
+            "system": "metric",
+            "method": "GET",
+            "path": "/api/v1/stats/series",
+            "operation": "stats.series",
+            "auth": "admin",
+            "permission": "metric.read",
+            "idempotent": true,
+            "side_effects": "database",
+            "since": "0.26.0",
+            "summary": "读取单个指标的时间序列；支持按维度精确过滤，返回按小时排列的 points。",
+            "scenario": "画趋势图、定位拐点（例如发布后 api_calls 陡增、某 operation 的 p95 上升）。",
+            "params": [
+                {
+                    "name": "name",
+                    "in": "query",
+                    "required": true,
+                    "type": "string",
+                    "desc": "指标名，可用值见 stats.catalog"
+                },
+                {
+                    "name": "dimension",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "维度过滤，形如 operation=content.posts 或 method=GET,status=200"
+                },
+                {
+                    "name": "window",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "时间窗口，默认 24h，最长 30d"
+                },
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "required": false,
+                    "type": "int",
+                    "desc": "最多返回点数，默认 500，上限 2000；超出时 truncated=true"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "name",
+                    "type": "string",
+                    "desc": "指标名"
+                },
+                {
+                    "name": "kind",
+                    "type": "string",
+                    "desc": "counter / gauge / histogram"
+                },
+                {
+                    "name": "unit",
+                    "type": "string",
+                    "desc": "指标单位"
+                },
+                {
+                    "name": "dimension",
+                    "type": "string",
+                    "desc": "规范化后的维度串"
+                },
+                {
+                    "name": "points",
+                    "type": "object[]",
+                    "desc": "at / hits / value / avg"
+                },
+                {
+                    "name": "truncated",
+                    "type": "bool",
+                    "desc": "是否因 limit 被截断"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                42201,
+                50001
+            ],
+            "example_request": "GET /api/v1/stats/series?name=api_calls&dimension=operation=content.posts&window=7d",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "window": {
+                        "key": "7d",
+                        "since": "2026-11-04 00:00:00",
+                        "hours": 168,
+                        "seconds": 604800
+                    },
+                    "name": "api_calls",
+                    "kind": "counter",
+                    "unit": "次",
+                    "dimension": "operation=content.posts",
+                    "points": [
+                        {
+                            "at": "2026-11-09 00:00:00",
+                            "hits": 42,
+                            "value": 42,
+                            "avg": 0.0
+                        }
+                    ],
+                    "truncated": false
+                },
+                "request_id": "8a2d1c4f6b3e9071",
+                "meta": {
+                    "api": "API-METRIC-002",
+                    "version": "v1",
+                    "system": "metric"
+                }
+            },
+            "notes": "name 不在字典内返回 42201，不会静默返回空序列 —— 空序列与「指标拼错」必须能区分。histogram 的 value 是样本数、avg 是桶内均值。",
+            "changelog": [
+                "0.26.0 初次发布"
+            ],
+            "doc": "docs/api/API-METRIC-002.md"
+        },
+        {
+            "id": "API-METRIC-003",
+            "name": "接口操作统计",
+            "system": "metric",
+            "method": "GET",
+            "path": "/api/v1/stats/operations",
+            "operation": "stats.operations",
+            "auth": "admin",
+            "permission": "metric.read",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.26.0",
+            "summary": "按 operation 汇总调用量、失败数与失败率，并给出 p50 / p95 / p99 与平均耗时。",
+            "scenario": "找出「最忙的接口」「一直在失败的接口」「慢但没报错的接口」；上线后对比操作级水位。",
+            "params": [
+                {
+                    "name": "window",
+                    "in": "query",
+                    "required": false,
+                    "type": "string",
+                    "desc": "时间窗口，默认 24h，最长 30d"
+                },
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "required": false,
+                    "type": "int",
+                    "desc": "返回条数，默认 50，上限 200；超出时 truncated=true"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "窗口内出现过的 operation 总数"
+                },
+                {
+                    "name": "truncated",
+                    "type": "bool",
+                    "desc": "是否因 limit 截断"
+                },
+                {
+                    "name": "items",
+                    "type": "object[]",
+                    "desc": "operation / calls / failures / failure_rate / p50 / p95 / p99 / avg_ms"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                42201,
+                50001
+            ],
+            "example_request": "GET /api/v1/stats/operations?window=24h&limit=20",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "window": {
+                        "key": "24h",
+                        "since": "2026-11-09 23:00:00",
+                        "hours": 24,
+                        "seconds": 86400
+                    },
+                    "total": 1,
+                    "truncated": false,
+                    "items": [
+                        {
+                            "operation": "system.info",
+                            "calls": 12,
+                            "failures": 0,
+                            "p50": 5.0,
+                            "p95": 10.0,
+                            "p99": 10.0,
+                            "avg_ms": 4.21,
+                            "failure_rate": 0.0
+                        }
+                    ]
+                },
+                "request_id": "bc40e1a97d2f6358",
+                "meta": {
+                    "api": "API-METRIC-003",
+                    "version": "v1",
+                    "system": "metric"
+                }
+            },
+            "notes": "分位数为桶上界近似（5 / 10 / 25 ... / 10000 / +Inf），响应不含 approx 字段的旧客户端只会看到上界值。失败按业务码非 0 统计，包含 4xx 与 5xx。",
+            "changelog": [
+                "0.26.0 初次发布"
+            ],
+            "doc": "docs/api/API-METRIC-003.md"
+        },
+        {
+            "id": "API-METRIC-004",
+            "name": "指标字典",
+            "system": "metric",
+            "method": "GET",
+            "path": "/api/v1/stats/catalog",
+            "operation": "stats.catalog",
+            "auth": "admin",
+            "permission": "metric.read",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.26.0",
+            "summary": "列出全部可用指标：类型、单位、允许的标签、采集来源与含义，并返回直方图桶边界与采集器状态。",
+            "scenario": "写看板或告警规则前先查字典；排查「为什么某个指标写不进去」；核对插件追加的自定义指标。",
+            "params": [],
+            "response_fields": [
+                {
+                    "name": "metrics",
+                    "type": "object[]",
+                    "desc": "name / kind / unit / labels / source / desc"
+                },
+                {
+                    "name": "buckets_ms",
+                    "type": "int[]",
+                    "desc": "直方图桶上界，另有隐式 +Inf"
+                },
+                {
+                    "name": "collector",
+                    "type": "object",
+                    "desc": "durable / driver / degraded / last_error / buffered / rejected / bucket"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                42201,
+                50001
+            ],
+            "example_request": "GET /api/v1/stats/catalog",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "metrics": [
+                        {
+                            "name": "http_requests",
+                            "kind": "counter",
+                            "unit": "次",
+                            "labels": [
+                                "method",
+                                "status"
+                            ],
+                            "source": "kernel.response",
+                            "desc": "按方法与状态码统计的全部 HTTP 响应"
+                        }
+                    ],
+                    "buckets_ms": [
+                        5,
+                        10,
+                        25,
+                        50,
+                        100,
+                        250,
+                        500,
+                        1000,
+                        2500,
+                        5000,
+                        10000
+                    ],
+                    "collector": {
+                        "durable": true,
+                        "driver": "mysql",
+                        "degraded": false,
+                        "last_error": "",
+                        "buffered": 0,
+                        "rejected": 0,
+                        "bucket": "hour"
+                    }
+                },
+                "request_id": "d92b7a40c1e85f36",
+                "meta": {
+                    "api": "API-METRIC-004",
+                    "version": "v1",
+                    "system": "metric"
+                }
+            },
+            "notes": "字典是白名单：不在列表中的指标名写入会被丢弃并累加 metric_dropped{reason=unknown_metric}。插件可用 metric.catalog 过滤器追加定义，追加项同样经过形状校验。",
+            "changelog": [
+                "0.26.0 初次发布"
+            ],
+            "doc": "docs/api/API-METRIC-004.md"
         }
     ]
 }

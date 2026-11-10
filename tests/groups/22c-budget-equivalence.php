@@ -51,19 +51,18 @@ check('预算超限必留痕：X-Wx-Budget 头 + kernel.trace 事件', function 
     truthy($r->body() !== '', '预算留痕不得改写业务响应');
 });
 
-check('开关语义等价：关闭零钩子、开启有钩子，body 逐字相同', function () use ($root): void {
+check('开关语义等价：关闭零副作用、开启有自证，body 逐字相同', function () use ($root): void {
     $offKernel = new Kernel($root, ['performance' => ['enabled' => false]]);
     $onKernel = new Kernel($root, ['performance' => ['enabled' => true]]);
     // 插件钩子在 boot() 阶段由插件系统装载，先看钩子就必须先装配。
     $offKernel->boot();
     $onKernel->boot();
 
-    $offActions = $offKernel->hooks()->tags()['actions'];
-    $onActions = $onKernel->hooks()->tags()['actions'];
-    truthy(!in_array('kernel.shutdown', $offActions, true), '关闭时不应注册任何增强钩子');
-    truthy(in_array('kernel.shutdown', $onActions, true), '开启时应挂在渲染后出口');
-
+    // 不能再用「kernel.shutdown 标签是否为空」判定：统计系统也订阅了同一出口，
+    // 那是另一层的能力，与性能插件开关无关。改看插件独有的可观测副作用。
     $off = $offKernel->handle(new Request('GET', '/', [], []));
+    truthy(!isset($off->headers()['Server-Timing']), '关闭时不应有性能自证头');
+    truthy(!isset($off->headers()['X-Wx-Budget']), '关闭时不应有预算留痕头');
     $on = (new Kernel($root, ['performance' => ['enabled' => true]]))
         ->handle(new Request('GET', '/', [], []));
     truthy($off->body() === $on->body(), '开关不得改变业务 body');

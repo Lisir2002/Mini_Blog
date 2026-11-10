@@ -68,6 +68,11 @@ final class PdoUserProvider implements UserProviderInterface
         return $row;
     }
 
+    public function count(): int
+    {
+        return (int) $this->db->pdo()->query('SELECT COUNT(*) FROM ' . $this->table())->fetchColumn();
+    }
+
     public function dropSchema(): void
     {
         $this->db->pdo()->exec('DROP TABLE IF EXISTS ' . $this->table());

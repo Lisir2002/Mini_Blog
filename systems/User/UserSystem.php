@@ -61,6 +61,13 @@ final class UserSystem extends AbstractSystem
             $provider->ensureSchema();
             $provider->seed();
         }
+
+        // 账号存量自报给统计层：只给一个数字，不给任何账号字段。
+        $kernel->hooks()->filter('metric.collect', static function (array $samples) use ($provider): array {
+            $samples[] = ['name' => 'user_accounts', 'labels' => [], 'value' => $provider->count()];
+            return $samples;
+        }, 10);
+
         if (!$kernel->container()->has(ApiRegistryInterface::class)) return;
 
         /** @var ApiRegistryInterface $registry */

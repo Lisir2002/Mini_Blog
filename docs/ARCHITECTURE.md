@@ -149,7 +149,7 @@ flowchart TB
 
 | 契约 | 默认实现 | 谁可覆盖 |
 | --- | --- | --- |
-| `SystemInterface` | 17 个系统层 | 未来任意新系统层 |
+| `SystemInterface` | 18 个系统层 | 未来任意新系统层 |
 | `PackageInterface` | 主题 / 插件 / 独立页包 | 任意包 |
 | `RendererInterface` | **仅主题包**（核心无实现） | 高 priority 主题 / 插件 |
 | `LoggerInterface` | 日志系统 → `FileLogger` | 任意系统层 / 插件 |
@@ -324,7 +324,7 @@ return [
 
 ### 10.1 清单是唯一事实源
 
-`api/registry.json` 定义 **69 个接口**：`API-CORE-001~004`、`API-LOG-001`、`API-LC-001~009`、`API-AUTH-001~004`、`API-USER-001`、`API-CONTENT-001~005`、`API-COMMENT-001~005`、`API-ATTACH-001~005`、`API-EMOJI-001~003`、`API-PERM-001~014`、`API-MEMBER-001~010`、`API-REL-001~005`、`API-STATE-001`。每条必须声明 `id / name / system / method / path / operation / auth / idempotent / side_effects / since / summary / scenario / params / response_fields / errors / example_request / example_response / notes / changelog / doc`。
+`api/registry.json` 定义 **73 个接口**：`API-CORE-001~004`、`API-LOG-001`、`API-LC-001~009`、`API-AUTH-001~004`、`API-USER-001`、`API-CONTENT-001~005`、`API-COMMENT-001~005`、`API-ATTACH-001~005`、`API-EMOJI-001~003`、`API-PERM-001~014`、`API-MEMBER-001~010`、`API-REL-001~005`、`API-STATE-001`。每条必须声明 `id / name / system / method / path / operation / auth / idempotent / side_effects / since / summary / scenario / params / response_fields / errors / example_request / example_response / notes / changelog / doc`。
 
 `ApiRegistry` 构造时强校验：ID 唯一、`method+path` 唯一、`operation` 唯一；`registerOperation` 拒绝重复执行者。
 
@@ -363,7 +363,7 @@ return [
 | 幂等键 | `IdempotencyStore`（文件 JSON） | 同键同参数重放首次结果并回 `Idempotency-Replayed: true`；同键不同参数 `40902`；参数校验失败不写缓存；429 不被缓存 |
 | 429 限流 | `RateLimiter`（固定窗口） | `Retry-After` + `X-RateLimit-Limit/Remaining/Reset`；CLI 用 PID 隔离避免跨轮累积 |
 | 游标分页 | `content.posts` | `limit + cursor`，cursor 为 base64 编码的记录 ID，走 `id > cursor` 的 keyset 分页，避免 OFFSET 深翻页 |
-| OpenAPI 3.1 | `tools/export-openapi.php` | 由清单导出 `docs/api/openapi.json`（62 条路径 / 69 个 operation，同路径多方法合并），含 `bearerAuth` 安全声明与统一 schema |
+| OpenAPI 3.1 | `tools/export-openapi.php` | 由清单导出 `docs/api/openapi.json`（66 条路径 / 73 个 operation，同路径多方法合并），含 `bearerAuth` 安全声明与统一 schema |
 
 ### 10.5 一个接口 = 一份规范化操作文档
 
@@ -371,7 +371,7 @@ return [
 | --- | --- |
 | 1:1 | 清单每条接口 → 且仅 → 一份 `docs/api/<ID>.md`；任何 `API-*.md` 必须能对应清单条目 |
 | 8 节固定 | 接口标识 / 功能与适用场景 / 请求规范 / 响应规范 / 错误码 / 调用示例 / 幂等性与副作用 / 变更记录 |
-| 生成 | `php tools/gen-api-docs.php` 依据清单 + `docs/api/_TEMPLATE.md` 生成 69 份文档与索引 |
+| 生成 | `php tools/gen-api-docs.php` 依据清单 + `docs/api/_TEMPLATE.md` 生成 73 份文档与索引 |
 | 禁止手改 | 先改清单 → 重新生成 → 跑守卫测试；直接手写文档视为破坏单一事实源 |
 | 守卫 | `tests/run.php` 第 6、10 组逐条检查 1:1、章节、编号与路径一致、无孤儿、无重复、OpenAPI 与清单一致 |
 
@@ -417,7 +417,7 @@ return [
 │   ├── Kernel.php              生命周期 + renderStage + render.should_render
 │   ├── Container.php / HookBus.php / SystemRegistry.php / PackageLoader.php
 │   ├── Router.php / Config.php / AbstractSystem.php / bootstrap.php
-├── systems/                    17 个系统层，每目录 = 一个系统层 + system.json + permissions.json（可选）
+├── systems/                    18 个系统层，每目录 = 一个系统层 + system.json + permissions.json（可选）
 │   ├── Log/ User/ Security/ Comment/ Data/ Content/       （能力型）
 │   │   └── migrations/*.sql + lifecycle.php               （自己的表与清理钩子）
 │   ├── Theme/ Plugin/ Page/                              （承载型）
@@ -428,8 +428,8 @@ return [
 ├── themes/Bare/ · BareHtml/ · Glass/ · GlassFront/   主题包（Glass/GlassFront 为磨砂玻璃元主题）
 ├── plugins/Hello/ · plugins/Performance/   插件包（示例；可选性能治理包，默认关闭）
 ├── pages/Home/ Links/ Console/ Toolbox/ Install/   独立页包（后三者 standalone；Install 拆为 InstallPage / Installer / InstallerAccount / InstallerMigrate / InstallState / InstallProbe）
-├── api/registry.json           接口清单（唯一事实源，69 条）
-├── docs/api/                   SPEC.md + 69 份 API-*.md + openapi.json + 模板 + 索引
+├── api/registry.json           接口清单（唯一事实源，73 条）
+├── docs/api/                   SPEC.md + 73 份 API-*.md + openapi.json + 模板 + 索引
 ├── docs/CONVENTIONS.md         工程规矩 A–T（含规矩 T 性能三不）
 ├── docs/PERFORMANCE.md         性能治理：判断、部署清单、对比数据与明确不做
 ├── docs/responsibility-report.json   职责与协作审计报告（每次测试自动刷新）
@@ -563,18 +563,19 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | v0.22 | **启动期边界**：把「构造」纳入异常边界——`Kernel::serve()` 包住构造与 `run()`，`public/index.php` 只留一行调用。此前 `config/local.php`（主题启用唯一会写的文件）损坏会在构造期抛出、落在 `run()` 之外：`display_errors=0` 时 HTTP/1.0 500 空 body（白屏），`display_errors=1` 时 **HTTP 200** + 绝对路径与 `Parse error`（监控看到成功，缓存与爬虫把错误页当正常页收下）。新增 `tools/journey/Server.php`（内置服务器：端口探测 / 就绪等待 / 原始响应读出 / 强制回收）与 `tools/faults/StartupFaults.php`（装配期、构造期各含自愈，全程 `display_errors=1`），`faults` 从九类扩到十一类；`30` 组守卫做入口唯一性、兜底正文唯一性、子进程构造期断言。故障只进 SAPI 日志、不进响应体；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.23 | **稳定性的代价**：v0.20 的原子写与流式下载此前只有正确性守卫、没有数字。新增 `tools/bench/StabilityProbe.php` 与 `php tools/bench.php stability`：幂等 `claim`+`complete` 45 µs/次、限流 `check` 11 µs/次（约占一次请求 3.7 ms 的 1%）、6 进程 × 200 键并发落盘 **1200/1200** 一条不丢；附件 64 MB 全量 **66.0 MB** 峰值 / 分块 **2.0 MB**（−97%），本地落盘耗时约 1.8 倍。文档只锁「可重跑命令」，数值标注为机器快照；顺带修掉 PERFORMANCE §8 里写死的「250 passed / 50 分组文件」（早已静默过期），并把性能文档纳入事实对账。`31` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.24 | **反向锚点**：正向锚点只能核对「已经想到要核对的句子」——v0.20 起查出的四处漂移（README 徽章 `282 passing`、SPEC 漏登 5 个错误码、architecture.html 页眉「14 系统层 · 55 接口」、结构树「40 个分组 200 项守卫」）都不是写错，而是**没有锚点**，坏掉时对账仍报零漂移。新增 `tools/facts/Coverage.php`：扫「有单一真源的名词」前的数字，未被任一锚点覆盖且非史实句即为候选；候选不与绝对值比对（那会立刻产生 611 条噪音），而与 `coverage-baseline.php` 快照比增量，只报**新出现的组合**（611 → 32 条，当前零假红）。`php tools/facts.php verify` 输出 `NEW` 行并以非 0 退出；`accept` 是唯一写文件的模式，且只覆盖该快照。顺带把 26b 里「源码不含 `file_put_contents`」这条字符串近似断言改为行为验证（跑 verify 前后比对 docs / tools/facts 的 md5 与 mtime）。`32` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
-| **v0.25（当前）** | **规模验证**：v0.24 以前所有证据都在几十行夹具上跑，「用了 keyset 所以分页快」「建了索引所以走索引」都只是读代码的推断。新增 `tools/scale.php`（+ `scale/{Seeder,Probe}`）在独立前缀临时表上灌万级数据实测，第一次上量就查出两处真缺陷：①带 `keyword` 的搜索必抛 `PDOException: Invalid parameter number`（`:kw` 在 SQL 里用了两次，而连接是原生预处理）—— 功能从上线起完全不可用，内存实现走 `str_contains` 故两组测试都没发现；②单篇评论无上限，5 万条读出 **90 MB**。修复：搜索改用独立占位符；`forPost()` 增加可选 `$limit`、`comment.read_limit` 默认 2000、响应新增 `truncated` 字段（截断显式声明，`total` 仍为真实值）。实测结论：分页 O(1)（10 万行深翻 12.8 ms，其中 11.8 ms 是每页一次 `count()`）、搜索无命中为全表扫描（10 万行 188.9 ms）、热文 2 万条 44 ms / 21 MB vs 限额 4.7 ms / 2.1 MB。`33` 组守卫；不新增系统层，`core/` 仍 24 文件 |
+| **v0.26（当前）** | **统计系统（第 18 层）**：此前只有零散计数（`QueryProfiler`、`health`、`data stats`），没有统一口径回答「多少请求、错多少、多慢、谁被调得多、存量多少」。新增 `systems/Metric`：三类指标（counter / gauge / histogram）、小时聚合表、四通道自动埋点（HTTP / 接口 / SQL / 业务事件）、四个只读接口、`tools/metrics.php report/prune/verify`；白名单字典 + 标签收窄 + `metric_dropped`，同时挡住基数爆炸与拼写黑洞；写入失败只降级不反噬业务。`core/` 仍 24 文件，仅 `Kernel` 给关闭钩子补时长参数、`ApiDispatcher` 广播 `api.executed`；系统层 18、接口 73、权限点 47、`34` 组守卫 12 项。 |
+| **v0.25** | **规模验证**：v0.24 以前所有证据都在几十行夹具上跑，「用了 keyset 所以分页快」「建了索引所以走索引」都只是读代码的推断。新增 `tools/scale.php`（+ `scale/{Seeder,Probe}`）在独立前缀临时表上灌万级数据实测，第一次上量就查出两处真缺陷：①带 `keyword` 的搜索必抛 `PDOException: Invalid parameter number`（`:kw` 在 SQL 里用了两次，而连接是原生预处理）—— 功能从上线起完全不可用，内存实现走 `str_contains` 故两组测试都没发现；②单篇评论无上限，5 万条读出 **90 MB**。修复：搜索改用独立占位符；`forPost()` 增加可选 `$limit`、`comment.read_limit` 默认 2000、响应新增 `truncated` 字段（截断显式声明，`total` 仍为真实值）。实测结论：分页 O(1)（10 万行深翻 12.8 ms，其中 11.8 ms 是每页一次 `count()`）、搜索无命中为全表扫描（10 万行 188.9 ms）、热文 2 万条 44 ms / 21 MB vs 限额 4.7 ms / 2.1 MB。`33` 组守卫；不新增系统层，`core/` 仍 24 文件 |
 | v1.0 | 包仓库协议、多站点（配置覆盖入口已预留）、契约版本协商、升级兼容性检查、共享存储的限流与幂等、验证码与内容审核、灰度与自动回滚策略、跨请求共享缓存、把 `request_id` 移到 `X-Request-Id` 响应头 |
 
 ---
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **346 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
-- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`）。
+- `php -l` 全量 **359 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
+- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；346 个文件共 21,201 有效代码行，最大单文件 187 行，69 个 operation 全部绑定执行者。
-- **17 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → page`；**13 个契约接口文件**（容器运行时绑定 24 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个内部注册项）、**69 个接口 / 69 份文档**、OpenAPI 3.1（62 路径 / 69 操作）、**29 个承载单元**（17 系统层 + 4 主题 + 6 独立页 + 2 插件）、**46 个权限点**。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；359 个文件共 22,404 有效代码行，最大单文件 187 行，73 个 operation 全部绑定执行者。
+- **18 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → metric → page`；**13 个契约接口文件**（容器运行时绑定 26 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个内部注册项）、**73 个接口 / 73 份文档**、OpenAPI 3.1（66 路径 / 73 操作）、**30 个承载单元**（18 系统层 + 4 主题 + 6 独立页 + 2 插件）、**47 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
 - HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.25.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
 - 装卸全链路与签名验签实测：安装 → 启用 → 升级（留备份）→ 回滚 → 停用 → 完整性校验 → 卸载；重复安装、版本未递增、反向依赖、路径穿越、源包越界、篡改签名、强制缺签名均被正确拒绝。
@@ -1520,6 +1521,28 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 **顺带修掉一个真缺陷**：`lifecycle.activate/deactivate` 只写装卸台账，而 `ThemeSystem` 只读 `theme.active`，`DependencyGraph::assertNoReverse` 又按 `theme.active` 拒绝卸载——三处各说各话，导致「能停用、不能切换」的不对称。现在 `lifecycle.activate` 明确保留装配准入语义（清单文档澄清），`lifecycle.deactivate` 当前启用主题返回 `40901`，`theme.activate` 是唯一启用源写入口。
 
 **顺带修正文档陈旧数字**：第 4 节表格仍写「契约面 12 个」「21 个操作」，实际为 13 个契约文件 / 24 个运行时绑定 / 69 个 operation。守卫 `06` / `12a` / `13a` / `13d` / `14c` / `23a` / `24a` 的计数同步为可重跑事实。完整说明见 [`docs/THEMES.md`](THEMES.md)。
+
+---
+
+## 35. 统计系统：把「现在发生了什么」变成可查询的事实（v0.26）
+
+**问题不是「缺一个看板」，而是缺一套口径。** 在此之前，能回答问题的只有三处零散实现：`QueryProfiler` 数 SQL 条数、`/system/health` 看依赖是否活着、`tools/data.php stats` 看表体量。请求量、错误率、耗时分位、operation 排行、文章 / 评论 / 账号存量都没有统一来源；想加一个「今天评论多少」只能再写一条 SQL，且没人保证口径一致。
+
+**三问法定落点**：统计是横切能力，不是某个业务系统的附属；它需要表、需要接口、需要权限，因此必须是一个系统层（第 18 层），而不是插件。核心零改动地接入：`system.json` + 目录，装配器自动发现；业务层不调用统计层，只发既有事件。
+
+| 设计问题 | 选择 | 理由 |
+| --- | --- | --- |
+| 存明细还是聚合 | **小时聚合，一行一维度** | 明细一天千万行；统计问题只需要「多少 / 多快 / 错误率」，明细属于日志 |
+| 计数器 / 仪表混用 | **类型强制，仪表覆盖** | 存量当计数器累加会得出「文章数每天翻倍」这种看起来很确定的错数 |
+| 分位数怎么算 | **固定桶 + 桶上界近似，响应标注 `approx`** | 精确分位要存全量样本；固定桶成本恒定、可解释，且不谎称精度 |
+| 标签从哪来 | **字典白名单 + 值收窄 + 未声明标签计数** | 标签是基数爆炸的主入口；拼错的指标名必须报错而不是变成空序列 |
+| 库挂了怎么办 | **降级内存，`durable=false`** | 「统计为 0」与「库连不上所以为 0」必须能区分 |
+| 写失败怎么办 | **吞异常、`degraded` + `last_error`、`error_log`** | 统计是旁路，不能把业务请求弄挂；但失败必须留痕 |
+| 成本怎么控 | **请求内合并 + 关闭时一次事务 + 四通道开关** | 每请求 6~8 条 UPSERT，与业务查询量无关；可整体或分通道关闭 |
+
+**实现中抓到的一个真问题**：首版 HTTP 耗时用 `$_SERVER['REQUEST_TIME_FLOAT']` 起算。Web SAPI 下正确，但 CLI / 守卫里那是**进程启动时间**，于是测试跑了 3 秒，统计就记成「这次请求慢了 3 秒」，报告里出现 p50=5000ms 的假数据。改为由 `Kernel::handle()` 计时并通过 `kernel.shutdown` 传入（进入 handle → 渲染完成），CLI 与 Web 口径一致。这个缺陷没有让任何请求失败，只会让运维对着假曲线做决策 —— 正是本项目要消灭的「安静地错」。
+
+**边界**：`systems/Metric` 不读业务表（存量由 `metric.collect` 自报）、不产 HTML（看板归主题）、不新增核心契约（存储契约是系统层内部契约，与 `QueryProfilerInterface` 同级）。`core/` 仍 24 个文件，新增能力全部落在系统层与工具层。详见 [`docs/METRICS.md`](METRICS.md)。
 
 ---
 

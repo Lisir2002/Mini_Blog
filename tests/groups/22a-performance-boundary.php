@@ -36,7 +36,7 @@ check('生产代码零 CPU 亲和性 / fork / 常驻运行时调用', function (
 
 check('性能能力未新增系统层、未撑大核心', function () use ($root): void {
     $layers = glob($root . '/systems/*', GLOB_ONLYDIR) ?: [];
-    truthy(count($layers) === 17, '系统层数应为 17，实际 ' . count($layers));
+    truthy(count($layers) === 18, '系统层数应为 18，实际 ' . count($layers));
 
     $coreFiles = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($root . '/core', FilesystemIterator::SKIP_DOTS)

@@ -54,12 +54,18 @@ final class Kernel
     /** 纯处理流程，不产生任何输出，便于 CLI / 单元测试直接调用。 */
     public function handle(Request $request): Response
     {
+        $started = microtime(true);
         $this->boot();
         $response = $this->router->resolve($request, $this);
         $this->hooks->emit('kernel.response', $request, $response, $this);
         $response = $this->hooks->apply('kernel.response.filter', $response, $request, $this);
         $response = $this->renderStage($response, $request);
-        $this->hooks->emit('kernel.shutdown', $request, $response, $this);
+        // 时长为「进入 handle 到渲染完成」：不用 REQUEST_TIME_FLOAT，CLI / 测试里那是进程启动时间，
+        // 会把「脚本跑了 3 秒」记成「这次请求慢了 3 秒」——统计宁可标注口径，也不能给出假数字。
+        $this->hooks->emit(
+            'kernel.shutdown', $request, $response, $this,
+            round((microtime(true) - $started) * 1000, 3)
+        );
         return $response;
     }
 

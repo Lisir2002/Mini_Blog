@@ -26,4 +26,7 @@ interface CommentStoreInterface
 
     /** 公开条数：不含已删除与垃圾评论 */
     public function countForPost(string $slug): int;
+
+    /** 全站按状态统计，status => 条数；供统计层读取存量，不暴露任何正文。 @return array<string, int> */
+    public function counts(): array;
 }

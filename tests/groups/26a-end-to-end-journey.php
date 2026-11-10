@@ -85,12 +85,12 @@ check('跑完现场：工作区无 local.php、无旅程表前缀、默认 Headl
 check('不越界：旅程不新增系统层 / 接口 / 契约，core/ 仍 24 文件', function () use ($root): void {
     truthy(count(glob($root . '/core/*.php') ?: []) + count(glob($root . '/core/*/*.php') ?: []) === 24,
         'core/ 文件数被改动');
-    truthy(count(glob($root . '/systems/*/system.json') ?: []) === 17, '系统层数量被改动');
+    truthy(count(glob($root . '/systems/*/system.json') ?: []) === 18, '系统层数量被改动');
     $reg = json_decode((string) file_get_contents($root . '/api/registry.json'), true);
-    truthy(count($reg['endpoints'] ?? []) === 69, '接口清单被改动');
+    truthy(count($reg['endpoints'] ?? []) === 73, '接口清单被改动');
     $perms = 0;
     foreach (glob($root . '/systems/*/permissions.json') ?: [] as $f) {
         $perms += count((array) (json_decode((string) file_get_contents($f), true)['permissions'] ?? []));
     }
-    truthy($perms === 46, '权限点数量被改动：' . $perms);
+    truthy($perms === 47, '权限点数量被改动：' . $perms);
 });

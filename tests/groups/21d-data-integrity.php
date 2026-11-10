@@ -60,18 +60,30 @@ check('孤儿巡检：父行不存在时报告出来，且只报告不修复', f
     $db->exec('DELETE FROM ' . $table . ' WHERE parent_id = 999999');
 });
 
-check('结构指纹：内容没变时，冷连接再启动不再重放建表语句', function () use ($k, $connected, $prefix): void {
-    if (!$connected) return;
+check('结构指纹：内容没变时，冷连接再启动不再重放建表语句', function (): void {
+    // 用独立前缀与两条全新连接验证闸门本身：不依赖前面哪个组先碰过哪张表，
+    // 否则「指纹失效」与「测试顺序变化」会长成同一个失败。
+    $prefix = 'dfp_' . bin2hex(random_bytes(3)) . '_';
     $cfg = require dirname(__DIR__, 2) . '/config/app.php';
-    $profiler = $k->container()->resolve(QueryProfilerInterface::class);
-    // 故意造一条新连接：进程内缓存对它无效，只能靠库里的指纹判断。
-    $fresh = new PdoDatabase(
-        (string) $cfg['database']['dsn'], (string) $cfg['database']['user'],
-        (string) $cfg['database']['pass'], $prefix, $profiler
-    );
-    $profiler->reset();
-    Schema::apply($fresh, dirname(__DIR__, 2) . '/systems/Comment/migrations');
-    // 冷连接最多两次：一次建状态表（IF NOT EXISTS）、一次读指纹。
-    // 若闸门失效，这里会变成「建表 + 改列 + information_schema 探测」的一串 DDL。
-    truthy($profiler->count() <= 2, '冷连接重放了建表语句，查询数 ' . $profiler->count());
+    $dir = dirname(__DIR__, 2) . '/systems/Comment/migrations';
+    try {
+        $first = new \Wx\Systems\Data\QueryProfiler();
+        $db1 = new PdoDatabase(
+            (string) $cfg['database']['dsn'], (string) $cfg['database']['user'],
+            (string) $cfg['database']['pass'], $prefix, $first
+        );
+        Schema::apply($db1, $dir);
+        truthy($first->count() > 2, '首次应用应真实执行迁移，实际查询数 ' . $first->count());
+
+        // 冷连接：进程内 memo 对它无效，只能靠库里的指纹判断。
+        $second = new \Wx\Systems\Data\QueryProfiler();
+        $db2 = new PdoDatabase(
+            (string) $cfg['database']['dsn'], (string) $cfg['database']['user'],
+            (string) $cfg['database']['pass'], $prefix, $second
+        );
+        Schema::apply($db2, $dir);
+        truthy($second->count() <= 2, '冷连接重放了建表语句，查询数 ' . $second->count());
+    } finally {
+        dropTables($prefix);
+    }
 });

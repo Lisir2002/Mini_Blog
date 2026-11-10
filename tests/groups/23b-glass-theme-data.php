@@ -31,7 +31,7 @@ check('系统层卡片由 /system/layers 的装配顺序驱动，呈现元数据
     preg_match('/var LAYER_META = \{(.*?)\n  \};/s', $js, $block);
     preg_match_all('/^\s{4}([a-z]+):\s*\{/m', $block[1] ?? '', $keys);
     $declared = $keys[1] ?? [];
-    truthy(count($declared) >= 17, '呈现元数据覆盖不足');
+    truthy(count($declared) >= 18, '呈现元数据覆盖不足');
 
     $r = (new Kernel($root))->handle(new Request('GET', '/api/v1/system/layers', [], []));
     $order = (array) (json_decode($r->body(), true)['data']['order'] ?? []);

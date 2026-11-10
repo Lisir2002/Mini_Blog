@@ -18,6 +18,7 @@
     user:       { label: '用户',   group: '身份',     probe: '/users/me', auth: true },
     permission: { label: '权限',   group: '身份',     probe: '/permission/catalog' },
     api:        { label: '接口',   group: '能力',     probe: '/system/info' },
+    metric:     { label: '统计',   group: '能力',     probe: '/stats/catalog', auth: true },
     state:      { label: '状态',   group: '能力',     probe: '/state/task', auth: true, query: '?id=state.pending' },
     plugin:     { label: '插件',   group: '承载',     probe: '/system/layers' },
     member:     { label: '成员',   group: '身份',     probe: '/member/leaderboard' },
@@ -51,6 +52,11 @@
       { label: '评论树',     path: '/comments', query: '?post_slug=first-post' },
       { label: '附件清单',   path: '/attachments', query: '?post_slug=first-post' },
       { label: '表情目录',   path: '/emojis' }
+    ]},
+    { group: '统计（需令牌）', items: [
+      { label: '统计概览',   path: '/stats/overview', auth: true },
+      { label: '操作排行',   path: '/stats/operations', auth: true },
+      { label: '指标字典',   path: '/stats/catalog', auth: true }
     ]},
     { group: '身份与权限', items: [
       { label: '权限目录',   path: '/permission/catalog' },

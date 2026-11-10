@@ -57,6 +57,14 @@ final class ContentSystem extends AbstractSystem
             $repo->seed();           // 空库写入示例文章
         }
 
+        // 统计层要「文章存量」，但统计层不认识文章表。由本层自报，两个维度各算一次。
+        // 没有统计层时这个过滤器无人消费，零副作用。
+        $kernel->hooks()->filter('metric.collect', static function (array $samples) use ($repo): array {
+            $samples[] = ['name' => 'content_posts', 'labels' => ['status' => 'published'], 'value' => $repo->count('published')];
+            $samples[] = ['name' => 'content_posts', 'labels' => ['status' => 'any'], 'value' => $repo->count('any')];
+            return $samples;
+        }, 10);
+
         if (!$kernel->container()->has(ApiRegistryInterface::class)) return;
         /** @var ApiRegistryInterface $registry */
         $registry = $kernel->container()->resolve(ApiRegistryInterface::class);

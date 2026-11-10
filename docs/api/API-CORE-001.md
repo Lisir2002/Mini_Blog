@@ -98,13 +98,13 @@ GET /api/v1/system/info
     "message": "ok",
     "data": {
         "framework": "Mini Blog",
-        "core_version": "0.25.0",
+        "core_version": "0.26.0",
         "php": "8.3.6",
         "requires_php": ">=8.1",
         "api_version": "v1",
-        "systems": 17,
-        "contracts": 24,
-        "api_operations": 69,
+        "systems": 18,
+        "contracts": 26,
+        "api_operations": 73,
         "database": "mysql",
         "theme_active": null,
         "headless": true

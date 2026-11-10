@@ -8,7 +8,7 @@ use Wx\Tools\Facts\Reconciler;
  * 26b · 计数单一真源守卫 —— 把「升级时忘了同步某个文档数字」变成一次明确的测试失败。
  *
  * 与 tools/facts.php verify 共用同一份事实计算与锚点表，不做第二套实现。
- * 注意：守卫里的硬编码锁（06/13a/13d/14c 的 === 69 / === 46）刻意保留独立，
+ * 注意：守卫里的硬编码锁（06/13a/13d/14c 的 === 73 / === 47）刻意保留独立，
  * 本组只反向核对「锁没过期」，不把锁改成读事实源 —— 否则就变成自己验自己。
  */
 echo "\n=== 26b. 计数单一真源：文档 == 事实，守卫锁未过期 ===\n";
@@ -22,7 +22,7 @@ check('事实集由物理状态算出：结构量与真实清单 / 文件系统�
     truthy($f['operations'] === count($reg['endpoints'] ?? []), '接口数不是从清单算的');
     truthy($f['api_paths'] === count(array_unique(array_column($reg['endpoints'] ?? [], 'path'))), '去重路径算错');
     truthy($f['contracts_files'] === count(glob($root . '/core/Contracts/*.php') ?: []), '契约文件数算错');
-    truthy($f['core_files'] === 24 && $f['system_layers'] === 17, '核心 / 系统层结构量异常');
+    truthy($f['core_files'] === 24 && $f['system_layers'] === 18, '核心 / 系统层结构量异常');
     truthy($f['themes'] === 4 && $f['meta_themes'] === 2, '主题 / 元主题数量异常');
     truthy($f['version'] === json_decode((string) file_get_contents($root . '/core/version.json'), true)['version'],
         '版本号不是从 core/version.json 读的');
@@ -36,7 +36,7 @@ check('文档锚点零漂移：结构性计数与唯一事实源逐项一致', f
     truthy($r['ok'], '文档计数漂移：' . implode(' | ', array_slice($r['findings'], 0, 6)));
 });
 
-check('守卫锁未过期：硬编码的 69 / 46 仍等于事实', function () use ($root): void {
+check('守卫锁未过期：硬编码的 73 / 47 仍等于事实', function () use ($root): void {
     $f = $GLOBALS['wx_facts'] ?? Facts::compute($root);
     $bad = Reconciler::guardLocks($root, $f);
     truthy($bad === [], '守卫锁与事实脱节：' . implode(' | ', $bad));

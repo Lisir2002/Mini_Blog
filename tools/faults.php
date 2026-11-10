@@ -8,12 +8,14 @@ declare(strict_types=1);
  *   php tools/faults.php json   以 JSON 输出结果（供守卫 / 外部工具消费）
  *
  * 覆盖：数据库不可达与恢复 → 令牌过期与恢复 → 同键进行中 → 失败释放占位
- *       → 上传越界 → 主题不可解析 → 工作区零残留复核。
+ *       → 上传越界 → 主题不可解析 → 装配期 / 构造期故障（真实 SAPI）
+ *       → 工作区零残留复核。
  *
  * 与 tools/journey.php 的分工：那条证明「顺利时走得通」，这条证明「出错时说得清」。
  * 两者共用 tools/journey/ 的隔离站点与 HTTP 探针，不复制第二套基础设施。
  *
- * 约束：全程走 Kernel::handle() 真实请求管线；只在 /tmp 副本 + 独立表前缀落地；
+ * 约束：启动期故障走 PHP 内置服务器（真实 SAPI），其余走 Kernel::handle() 真实请求管线；
+ *       只在 /tmp 副本 + 独立表前缀落地；
  * 结论一律是可重跑文本，不用截图；退出码 0 = 全部故障都被正确识别。
  */
 
@@ -21,10 +23,10 @@ use Wx\Tools\Faults\FaultJourney;
 
 $root = require dirname(__DIR__) . '/core/bootstrap.php';
 // 复用成功路径的隔离站点 / 探针 / 安装阶段。
-foreach (['Site', 'Probe', 'JourneyState', 'InstallStage', 'ContentStage', 'ThemeStage', 'Journey'] as $class) {
+foreach (['Site', 'Probe', 'Server', 'JourneyState', 'InstallStage', 'ContentStage', 'ThemeStage', 'Journey'] as $class) {
     require_once __DIR__ . '/journey/' . $class . '.php';
 }
-foreach (['FaultJourney', 'DataFaults', 'AuthFaults', 'RequestFaults'] as $class) {
+foreach (['FaultJourney', 'DataFaults', 'AuthFaults', 'RequestFaults', 'StartupFaults'] as $class) {
     require_once __DIR__ . '/faults/' . $class . '.php';
 }
 

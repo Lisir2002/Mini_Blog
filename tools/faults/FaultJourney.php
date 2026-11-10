@@ -56,6 +56,8 @@ final class FaultJourney
             (new DataFaults())->run($p, $site, $s);
             (new AuthFaults())->run($p, $site, $s);
             (new RequestFaults())->run($p, $site, $s);
+            // 启动期故障必须最后跑：它会替换 storage 与 local.php，且在真实 SAPI 下验证。
+            (new StartupFaults())->run($p, $site);
 
             $p->step('收尾：工作区零残留（故障注入不得改动真实仓库）', function () use ($p, $site): void {
                 $res = $site->residue();

@@ -34,7 +34,8 @@ final class Site
 
         $this->fingerprint = $this->measure();
         mkdir($this->dir . '/storage', 0775, true);
-        foreach (['core', 'systems', 'api', 'config', 'themes', 'pages', 'plugins'] as $part) {
+        // public/ 一并复制：真实 SAPI 服务器需要与生产同构的文档根与入口文件。
+        foreach (['core', 'systems', 'api', 'config', 'themes', 'pages', 'plugins', 'public'] as $part) {
             Fs::copyDir($root . '/' . $part, $this->dir . '/' . $part);
         }
         // 副本必须是「全新站点」：工作区若残留本地状态，不能带进旅程。

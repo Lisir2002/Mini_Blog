@@ -97,6 +97,20 @@ final class Kernel
         return $response;
     }
 
+    /**
+     * 唯一入口：把「构造」也纳入异常边界。
+     * 配置在构造期就被 require，损坏的 config/local.php 会让异常发生在 run() 之前；
+     * 那一刻容器与钩子总线都还不存在，订阅者不可能存在 —— 只能走最后一道兜底。
+     */
+    public static function serve(string $root): void
+    {
+        try {
+            (new self($root))->run();
+        } catch (\Throwable $e) {
+            self::bareError($e);
+        }
+    }
+
     public function run(): void
     {
         $request = Request::fromGlobals();
@@ -107,13 +121,13 @@ final class Kernel
             // 没有订阅者时退化为纯文本 500 —— 这是唯一允许核心自己写出的内容，且不含任何标签。
             $response = $this->hooks->apply('kernel.exception', null, $e, $request, $this);
             if (!$response instanceof Response) {
-                $this->sendBareError();
+                self::bareError($e);
                 return;
             }
             try {
                 if ($response->body() === '') $response = $this->renderStage($response, $request);
-            } catch (\Throwable) {
-                $this->sendBareError();
+            } catch (\Throwable $e) {
+                self::bareError($e);
                 return;
             }
             $response->send();
@@ -121,8 +135,12 @@ final class Kernel
     }
 
     /** 最后一道兜底：不套主题、不猜语言、不输出堆栈。 */
-    private function sendBareError(): void
+    private static function bareError(?\Throwable $e = null): void
     {
+        if ($e !== null) {
+            // 核心不写日志文件；交给 SAPI 日志，避免故障被边界吞掉后彻底失声。
+            error_log('wx: unhandled: ' . $e::class . ': ' . $e->getMessage());
+        }
         if (headers_sent()) return;
         http_response_code(500);
         header('Content-Type: text/plain; charset=utf-8');

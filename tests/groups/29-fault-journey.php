@@ -11,16 +11,16 @@ use Wx\Tools\Faults\FaultJourney;
  */
 echo "\n=== 29. 故障旅程：依赖缺失 / 凭据过期 / 并发碰撞 / 容量越界 ===\n";
 
-foreach (['Site', 'Probe', 'JourneyState', 'InstallStage', 'ContentStage', 'ThemeStage', 'Journey'] as $c) {
+foreach (['Site', 'Probe', 'Server', 'JourneyState', 'InstallStage', 'ContentStage', 'ThemeStage', 'Journey'] as $c) {
     require_once $root . '/tools/journey/' . $c . '.php';
 }
-foreach (['FaultJourney', 'DataFaults', 'AuthFaults', 'RequestFaults'] as $c) {
+foreach (['FaultJourney', 'DataFaults', 'AuthFaults', 'RequestFaults', 'StartupFaults'] as $c) {
     require_once $root . '/tools/faults/' . $c . '.php';
 }
 
 check('故障工具出厂：CLI 与四个协作者齐备，支持 text / json 两种输出', function () use ($root): void {
     truthy(is_file($root . '/tools/faults.php'), '缺少 tools/faults.php');
-    foreach (['FaultJourney', 'DataFaults', 'AuthFaults', 'RequestFaults'] as $c) {
+    foreach (['FaultJourney', 'DataFaults', 'AuthFaults', 'RequestFaults', 'StartupFaults'] as $c) {
         truthy(is_file($root . '/tools/faults/' . $c . '.php'), '缺少协作者 ' . $c);
     }
     $cli = (string) file_get_contents($root . '/tools/faults.php');

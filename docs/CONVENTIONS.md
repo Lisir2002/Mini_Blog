@@ -92,7 +92,7 @@ curl -i http://127.0.0.1:8080/...    # 真实 HTTP 响应头与响应体
 2. `tests/run.php` 中对应的断言；
 3. 至少一次全绿的运行记录（文本证据，不用截图）。
 
-**当前运行记录**（v0.21）：`php tests/run.php` → **全绿**（分组数见 `php tools/facts.php`）；`php -l` 全量 **334** 个 PHP 文件通过（`core/` 仅 24 个，已达上限，未新增文件）；`php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**（20173 有效代码行，最大单文件 187 行，69 个 operation 全绑定执行者）；`php tools/journey.php` 跑通 22 步成功路径、`php tools/faults.php` 注入九类故障并全部被正确识别；`php tools/facts.php verify` 对账 72 个文档锚点 + 21 个错误码（零漂移）；`php tools/theme.php verify` 复核两款元主题成对 / 同源 / 覆盖面 / 零外链 / 默认 Headless；`php tools/bench.php` 输出应用层开关关 / 开与部署层 opcache、CPU 核数的真实对比数据；`php tools/gen-api-docs.php` 生成 69 份文档 + 索引；`php tools/export-openapi.php` 导出 OpenAPI 3.1（62 路径 / 69 操作）；`php tools/data.php verify` 只读孤儿巡检、`stats` 表体量；`23a` / `23b` 两组守卫验证 `themes/Glass` 的六布局、磨砂玻璃基元、探针路径与登记清单逐条一致、令牌只存内存；`25a` / `25b` 两组守卫验证主题清单 / 启用接口 / 双台账对齐与后台可视化操作；真实 MariaDB 10.11 上建立 24 张表，完成文章 / 评论树 / 附件内容寻址 / 自定义表情 / 用户 / 令牌 / 权限决策 / 页面会话 / 用户组 / 字段级写 / 契约覆盖授权 / 头衔 / 经验 / 等级 / 长任务状态 / 事务回滚 / 批量表情解析 / 出站字段裁剪读写与 HTTP 端到端冒烟。全部为可重跑的文本证据，未使用截图。
+**当前运行记录**（v0.22）：`php tests/run.php` → **全绿**（分组数见 `php tools/facts.php`）；`php -l` 全量 **337** 个 PHP 文件通过（`core/` 仅 24 个，已达上限，未新增文件）；`php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**（20400 有效代码行，最大单文件 187 行，69 个 operation 全绑定执行者）；`php tools/journey.php` 跑通 22 步成功路径、`php tools/faults.php` 注入十一类故障并全部被正确识别；`php tools/facts.php verify` 对账 72 个文档锚点 + 21 个错误码（零漂移）；`php tools/theme.php verify` 复核两款元主题成对 / 同源 / 覆盖面 / 零外链 / 默认 Headless；`php tools/bench.php` 输出应用层开关关 / 开与部署层 opcache、CPU 核数的真实对比数据；`php tools/gen-api-docs.php` 生成 69 份文档 + 索引；`php tools/export-openapi.php` 导出 OpenAPI 3.1（62 路径 / 69 操作）；`php tools/data.php verify` 只读孤儿巡检、`stats` 表体量；`23a` / `23b` 两组守卫验证 `themes/Glass` 的六布局、磨砂玻璃基元、探针路径与登记清单逐条一致、令牌只存内存；`25a` / `25b` 两组守卫验证主题清单 / 启用接口 / 双台账对齐与后台可视化操作；真实 MariaDB 10.11 上建立 24 张表，完成文章 / 评论树 / 附件内容寻址 / 自定义表情 / 用户 / 令牌 / 权限决策 / 页面会话 / 用户组 / 字段级写 / 契约覆盖授权 / 头衔 / 经验 / 等级 / 长任务状态 / 事务回滚 / 批量表情解析 / 出站字段裁剪读写与 HTTP 端到端冒烟。全部为可重跑的文本证据，未使用截图。
 
 ---
 
@@ -226,6 +226,7 @@ curl -i http://127.0.0.1:8080/...    # 真实 HTTP 响应头与响应体
 > **v0.20 落地记录**：稳定性加固四件套——DB 连接超时（`ATTR_TIMEOUT` 默认 2s；DSN `connect_timeout` 实测在 mysqlnd 下无效，放弃）、`system.health` 改为 `ok/degraded/down` + 逐项 checks、限流与幂等改 `flock` 原子读改写（幂等升级为「先占位后回填」，同键并发 `40905`）、附件 >1MB 分块输出。`core/Http/Response.php` 增加流式出口（唯一核心改动，不新增文件），并修掉 `asData()` 覆盖流式响应与 `ob_flush()` 冲出调用方缓冲两处缺陷。`27a` / `27b` 两组故障注入守卫；不新增系统层 / 接口 / 规矩字母，`core/` 仍 24 文件。
 >
 > **v0.21 落地记录**：补上反例——`tools/journey.php` 只证明「顺利时走得通」，新增 `tools/faults.php` + `tools/faults/` 四个协作者，在真实装好的隔离站点上注入九类故障：库不可达与恢复、附件字节在其生命周期内消失、令牌过期与恢复、同键请求进行中、业务失败按幂等语义重放、上传越界、重复 slug、主题指向不存在的包。断言一律落在可分支的错误码上（`50001` / `40102` / `40905` / `40901` / `42201` / `degraded`），不接受「没崩就算过」。顺带修一处错误翻译：重复 slug 由唯一索引抛 `PDOException(23000)`，被分发器按未登记码译成 `50001`（服务端故障），实际是客户端输入冲突，改为写入前预检并返回 `40901`。`29` 组守卫复用 `FaultJourney::run()`，不重写一遍注入；不新增系统层 / 接口 / 规矩字母，`core/` 仍 24 文件。
+> **v0.22 落地记录**：启动期故障补测——`Kernel::serve()` 把「构造」纳入异常边界。此前损坏的 `config/local.php` 在构造期抛出，落在 `run()` 之外：`display_errors=0` 是 HTTP/1.0 500 空 body（白屏），`display_errors=1` 是 **200 + 绝对路径与 Parse error**（状态码说成功）。新增 `tools/journey/Server.php`（内置服务器，被 `StartupFaults` 复用）与 `tools/faults/StartupFaults.php`，装配期 / 构造期各含自愈场景，全部在 `display_errors=1` 下断言不泄露路径与堆栈；`30` 组守卫。不新增系统层 / 接口 / 规矩字母，`core/` 仍 24 文件。
 
 ---
 

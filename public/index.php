@@ -13,4 +13,5 @@ if (PHP_SAPI === 'cli-server') {
     }
 }
 
-(new \Wx\Core\Kernel($wxRoot))->run();
+// 构造期故障（如 config/local.php 损坏）同样要落在边界内：入口不自己写 500。
+\Wx\Core\Kernel::serve($wxRoot);

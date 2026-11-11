@@ -21,6 +21,7 @@
       <a href="#themes" data-nav="themes">主题</a>
       <a href="#probes" data-nav="probes">接口探针</a>
       <a href="#runtime" data-nav="runtime">响应明细</a>
+      <a href="/console/stats">统计看板</a>
     </nav>
     <div class="dash__side-foot">
       <span id="glass-version">版本读取中…</span>

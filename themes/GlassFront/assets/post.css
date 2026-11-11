@@ -1,0 +1,25 @@
+/* post 布局私有样式 —— 评论互动（点赞 / 举报 / 计数）。
+   与 glass.css 同源变量，零脚本、零外部资源。表单全部是原生 POST，
+   无 JavaScript 也能完成；互动按钮只在 can_interact 为真时由页面输出。 */
+.wx-comment__metrics {
+  display: flex; gap: .9rem; flex-wrap: wrap;
+  margin: .35rem 0 0; font-size: .8rem; color: var(--g-faint);
+}
+.wx-comment__likes::before { content: "♥ "; color: var(--g-accent); }
+.wx-comment__reports::before { content: "⚑ "; }
+.wx-comment__actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-top: .5rem; }
+.wx-form--inline { display: inline-flex; gap: .4rem; align-items: center; margin: 0; }
+.wx-form--inline select {
+  padding: .35rem .5rem; border-radius: 8px;
+  border: 1px solid var(--g-line); background: var(--g-surface, transparent);
+  color: inherit; font-size: .84rem;
+}
+.wx-interact {
+  padding: .3rem .7rem; font-size: .8rem; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--g-line);
+  background: transparent; color: var(--g-accent);
+}
+.wx-interact.is-on { background: var(--g-accent); color: #fff; border-color: var(--g-accent); }
+.wx-interact--report { color: var(--g-faint); }
+.wx-comment__report { font-size: .84rem; }
+.wx-comment__report summary { cursor: pointer; color: var(--g-faint); }

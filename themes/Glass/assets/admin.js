@@ -5,6 +5,8 @@
    ========================================================================== */
 (function () {
   'use strict';
+  // 统计看板是服务端渲染的纯数据页，没有仪表盘骨架：短路，不跑探针、不发无谓请求。
+  if (document.querySelector('main[data-view="stats"]')) return;
   var api = document.body.dataset.api || '/api/v1';
   var token = ''; // 仅存于本页内存，不写任何持久化存储
   var out = document.getElementById('glass-output');

@@ -175,6 +175,18 @@ label { display: grid; gap: .3rem; font-size: .84rem; color: var(--g-muted); }
 .metric__value { margin: .3rem 0 0; font-size: 1.7rem; font-weight: 680; line-height: 1.1; }
 .metric__note { margin: .25rem 0 0; font-size: .76rem; color: var(--g-faint); }
 
+/* 通用区块：显式状态条与纯 CSS 柱状图（零脚本、零外部资源） */
+.glass-notice { border-left: 3px solid var(--g-line); padding: .6rem .9rem; border-radius: 10px; background: rgba(127, 157, 205, .08); }
+.glass-notice--ok { border-left-color: var(--g-accent); }
+.glass-notice--info { border-left-color: var(--g-muted); }
+.glass-notice--warn { border-left-color: #e2a13b; background: rgba(226, 161, 59, .12); }
+.glass-notice__title { margin: 0; font-weight: 650; font-size: .92rem; }
+.glass-notice__value { margin: .3rem 0 0; font-size: .84rem; color: var(--g-muted); line-height: 1.55; }
+.glass-chart__bars { display: flex; align-items: flex-end; gap: 4px; height: 168px; padding-top: .5rem; overflow-x: auto; }
+.glass-chart__bar { position: relative; flex: 1 1 12px; min-width: 10px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
+.glass-chart__fill { display: block; width: 100%; min-height: 2px; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--g-accent), rgba(127, 157, 205, .35)); }
+.glass-chart__label { display: block; margin-top: .3rem; font-size: .62rem; color: var(--g-faint); white-space: nowrap; writing-mode: vertical-rl; transform: rotate(180deg); max-height: 62px; overflow: hidden; }
+
 /* 降级：不支持 backdrop-filter 或用户要求减少透明效果时，改用不透明面 */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass-panel, .glass-card, .state, .wx-comment, .wx-comments__compose, .wx-comment__reply {

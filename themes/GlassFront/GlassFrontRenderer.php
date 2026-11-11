@@ -39,6 +39,7 @@ final class GlassFrontRenderer implements RendererInterface
         $comments = is_array($payload['comments'] ?? null)
             ? $payload['comments'] : ['total' => 0, 'items' => [], 'tree' => []];
         $csrf = (string) ($payload['csrf'] ?? '');
+        $visitorId = (string) ($payload['visitor_id'] ?? '');
         $apiPrefix = (string) ($payload['api_prefix'] ?? '/api/v1');
         // archive 布局的数据契约：页面只产结构化数据，这里收敛成模板变量，
         // 模板不直接翻 payload —— 字段改名只需改这两个渲染器，不用逐个改模板。
@@ -52,6 +53,19 @@ final class GlassFrontRenderer implements RendererInterface
         $empty      = !empty($payload['empty']);
         $termsState = is_array($payload['terms_state'] ?? null) ? $payload['terms_state'] : null;
         $links      = (array)  ($payload['links'] ?? []);
+        // 筛选与分页：site_total 与 total 是两套口径，模板不能混用。
+        $siteTotal  = (int)    ($payload['site_total'] ?? 0);
+        $filter     = (array)  ($payload['filter'] ?? []);
+        $filterAction = (string) ($payload['filter_action'] ?? '/archive');
+        $filterIncomplete = !empty($payload['filter_incomplete']);
+        $pageNo     = (int)    ($payload['page_no'] ?? 1);
+        $pages      = (int)    ($payload['pages'] ?? 1);
+        $perPage    = (int)    ($payload['per_page'] ?? 20);
+        $hasPrev    = !empty($payload['has_prev']);
+        $hasNext    = !empty($payload['has_next']);
+        $beyond     = !empty($payload['beyond']);
+        $prevHref   = (string) ($payload['prev_href'] ?? '');
+        $nextHref   = (string) ($payload['next_href'] ?? '');
 
         ob_start();
         include $this->dir . '/templates/' . $resolved['file'];

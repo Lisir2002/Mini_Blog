@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace Wx\Pages\Archive;
 
+use InvalidArgumentException;
 use Wx\Contracts\ApiRegistryInterface;
 use Wx\Contracts\PackageInterface;
 use Wx\Core\Http\Request;
@@ -35,11 +36,12 @@ final class ArchivePage implements PackageInterface
             }
 
             $query = new ArchiveQuery($registry);
+            $params = $request->query();
             try {
                 $result = match ($path) {
-                    '/archive' => $this->archive($query),
+                    '/archive' => $this->archive($query, $params),
                     '/terms'   => $this->terms($query),
-                    default    => $this->term($query, $request->query()),
+                    default    => $this->term($query, $params),
                 };
             } catch (\Throwable $e) {
                 $result = ArchiveState::fromThrowable($this->viewOf($path), $e);
@@ -60,10 +62,19 @@ final class ArchivePage implements PackageInterface
         $response->setPayload((array) $result['payload']);
     }
 
-    /** @return array{status: int, payload: array<string, mixed>} */
-    private function archive(ArchiveQuery $q): array
+    /** @param array<string, mixed> $query
+     *  @return array{status: int, payload: array<string, mixed>} */
+    private function archive(ArchiveQuery $q, array $query): array
     {
-        $r = $q->posts();
+        try {
+            $paged = (new ArchivePager($q))->fetch($query, '', '', '/archive');
+        } catch (InvalidArgumentException $e) {
+            // 非法筛选参数是读者的输入问题（422），不是站点故障（503）。
+            // 「page=abc 悄悄当第 1 页」会让读者以为筛选生效了，实际请求已被改写。
+            return ArchiveState::failed('archive', 422, '筛选参数不合法', $e->getMessage(),
+                '示例：/archive?year=2026&month=11&page=2');
+        }
+
         $terms = [];
         $termsState = null;
         try {
@@ -74,13 +85,10 @@ final class ArchivePage implements PackageInterface
         }
 
         $payload = ArchiveState::skeleton('归档', 'archive');
-        $payload['sections']    = ArchiveQuery::groupByMonth($r['items']);
+        $payload['sections']    = ArchiveQuery::groupByMonth($paged['items']);
         $payload['terms']       = $terms;
         $payload['terms_state'] = $termsState;
-        $payload['total']       = $r['total'];
-        $payload['shown']       = count($r['items']);
-        $payload['truncated']   = $r['truncated'];
-        $payload['empty']       = $r['items'] === [];
+        ArchivePager::apply($payload, $paged, '/archive');
         return ['status' => 200, 'payload' => $payload];
     }
 
@@ -91,6 +99,7 @@ final class ArchivePage implements PackageInterface
         $payload = ArchiveState::skeleton('标签与分类', 'terms');
         $payload['terms'] = $terms;
         $payload['total'] = count($terms);
+        $payload['site_total'] = count($terms);
         $payload['empty'] = $terms === [];
         return ['status' => 200, 'payload' => $payload];
     }
@@ -126,18 +135,21 @@ final class ArchivePage implements PackageInterface
                 '可以从标签云重新进入；此处刻意不显示空列表。');
         }
 
-        $r = $q->posts($slug, $kind);
+        try {
+            $paged = (new ArchivePager($q))->fetch($params, $slug, $kind, '/term');
+        } catch (InvalidArgumentException $e) {
+            return ArchiveState::failed('term', 422, '筛选参数不合法', $e->getMessage(),
+                '筛选与翻页只改 year / month / page，kind 与 slug 保持原样。');
+        }
+
         $payload = ArchiveState::skeleton(($kind === 'tag' ? '标签：' : '分类：') . $found['name'], 'term');
-        $payload['term']      = $found;
-        $payload['sections']  = [[
+        $payload['term']     = $found;
+        $payload['sections'] = [[
             'label' => $found['name'],
-            'count' => count($r['items']),
-            'items' => array_map([ArchiveQuery::class, 'article'], $r['items']),
+            'count' => count($paged['items']),
+            'items' => array_map([ArchiveQuery::class, 'article'], $paged['items']),
         ]];
-        $payload['total']     = $r['total'];
-        $payload['shown']     = count($r['items']);
-        $payload['truncated'] = $r['truncated'];
-        $payload['empty']     = $r['items'] === [];
+        ArchivePager::apply($payload, $paged, '/term');
         return ['status' => 200, 'payload' => $payload];
     }
 

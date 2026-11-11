@@ -1,17 +1,17 @@
 {
   "slug": "post",
   "class": "Wx\\Pages\\Post\\PostPage",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "priority": 20,
   "enabled": true,
   "layout": "post",
   "routes": [
     "/post"
   ],
-  "_note": "文章页：正文 + 评论树 + 评论表单。只产出结构化数据与 token，标签与样式全部由主题的 post 布局承载；评论提交走同页 POST → 303 的 PRG 路径，无 JavaScript 也能完成",
+  "_note": "文章页：正文 + 评论树 + 评论/互动表单。只产出结构化数据与 token，标签与样式全部由主题的 post 布局承载；评论、回复、点赞、举报都走同页 POST → 303 的 PRG 路径，无 JavaScript 也能完成。匿名主体用稳定 Cookie 标识，GET 列表与 POST 写入共用同一份主体上下文，liked/reported 才不是空头支票",
   "access": {
     "auth": "public",
     "deny_layout": "deny",
-    "_note": "公开页：任何人可读、可评论；写操作由 CSRF 一次性令牌与评论守卫共同约束"
+    "_note": "公开页：任何人可读、可评论、可点赞举报；写操作由 CSRF 一次性令牌与评论守卫共同约束"
   }
 }

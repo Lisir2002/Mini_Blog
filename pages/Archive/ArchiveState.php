@@ -28,10 +28,23 @@ final class ArchiveState
             'sections'    => [],
             'terms'       => [],
             'term'        => null,
-            'total'       => 0,
+            'total'       => 0,      // 过滤后命中数，不是全站总数
+            'site_total'  => 0,      // 全站已发布总数，与 total 严格分开
             'shown'       => 0,
-            'truncated'   => false,
+            'truncated'   => false,  // 采样被硬上限截断（数据可能不全）
+            'filter_incomplete' => false,
             'empty'       => false,
+            // 分页：page 已被页面标识占用，页码统一叫 page_no，避免同名字段两种含义。
+            'page_no'     => 1,
+            'pages'       => 1,
+            'per_page'    => ArchiveFilter::PER_PAGE_DEFAULT,
+            'has_prev'    => false,
+            'has_next'    => false,
+            'beyond'      => false,
+            'prev_href'   => '',
+            'next_href'   => '',
+            'filter'      => ['year' => null, 'month' => null, 'active' => false],
+            'filter_action' => '/archive',
             'terms_state' => null,
             'state'       => null,
             'links'       => self::LINKS,

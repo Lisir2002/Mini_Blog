@@ -39,6 +39,29 @@
 }
 .archive-empty, .archive-truncated { margin: .8rem 0 0; line-height: 1.6; }
 .archive-truncated { padding: .6rem .8rem; border-left: 3px solid rgba(255, 255, 255, .35); }
+/* 筛选与分页：原生表单控件，无 JavaScript 也能用；变量取自共享设计系统。 */
+.archive-filter-card { display: grid; gap: .6rem; }
+.archive-filter { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .7rem; }
+.archive-filter__field { display: grid; gap: .25rem; font-size: .82rem; color: var(--g-muted); }
+.archive-filter__field input,
+.archive-filter__field select {
+  padding: .35rem .5rem; border-radius: .5rem; font: inherit; min-width: 6.5rem;
+  border: 1px solid var(--g-line); background: var(--g-surface); color: var(--g-fg);
+}
+.archive-filter__submit {
+  padding: .4rem .9rem; border-radius: .5rem; font: inherit; cursor: pointer;
+  border: 1px solid var(--g-line); background: var(--g-surface-strong); color: var(--g-fg);
+}
+.archive-filter__submit:hover { border-color: var(--g-accent); }
+.archive-filter__clear { font-size: .85rem; color: var(--g-accent); }
+.archive-filter__note { margin: 0; font-size: .85rem; color: var(--g-muted); }
+.archive-pager {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: .6rem; margin-top: 1.2rem; padding-top: .9rem; border-top: 1px solid var(--g-line-soft);
+}
+.archive-pager__link { text-decoration: none; color: var(--g-accent); font-size: .88rem; }
+.archive-pager__link.is-disabled { color: var(--g-faint); }
+.archive-pager__status { font-size: .82rem; color: var(--g-muted); font-variant-numeric: tabular-nums; }
 .archive-shell {
   max-width: 68rem; margin: 0 auto; padding: 1.5rem 1rem 3rem;
   display: grid; gap: 1rem;

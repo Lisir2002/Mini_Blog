@@ -1,0 +1,18 @@
+{
+  "slug": "stats",
+  "class": "Wx\\Pages\\Stats\\StatsPage",
+  "version": "0.1.0",
+  "priority": 30,
+  "enabled": true,
+  "layout": "admin",
+  "routes": [
+    "/console/stats"
+  ],
+  "_note": "统计看板：复用既有 stats.overview / series / operations / catalog 四个受保护接口，零新增接口、零新增系统层、复用 admin 布局槽位。采集器 durable / degraded / last_error 显式呈现，把「库挂了指标全丢」与「站点真的没流量」区分开；序列与排行被截断时明确声明；失败态自行固定布局，避免 4xx 被 render.layout 甩回 site 槽位",
+  "access": {
+    "auth": "admin",
+    "permission": "metric.read",
+    "deny_layout": "deny",
+    "_note": "统计是管理端能力：需 admin 身份且持有 metric.read 权限点；与 stats.* 接口的权限口径完全一致，fail-closed"
+  }
+}

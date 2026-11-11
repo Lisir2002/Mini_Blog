@@ -29,6 +29,9 @@ final class GlassRenderer implements RendererInterface
         $layout    = $response->layout();
         $title     = (string) ($payload['title'] ?? '未命名站点');
         $themeName = (string) ($payload['theme_name'] ?? 'Glass');
+        // archive 模板与 GlassFront 逐字同源，需要同名的 family 变量；
+        // 缺了它会在模板里变成「未定义变量 → 传给 string 形参」的 500。
+        $family    = (string) ($payload['theme_family'] ?? 'glass');
         $items     = (array)  ($payload['items'] ?? []);
         $blocks    = (array)  ($payload['blocks'] ?? []);
         $state     = is_array($payload['state'] ?? null) ? $payload['state'] : null;
@@ -36,6 +39,7 @@ final class GlassRenderer implements RendererInterface
         $comments  = is_array($payload['comments'] ?? null)
             ? $payload['comments'] : ['total' => 0, 'items' => [], 'tree' => []];
         $csrf      = (string) ($payload['csrf'] ?? '');
+        $visitorId = (string) ($payload['visitor_id'] ?? '');
         $apiPrefix = (string) ($payload['api_prefix'] ?? '/api/v1');
         // archive 布局的数据契约：与 GlassFront 逐字同源，两款元主题口径一致。
         $view       = (string) ($payload['view'] ?? 'archive');
@@ -48,6 +52,19 @@ final class GlassRenderer implements RendererInterface
         $empty      = !empty($payload['empty']);
         $termsState = is_array($payload['terms_state'] ?? null) ? $payload['terms_state'] : null;
         $links      = (array)  ($payload['links'] ?? []);
+        // 筛选与分页：site_total 与 total 是两套口径，模板不能混用。
+        $siteTotal  = (int)    ($payload['site_total'] ?? 0);
+        $filter     = (array)  ($payload['filter'] ?? []);
+        $filterAction = (string) ($payload['filter_action'] ?? '/archive');
+        $filterIncomplete = !empty($payload['filter_incomplete']);
+        $pageNo     = (int)    ($payload['page_no'] ?? 1);
+        $pages      = (int)    ($payload['pages'] ?? 1);
+        $perPage    = (int)    ($payload['per_page'] ?? 20);
+        $hasPrev    = !empty($payload['has_prev']);
+        $hasNext    = !empty($payload['has_next']);
+        $beyond     = !empty($payload['beyond']);
+        $prevHref   = (string) ($payload['prev_href'] ?? '');
+        $nextHref   = (string) ($payload['next_href'] ?? '');
 
         ob_start();
         include $this->dir . '/templates/' . $resolved['file'];

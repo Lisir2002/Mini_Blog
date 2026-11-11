@@ -101,5 +101,5 @@ check('稳定性加固未新增系统层 / 接口 / 核心文件', function () u
         'core/ 文件数被改动');
     truthy(count(glob($root . '/systems/*/system.json') ?: []) === 18, '系统层数量被改动');
     $registry = json_decode((string) file_get_contents($root . '/api/registry.json'), true);
-    truthy(count($registry['endpoints'] ?? []) === 88, '接口清单被改动');
+    truthy(count($registry['endpoints'] ?? []) === 92, '接口清单被改动');
 });

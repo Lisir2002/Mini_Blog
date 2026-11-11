@@ -31,6 +31,21 @@ final class CommentSystem extends AbstractSystem
             10
         );
 
+        // 互动台账是系统层内部契约（与 MetricStoreInterface 同级），同样双实现：
+        // 拔掉库时主表走内存、台账也走内存，两者口径必须一起降级，不能一个持久一个丢。
+        $kernel->container()->singleton(
+            CommentInteractionStoreInterface::class,
+            static function () use ($kernel): CommentInteractionStoreInterface {
+                $comments = $kernel->container()->resolve(CommentStoreInterface::class);
+                $db = Db::optional($kernel);
+                return $db === null
+                    ? new MemoryInteractionStore($comments)
+                    : new PdoInteractionStore($db);
+            },
+            'system:comment',
+            10
+        );
+
         // 默认值只在这里补一次：任何写入路径（接口、插件、导入脚本）都经过同一钩子，
         // 不会出现「接口写的是 pending、导入脚本写的是 published」两套默认。
         $autoPublish = (bool) $kernel->config()->get('comment.auto_publish', false);
@@ -74,7 +89,13 @@ final class CommentSystem extends AbstractSystem
         );
         /** @var ApiRegistryInterface $registry */
         $registry = $kernel->container()->resolve(ApiRegistryInterface::class);
-        (new CommentOperations($store, new CommentWriter($store, $guard, $kernel), $kernel))
+        (new CommentOperations($store, new CommentWriter(
+            $store, $guard, $kernel, CommentThrottle::fromKernel($kernel)
+        ), $kernel))->register($registry);
+
+        /** @var CommentInteractionStoreInterface $interactions */
+        $interactions = $kernel->container()->resolve(CommentInteractionStoreInterface::class);
+        (new CommentInteractionOperations($store, $interactions, $guard, $kernel))
             ->register($registry);
     }
 }

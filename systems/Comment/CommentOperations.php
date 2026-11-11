@@ -40,6 +40,16 @@ final class CommentOperations
                 static fn(array $row): bool => CommentPolicy::visible($identity, $row, $acl)
             )));
             $items = array_map(fn(array $row): array => $this->present($row, $identity, $acl), $rows);
+            // 互动台账由旁路层批量补上（三条 SQL，与条数无关）。主体不可识别时退化为
+            // 空 key：列表仍可读，只是 liked/reported 恒 false —— 读接口不该因为「没带
+            // visitor_id」就整页 500，那是写操作才需要的严格性。
+            $actorKey = '';
+            try {
+                $actorKey = CommentActor::fromKernel($this->kernel)->resolve(
+                    $identity, (string) ($in['_ip'] ?? ''), (string) ($in['visitor_id'] ?? '')
+                )['key'];
+            } catch (InvalidArgumentException) {}
+            $items = (array) $this->kernel->hooks()->apply('comment.present_many', $items, $actorKey);
             return [
                 'post_slug' => $slug,
                 'total'     => $this->store->countForPost($slug),
@@ -148,7 +158,15 @@ final class CommentOperations
             'created_at' => (string) ($row['created_at'] ?? ''),
             'deleted'    => $deleted,
             'own'        => $own,
-            'editable'   => $own && !$deleted,
+            // v0.29 之前这里是 `own && !$deleted`：主题据此渲染编辑按钮，但全站
+            // 根本没有编辑接口 —— 一张永远兑现不了的支票。现在用同一套策略判定，
+            // 窗口 / 状态 / 归属任一不满足就不给按钮，字段与后端真实能力一致。
+            'editable'   => CommentInteractionPolicy::editable(
+                $row, $identity, $acl, time(),
+                (int) $this->kernel->config()->get('comment.edit_window_minutes', 10)
+            )['ok'],
+            'edit_count' => (int) ($row['edit_count'] ?? 0),
+            'edited_at'  => isset($row['edited_at']) ? (string) $row['edited_at'] : null,
             'deletable'  => CommentPolicy::canDelete($identity, $row, $acl),
             'moderatable' => CommentPolicy::canModerate($identity, $acl),
             'tokens'     => $this->kernel->hooks()->apply(

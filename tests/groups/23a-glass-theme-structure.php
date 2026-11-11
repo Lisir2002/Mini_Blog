@@ -105,7 +105,7 @@ check('Glass 是承载包：不改核心、不增系统层，接口增量归系�
     truthy(count(glob($root . '/core/*.php') ?: []) + count(glob($root . '/core/*/*.php') ?: []) === 24, 'core/ 文件数被改动');
     truthy(count(glob($root . '/systems/*/system.json') ?: []) === 18, '系统层数量被改动');
     $registry = json_decode((string) file_get_contents($root . '/api/registry.json'), true);
-    truthy(count($registry['endpoints'] ?? []) === 88, '接口清单被改动');
+    truthy(count($registry['endpoints'] ?? []) === 92, '接口清单被改动');
     $ops = array_values(array_column(array_filter($registry['endpoints'],
         static fn(array $e): bool => ($e['system'] ?? '') === 'theme'), 'operation'));
     truthy($ops === ['theme.list', 'theme.activate'], '主题接口未全部归 theme 系统层自报');

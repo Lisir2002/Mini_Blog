@@ -136,6 +136,36 @@
                     "name": "tree",
                     "type": "array",
                     "desc": "嵌套评论树，每项含 children"
+                },
+                {
+                    "name": "likes",
+                    "type": "int",
+                    "desc": "点赞数（独立主体去重）"
+                },
+                {
+                    "name": "reports",
+                    "type": "int",
+                    "desc": "举报数（独立主体去重）"
+                },
+                {
+                    "name": "liked",
+                    "type": "bool",
+                    "desc": "当前主体是否已点赞"
+                },
+                {
+                    "name": "reported",
+                    "type": "bool",
+                    "desc": "当前主体是否已举报"
+                },
+                {
+                    "name": "edit_count",
+                    "type": "int",
+                    "desc": "编辑次数，作为乐观锁版本"
+                },
+                {
+                    "name": "edited_at",
+                    "type": "string|null",
+                    "desc": "最后编辑时间，未编辑为 null"
                 }
             ],
             "errors": [
@@ -159,7 +189,7 @@
                     "system": "comment"
                 }
             },
-            "notes": "可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。read_limit 默认 2000：热文被刷到数万条时全量读会占几十 MB，超出只返回最早的 N 条并置 truncated=true，total 不受影响。",
+            "notes": "可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。read_limit 默认 2000：热文被刷到数万条时全量读会占几十 MB，超出只返回最早的 N 条并置 truncated=true，total 不受影响。 v0.29 起 editable 由编辑窗口策略真实判定（不再是恒真的空头支票）；互动计数以三条批量 SQL 补齐，不随条数增长。",
             "changelog": [
                 "0.4.0 初次发布"
             ],
@@ -233,6 +263,7 @@
                 40902,
                 42201,
                 42901,
+                42903,
                 50001
             ],
             "example_request": "POST /api/v1/comments  {\"post_slug\":\"first-post\",\"author\":\"访客\",\"body\":\"写得很好\"}",
@@ -251,9 +282,10 @@
                     "system": "comment"
                 }
             },
-            "notes": "匿名写接口：受 429 限流与写接口公网边界（config.api.expose_write）双重保护，评论默认 pending 待审核；生产化还应补验证码与内容审核。",
+            "notes": "匿名写接口：受 429 限流与写接口公网边界（config.api.expose_write）双重保护，评论默认 pending 待审核；生产化还应补验证码与内容审核。 v0.29 起按互动主体节流（comment.throttle），超频返回 42903；全局 IP 限流 42901 仍在。",
             "changelog": [
-                "0.4.0 初次发布"
+                "0.4.0 初次发布",
+                "0.29.0 新增按主体节流"
             ],
             "doc": "docs/api/API-COMMENT-002.md"
         },
@@ -681,13 +713,13 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.28.0",
+                    "core_version": "0.29.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
                     "systems": 18,
-                    "contracts": 26,
-                    "api_operations": 88,
+                    "contracts": 27,
+                    "api_operations": 92,
                     "database": "mysql",
                     "theme_active": null,
                     "headless": true
@@ -4632,7 +4664,8 @@
                 40302,
                 40303,
                 40403,
-                42201
+                42201,
+                42903
             ],
             "example_request": "POST /api/v1/comments/reply  {post_slug:first-post, parent_id:12, body:同意 :thumbsup:}",
             "example_response": {
@@ -7273,6 +7306,411 @@
                 "0.28.0 初次发布"
             ],
             "doc": "docs/api/API-CONTENT-013.md"
+        },
+        {
+            "id": "API-COMMENT-006",
+            "name": "点赞 / 取消点赞",
+            "system": "comment",
+            "method": "POST",
+            "path": "/api/v1/comments/like",
+            "operation": "comments.like",
+            "auth": "public",
+            "public_write": true,
+            "idempotent": true,
+            "side_effects": "write",
+            "since": "0.29.0",
+            "summary": "对已发布评论点赞或取消，按互动主体去重；重复提交返回 changed=false 且计数不变。",
+            "scenario": "读者表达「这条评论有用」；误点后撤销。前端用 visitor_id 或登录身份维持同一主体。",
+            "params": [
+                {
+                    "name": "id",
+                    "in": "body",
+                    "required": true,
+                    "type": "int",
+                    "desc": "评论 id"
+                },
+                {
+                    "name": "action",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "add（默认）/ remove"
+                },
+                {
+                    "name": "visitor_id",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "匿名主体的稳定标识；登录用户忽略此值"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "评论 id"
+                },
+                {
+                    "name": "action",
+                    "type": "string",
+                    "desc": "实际执行的动作"
+                },
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "本次是否真的改变了台账（幂等重放为 false）"
+                },
+                {
+                    "name": "liked",
+                    "type": "bool",
+                    "desc": "操作后该主体是否处于已点赞状态"
+                },
+                {
+                    "name": "likes",
+                    "type": "int",
+                    "desc": "操作后的点赞总数"
+                },
+                {
+                    "name": "actor",
+                    "type": "string",
+                    "desc": "主体来源：user / ip / visitor"
+                }
+            ],
+            "errors": [
+                40302,
+                40403,
+                40914,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "POST /api/v1/comments/like  {\"id\":12,\"action\":\"add\",\"visitor_id\":\"v-8f3a\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 12,
+                    "action": "add",
+                    "changed": true,
+                    "liked": true,
+                    "likes": 1,
+                    "actor": "visitor"
+                },
+                "request_id": "a1b2c3d4e5f60718",
+                "meta": {
+                    "api": "API-COMMENT-006",
+                    "version": "v1",
+                    "system": "comment"
+                }
+            },
+            "notes": "幂等靠 (comment_id, voter_key) 联合主键 + INSERT IGNORE，并发下也不会重复计数。主体优先级：登录 user_id > IP 不可逆指纹 > visitor_id；三者都拿不到时明确返回 42201，绝不退化成统一的 'anonymous' 键 —— 那会让两个人点赞只算一次，看起来像幂等生效，实则是主体丢失。只有 published 评论可点赞（40914）。",
+            "changelog": [
+                "0.29.0 初次发布"
+            ],
+            "doc": "docs/api/API-COMMENT-006.md"
+        },
+        {
+            "id": "API-COMMENT-007",
+            "name": "举报评论",
+            "system": "comment",
+            "method": "POST",
+            "path": "/api/v1/comments/report",
+            "operation": "comments.report",
+            "auth": "public",
+            "public_write": true,
+            "idempotent": true,
+            "side_effects": "write",
+            "since": "0.29.0",
+            "summary": "举报已发布评论；独立举报人数达到阈值时自动把评论打回 pending 待审。",
+            "scenario": "读者标记垃圾 / 人身攻击 / 跑题内容；多人举报后评论自动下架，等版主复核。",
+            "params": [
+                {
+                    "name": "id",
+                    "in": "body",
+                    "required": true,
+                    "type": "int",
+                    "desc": "评论 id"
+                },
+                {
+                    "name": "reason",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "spam / abuse / offtopic / other，默认 other"
+                },
+                {
+                    "name": "visitor_id",
+                    "in": "body",
+                    "required": false,
+                    "type": "string",
+                    "desc": "匿名主体的稳定标识"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "评论 id"
+                },
+                {
+                    "name": "changed",
+                    "type": "bool",
+                    "desc": "本次是否是新举报（重复举报为 false）"
+                },
+                {
+                    "name": "reports",
+                    "type": "int",
+                    "desc": "独立举报人数"
+                },
+                {
+                    "name": "threshold",
+                    "type": "int",
+                    "desc": "自动下架阈值"
+                },
+                {
+                    "name": "auto_hidden",
+                    "type": "bool",
+                    "desc": "本次是否触发自动打回 pending"
+                },
+                {
+                    "name": "status",
+                    "type": "string",
+                    "desc": "操作后的评论状态"
+                },
+                {
+                    "name": "actor",
+                    "type": "string",
+                    "desc": "主体来源：user / ip / visitor"
+                }
+            ],
+            "errors": [
+                40302,
+                40403,
+                40914,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "POST /api/v1/comments/report  {\"id\":12,\"reason\":\"spam\",\"visitor_id\":\"v-8f3a\"}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 12,
+                    "changed": true,
+                    "reports": 1,
+                    "threshold": 3,
+                    "auto_hidden": false,
+                    "status": "published",
+                    "actor": "visitor"
+                },
+                "request_id": "b2c3d4e5f6071829",
+                "meta": {
+                    "api": "API-COMMENT-007",
+                    "version": "v1",
+                    "system": "comment"
+                }
+            },
+            "notes": "阈值按「独立举报人数」算，同一主体重复举报不累加，因此不会把阈值一次次重新触发（auto_hidden 只在 changed=true 且达到阈值时为 true）。只对 published 状态生效：已经是 pending 的评论不重复下架，hidden / spam / deleted 也不动 —— 否则会打断版主的审核结论。举报过的人仍在台账里，重装时随主表一起清理。",
+            "changelog": [
+                "0.29.0 初次发布"
+            ],
+            "doc": "docs/api/API-COMMENT-007.md"
+        },
+        {
+            "id": "API-COMMENT-008",
+            "name": "编辑自己的评论",
+            "system": "comment",
+            "method": "POST",
+            "path": "/api/v1/comments/edit",
+            "operation": "comments.edit",
+            "auth": "user",
+            "public_write": true,
+            "idempotent": false,
+            "side_effects": "write",
+            "since": "0.29.0",
+            "summary": "作者本人在发布后的时间窗口内修改正文，需携带列表返回的 edit_count 作乐观锁版本。",
+            "scenario": "刚发完发现错别字 / 链接写错，趁窗口内修正；并发编辑时后提交者收到冲突而不是静默覆盖。",
+            "params": [
+                {
+                    "name": "id",
+                    "in": "body",
+                    "required": true,
+                    "type": "int",
+                    "desc": "评论 id"
+                },
+                {
+                    "name": "body",
+                    "in": "body",
+                    "required": true,
+                    "type": "string",
+                    "desc": "新正文，与发表共用同一套内容守卫"
+                },
+                {
+                    "name": "expected_edit_count",
+                    "in": "body",
+                    "required": true,
+                    "type": "int",
+                    "desc": "取自列表的 edit_count；不匹配返回 40913"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "desc": "评论 id"
+                },
+                {
+                    "name": "body",
+                    "type": "string",
+                    "desc": "规范化后实际落库的正文"
+                },
+                {
+                    "name": "edit_count",
+                    "type": "int",
+                    "desc": "编辑后的版本号"
+                },
+                {
+                    "name": "edited",
+                    "type": "bool",
+                    "desc": "固定为 true"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40403,
+                40912,
+                40913,
+                40914,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "POST /api/v1/comments/edit  Authorization: Bearer <token>  {\"id\":12,\"body\":\"修正后的内容\",\"expected_edit_count\":0}",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "id": 12,
+                    "body": "修正后的内容",
+                    "edit_count": 1,
+                    "edited": true
+                },
+                "request_id": "c3d4e5f60718293a",
+                "meta": {
+                    "api": "API-COMMENT-008",
+                    "version": "v1",
+                    "system": "comment"
+                }
+            },
+            "notes": "窗口从 created_at 起算，编辑不续期：否则每改一次就延长一次，「10 分钟内可编辑」会变成永久可编辑。只有作者本人可改（40301），管理员也不例外 —— 编辑是作者修正自己的话，不是审核权限。deleted / hidden / spam / 非 pending|published 返回 40914；窗口关闭 / 时间戳异常返回 40912；版本被别人推进返回 40913。正文必须过 CommentGuard，编辑接口不能成为绕过长度 / 链接 / 控制字符检查的后门。",
+            "changelog": [
+                "0.29.0 初次发布"
+            ],
+            "doc": "docs/api/API-COMMENT-008.md"
+        },
+        {
+            "id": "API-COMMENT-009",
+            "name": "审核队列",
+            "system": "comment",
+            "method": "GET",
+            "path": "/api/v1/comments/queue",
+            "operation": "comments.queue",
+            "auth": "admin",
+            "permission": "comment.moderate",
+            "idempotent": true,
+            "side_effects": "none",
+            "since": "0.29.0",
+            "summary": "按举报数降序列出待审与被举报的评论，附点赞 / 举报计数，供版主按优先级处理。",
+            "scenario": "后台审核台首屏：先看到被多人举报的那条，而不是按 id 顺序从最旧的一条翻起。",
+            "params": [
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "required": false,
+                    "type": "int",
+                    "desc": "每页条数，默认 50，上限 200"
+                },
+                {
+                    "name": "offset",
+                    "in": "query",
+                    "required": false,
+                    "type": "int",
+                    "desc": "偏移量，默认 0"
+                }
+            ],
+            "response_fields": [
+                {
+                    "name": "items",
+                    "type": "object[]",
+                    "desc": "评论公开字段 + likes / reports"
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "desc": "队列总数"
+                },
+                {
+                    "name": "limit",
+                    "type": "int",
+                    "desc": "实际生效的每页条数"
+                },
+                {
+                    "name": "offset",
+                    "type": "int",
+                    "desc": "实际生效的偏移量"
+                },
+                {
+                    "name": "truncated",
+                    "type": "bool",
+                    "desc": "是否还有后续页"
+                }
+            ],
+            "errors": [
+                40101,
+                40102,
+                40301,
+                40303,
+                42201,
+                42901,
+                50001
+            ],
+            "example_request": "GET /api/v1/comments/queue?limit=20  Authorization: Bearer <admin>",
+            "example_response": {
+                "code": 0,
+                "message": "ok",
+                "data": {
+                    "items": [
+                        {
+                            "id": 12,
+                            "post_slug": "first-post",
+                            "author": "甲",
+                            "body": "待复核内容",
+                            "status": "pending",
+                            "created_at": "2026-11-11 06:00:00",
+                            "likes": 4,
+                            "reports": 3
+                        }
+                    ],
+                    "total": 1,
+                    "limit": 20,
+                    "offset": 0,
+                    "truncated": false
+                },
+                "request_id": "d4e5f60718293a4b",
+                "meta": {
+                    "api": "API-COMMENT-009",
+                    "version": "v1",
+                    "system": "comment"
+                }
+            },
+            "notes": "队列口径 = pending 待审 + 有任何举报，排除已删除；两种存储实现（MySQL / 内存降级）逐字一致，降级后不会少掉纯待审那一批。排序按 reports 降序、id 升序。台账里指向不存在评论的孤儿行不会被渲染成幽灵条目。total 与 items 同口径。",
+            "changelog": [
+                "0.29.0 初次发布"
+            ],
+            "doc": "docs/api/API-COMMENT-009.md"
         }
     ]
 }

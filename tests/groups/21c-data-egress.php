@@ -36,8 +36,11 @@ check('评论列表：不携带 ip_hash / path / author_id / deleted_at', functi
 check('评论条目字段集恰好等于契约声明，多一个都算破坏契约', function () use ($k): void {
     $list = json_decode($k->handle(new Request('GET', '/api/v1/comments', ['post_slug' => 'first-post']))->body(), true);
     $item = (array) (($list['data']['items'] ?? [])[0] ?? []);
+    // v0.29：互动台账字段与编辑留痕是明确的契约扩展，不是物理列泄漏。
+    // 白名单逐字列出，加字段必须同步改这里 —— 否则「悄悄多一列」就绕过了守卫。
     $expected = ['id', 'parent_id', 'depth', 'author', 'body', 'status', 'created_at',
-        'deleted', 'own', 'editable', 'deletable', 'moderatable', 'tokens'];
+        'deleted', 'own', 'editable', 'deletable', 'moderatable', 'tokens',
+        'likes', 'reports', 'liked', 'reported', 'edit_count', 'edited_at'];
     $actual = array_keys($item);
     sort($expected);
     sort($actual);

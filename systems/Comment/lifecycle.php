@@ -12,7 +12,12 @@ return [
         try {
             $pdo = new \PDO((string) $db['dsn'], (string) ($db['user'] ?? ''), (string) ($db['pass'] ?? ''),
                 [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
-            $pdo->exec('DROP TABLE IF EXISTS ' . (string) ($db['prefix'] ?? 'wx_') . 'comments');
+            $prefix = (string) ($db['prefix'] ?? 'wx_');
+            // 台账表与主表一起清：留着 orphan 的点赞 / 举报行，重装后会挂到新评论 id 上，
+            // 变成「新评论一出生就有历史赞数」这种查不出来的脏数据。
+            $pdo->exec('DROP TABLE IF EXISTS ' . $prefix . 'comment_votes');
+            $pdo->exec('DROP TABLE IF EXISTS ' . $prefix . 'comment_reports');
+            $pdo->exec('DROP TABLE IF EXISTS ' . $prefix . 'comments');
         } catch (\Throwable) {}
     },
 ];

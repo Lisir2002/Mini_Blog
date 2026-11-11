@@ -6,9 +6,9 @@ use Wx\Systems\Api\ApiRegistry;
 
 echo "\n=== 6. API 接口系统与「一接口一文档」 ===\n";
 
-check('88 个接口 1:1 对应文档，章节齐全、无孤儿', function () use ($root): void {
+check('92 个接口 1:1 对应文档，章节齐全、无孤儿', function () use ($root): void {
     $registry = new ApiRegistry($root . '/api/registry.json');
-    truthy(count($registry->endpoints()) === 88, '接口数量异常：' . count($registry->endpoints()));
+    truthy(count($registry->endpoints()) === 92, '接口数量异常：' . count($registry->endpoints()));
     $problems = $registry->documents($root);
     truthy($problems === [], implode(' | ', $problems));
     $ids = array_column($registry->endpoints(), 'id');
@@ -40,7 +40,7 @@ check('统一信封：GET /api/v1/system/info', function (): void {
     truthy(($body['meta']['api'] ?? null) === 'API-CORE-001', 'meta.api 不正确');
     truthy(($body['data']['headless'] ?? null) === true, '无主题时应为 headless');
     truthy(($body['data']['systems'] ?? 0) === 18, '系统层数量不正确');
-    truthy(($body['data']['api_operations'] ?? 0) === 88, '接口登记数不正确');
+    truthy(($body['data']['api_operations'] ?? 0) === 92, '接口登记数不正确');
 });
 
 check('未登记路径返回 40401 且 HTTP 404', function (): void {

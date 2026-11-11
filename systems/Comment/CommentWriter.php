@@ -21,7 +21,8 @@ final class CommentWriter
     public function __construct(
         private CommentStoreInterface $store,
         private CommentGuard $guard,
-        private Kernel $kernel
+        private Kernel $kernel,
+        private ?CommentThrottle $throttle = null
     ) {}
 
     /** @param array<string, mixed> $in @return array<string, mixed> */
@@ -52,6 +53,10 @@ final class CommentWriter
             'ip_hash'   => self::ipHash($this->kernel, (string) ($in['_ip'] ?? '')),
         ]);
 
+        // 节流在全部校验通过之后、真正落库之前：空正文 / 超长 / 链接过多 / 文章不存在
+        // 这类失败请求不该扣掉写入额度，否则用户连打几次错别字就被莫名限流。
+        $this->assertThrottle($in);
+
         // 路径依赖自增 id，只能落库后补写；root_id 决定「取整棵子树」只需一次前缀查询。
         // 两句必须同生共死：补写失败却留下 path='' 的行，等于往树里塞一个永远找不到的节点。
         $persist = function () use ($draft, $parent): array {
@@ -67,6 +72,20 @@ final class CommentWriter
 
         $this->kernel->hooks()->emit('comment.created', (int) ($row['id'] ?? 0), $row, $identity);
         return $row;
+    }
+
+    /** 只统计「通过校验、即将落库」的写入；主体不可识别时放行，不把匿名写入变成 429。 */
+    private function assertThrottle(array $in): void
+    {
+        if ($this->throttle === null || !$this->throttle->enabled()) return;
+        $who = CommentActor::fromKernel($this->kernel)->keyOrNull(
+            $in['_identity'] ?? null, (string) ($in['_ip'] ?? ''), (string) ($in['visitor_id'] ?? '')
+        );
+        if ($who === null) return; // 主体不可识别：放行，不把匿名写入变成 429
+        $r = $this->throttle->check($who['key']);
+        if (!$r['allowed']) {
+            throw new ApiOperationException('评论发表过于频繁，请稍后重试', 42903);
+        }
     }
 
     /** @return array<string, mixed> */

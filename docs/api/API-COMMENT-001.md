@@ -24,7 +24,7 @@
 
 **适用场景**：文章详情页渲染评论区；Headless 客户端拉取评论。
 
-**实现备注**：可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。read_limit 默认 2000：热文被刷到数万条时全量读会占几十 MB，超出只返回最早的 N 条并置 truncated=true，total 不受影响。
+**实现备注**：可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。read_limit 默认 2000：热文被刷到数万条时全量读会占几十 MB，超出只返回最早的 N 条并置 truncated=true，total 不受影响。 v0.29 起 editable 由编辑窗口策略真实判定（不再是恒真的空头支票）；互动计数以三条批量 SQL 补齐，不随条数增长。
 
 ## 3. 请求规范
 
@@ -69,6 +69,12 @@
 | `truncated` | `bool` | 是否因 comment.read_limit 被截断；true 时 items 只是最早的 N 条，total 仍为真实总数 |
 | `items` | `array` | 扁平评论数组，按 id 升序 |
 | `tree` | `array` | 嵌套评论树，每项含 children |
+| `likes` | `int` | 点赞数（独立主体去重） |
+| `reports` | `int` | 举报数（独立主体去重） |
+| `liked` | `bool` | 当前主体是否已点赞 |
+| `reported` | `bool` | 当前主体是否已举报 |
+| `edit_count` | `int` | 编辑次数，作为乐观锁版本 |
+| `edited_at` | `string|null` | 最后编辑时间，未编辑为 null |
 
 ## 5. 错误码
 

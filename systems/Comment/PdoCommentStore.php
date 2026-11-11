@@ -13,6 +13,8 @@ final class PdoCommentStore implements CommentStoreInterface
     private const COLUMNS = [
         'post_slug', 'parent_id', 'root_id', 'path', 'depth',
         'author', 'author_id', 'body', 'status', 'created_at', 'ip_hash', 'deleted_at',
+        // v0.29 编辑留痕：进白名单才能被 find()/forPost() 读出，乐观锁的版本号由此出站。
+        'edited_at', 'edit_count',
     ];
 
     public function __construct(private DatabaseInterface $db) {}
@@ -105,7 +107,7 @@ final class PdoCommentStore implements CommentStoreInterface
     /** 统一行形态：整数列转 int，并保留旧契约的 slug 别名，消费方无需区分底层。 */
     private function hydrate(array $row): array
     {
-        foreach (['id', 'parent_id', 'root_id', 'depth', 'author_id'] as $column) {
+        foreach (['id', 'parent_id', 'root_id', 'depth', 'author_id', 'edit_count'] as $column) {
             if (isset($row[$column])) $row[$column] = (int) $row[$column];
         }
         $row['slug'] = $row['post_slug'] ?? '';

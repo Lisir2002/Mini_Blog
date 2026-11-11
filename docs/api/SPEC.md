@@ -8,7 +8,7 @@
 
 | 来源 | 借鉴点 | 本框架的取舍与落地 |
 | --- | --- | --- |
-| OpenAPI 3.1 / 3.1.1 [^oas] | `info` 元数据、稳定 `operationId`、参数必填性与示例、请求/响应 schema、统一错误 schema、operation 级安全声明 | 用自研 JSON 清单表达同一组字段；`tools/export-openapi.php` 直接导出 3.1 文档（80 条路径 / 88 个 operation），无第三方库 |
+| OpenAPI 3.1 / 3.1.1 [^oas] | `info` 元数据、稳定 `operationId`、参数必填性与示例、请求/响应 schema、统一错误 schema、operation 级安全声明 | 用自研 JSON 清单表达同一组字段；`tools/export-openapi.php` 直接导出 3.1 文档（84 条路径 / 92 个 operation），无第三方库 |
 | RFC 9457 Problem Details [^rfc9457] | 机器可读错误、稳定 type、字段级明细、扩展字段前向兼容 | 换成更轻的 `code / message / errors / request_id / meta` 信封，语义一一对应但字段更少 |
 | Microsoft Azure REST API Guidelines [^ms] | 复数名词资源、路径不放动词、层级要浅、GET/PUT/DELETE 幂等、状态码语义 | 路径统一 `/api/v1/<复数资源>`；装卸这类非 CRUD 操作用 `POST /lifecycle/install` 显式动作资源，并在清单里标注 `operation` |
 | Google AIP-190 / AIP-136 / AIP-158 [^aip] | 术语一致、自定义动作显式化、游标分页 | 内容列表采用 `limit + cursor`（base64 编码的 keyset 游标），避免 OFFSET 深翻页 |
@@ -61,6 +61,9 @@
 | `40909` | 409 | 文章在回收站 | 对已软删除的文章执行迁移 / 重复删除 / 改资料 |
 | `40910` | 409 | 文章不在回收站 | 恢复或彻底删除一篇没被删除的文章 |
 | `40911` | 409 | 分类或标签已存在 | 同一 kind 下 slug 重复 |
+| `40912` | 409 | 评论编辑窗口已关闭 | 超过 edit_window_minutes、created_at 缺失或为未来时间 |
+| `40913` | 409 | 评论已被其他编辑修改 | expected_edit_count 与库内版本不一致（乐观锁冲突） |
+| `40914` | 409 | 评论当前状态不允许该互动 | 对 deleted / hidden / spam / 非 published 评论点赞、举报或编辑 |
 | `40101` | 401 | 未认证 | 受保护接口未携带令牌 |
 | `40102` | 401 | 令牌无效或已过期 | 携带的令牌错误 / 过期 / 已撤销 |
 | `40103` | 401 | 账号已被禁用 | 账号 status=disabled，口令正确也拒绝登录 |
@@ -71,6 +74,7 @@
 | `40304` | 403 | 注册未开放 | 站点关闭自助注册时调用 `auth.register` |
 | `42901` | 429 | 请求过于频繁 | 超出限流阈值 |
 | `42902` | 429 | 账号已临时锁定 | 连续登录失败达到阈值，锁定窗口内一律拒绝 |
+| `42903` | 429 | 评论发表过于频繁 | 同一互动主体在 comment.throttle.window 内超过 max 次写入 |
 | `50001` | 500 | 服务器内部错误 | 文件写入失败、状态落盘失败 |
 | `50002` | 500 | 迁移执行失败 | 迁移 SQL 报错，事务已回滚 |
 | `50003` | 500 | 升级后健康检查未通过 | 升级完成但 `system.health` 不是 `ok`，已回退 |

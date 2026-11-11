@@ -26,6 +26,10 @@ final class MemoryCommentStore implements CommentStoreInterface
         $row['depth']     = (int) ($comment['depth'] ?? 0);
         $row['author_id'] = (int) ($comment['author_id'] ?? 0);
         $row['created_at'] = (string) ($comment['created_at'] ?? date('Y-m-d H:i:s'));
+        // 与 PDO 表的 DEFAULT 0 对齐：否则内存版新建评论读不到 edit_count，
+        // 客户端提交的 expected_edit_count 会永远对不上。
+        $row['edit_count'] = (int) ($comment['edit_count'] ?? 0);
+        $row['edited_at']  = $comment['edited_at'] ?? null;
         self::$rows[$id] = $row;
         return $id;
     }
@@ -49,11 +53,22 @@ final class MemoryCommentStore implements CommentStoreInterface
     {
         if (!isset(self::$rows[$id])) return false;
         foreach (['post_slug', 'parent_id', 'root_id', 'path', 'depth', 'author',
-            'author_id', 'body', 'status', 'created_at', 'ip_hash', 'deleted_at'] as $column) {
+            'author_id', 'body', 'status', 'created_at', 'ip_hash', 'deleted_at',
+            'edited_at', 'edit_count'] as $column) {
             if (array_key_exists($column, $fields)) self::$rows[$id][$column] = $fields[$column];
         }
         self::$rows[$id]['slug'] = self::$rows[$id]['post_slug'];
         return true;
+    }
+
+    /**
+     * 系统层内部只读入口：审核队列要遍历全部行，而契约故意不暴露「列全表」这种方法
+     * （那会让读路径绕过 forPost 的 limit 约束）。仅供同层协作者使用。
+     * @return array<int, array<string, mixed>>
+     */
+    public static function allRows(): array
+    {
+        return self::$rows;
     }
 
     public function countForPost(string $slug): int

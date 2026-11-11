@@ -93,5 +93,9 @@
 | `API-CONTENT-011` | `GET` | `/api/v1/content/terms` | `content` | `public` | 是 | [API-CONTENT-011](API-CONTENT-011.md) |
 | `API-CONTENT-012` | `POST` | `/api/v1/content/terms/manage` | `content` | `admin` | 否 | [API-CONTENT-012](API-CONTENT-012.md) |
 | `API-CONTENT-013` | `POST` | `/api/v1/content/post/terms` | `content` | `admin` | 是 | [API-CONTENT-013](API-CONTENT-013.md) |
+| `API-COMMENT-006` | `POST` | `/api/v1/comments/like` | `comment` | `public` | 是 | [API-COMMENT-006](API-COMMENT-006.md) |
+| `API-COMMENT-007` | `POST` | `/api/v1/comments/report` | `comment` | `public` | 是 | [API-COMMENT-007](API-COMMENT-007.md) |
+| `API-COMMENT-008` | `POST` | `/api/v1/comments/edit` | `comment` | `user` | 否 | [API-COMMENT-008](API-COMMENT-008.md) |
+| `API-COMMENT-009` | `GET` | `/api/v1/comments/queue` | `comment` | `admin` | 是 | [API-COMMENT-009](API-COMMENT-009.md) |
 
-共 88 个接口，接口版本 `v1`。
+共 92 个接口，接口版本 `v1`。

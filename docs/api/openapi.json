@@ -241,7 +241,7 @@
                         }
                     },
                     "429": {
-                        "description": "请求过于频繁",
+                        "description": "评论发表过于频繁",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4990,6 +4990,16 @@
                                 }
                             }
                         }
+                    },
+                    "429": {
+                        "description": "评论发表过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
                     }
                 },
                 "requestBody": {
@@ -7972,6 +7982,450 @@
                                         "type": "string",
                                         "description": "术语引用数组，形如 kind:slug；传空数组表示清空"
                                     }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/comments/like": {
+            "post": {
+                "operationId": "comments.like",
+                "summary": "点赞 / 取消点赞",
+                "description": "对已发布评论点赞或取消，按互动主体去重；重复提交返回 changed=false 且计数不变。\n\n适用场景：读者表达「这条评论有用」；误点后撤销。前端用 visitor_id 或登录身份维持同一主体。",
+                "tags": [
+                    "comment"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "写接口未开放公网访问",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "评论当前状态不允许该互动",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "id"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "description": "评论 id"
+                                    },
+                                    "action": {
+                                        "type": "string",
+                                        "description": "add（默认）/ remove"
+                                    },
+                                    "visitor_id": {
+                                        "type": "string",
+                                        "description": "匿名主体的稳定标识；登录用户忽略此值"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/comments/report": {
+            "post": {
+                "operationId": "comments.report",
+                "summary": "举报评论",
+                "description": "举报已发布评论；独立举报人数达到阈值时自动把评论打回 pending 待审。\n\n适用场景：读者标记垃圾 / 人身攻击 / 跑题内容；多人举报后评论自动下架，等版主复核。",
+                "tags": [
+                    "comment"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "写接口未开放公网访问",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "评论当前状态不允许该互动",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "id"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "description": "评论 id"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "description": "spam / abuse / offtopic / other，默认 other"
+                                    },
+                                    "visitor_id": {
+                                        "type": "string",
+                                        "description": "匿名主体的稳定标识"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/comments/edit": {
+            "post": {
+                "operationId": "comments.edit",
+                "summary": "编辑自己的评论",
+                "description": "作者本人在发布后的时间窗口内修改正文，需携带列表返回的 edit_count 作乐观锁版本。\n\n适用场景：刚发完发现错别字 / 链接写错，趁窗口内修正；并发编辑时后提交者收到冲突而不是静默覆盖。\n\n非幂等写操作：建议携带 Idempotency-Key。",
+                "tags": [
+                    "comment"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "无权限执行该操作",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "评论当前状态不允许该互动",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "id",
+                                    "body",
+                                    "expected_edit_count"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "description": "评论 id"
+                                    },
+                                    "body": {
+                                        "type": "string",
+                                        "description": "新正文，与发表共用同一套内容守卫"
+                                    },
+                                    "expected_edit_count": {
+                                        "type": "integer",
+                                        "description": "取自列表的 edit_count；不匹配返回 40913"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/comments/queue": {
+            "get": {
+                "operationId": "comments.queue",
+                "summary": "审核队列",
+                "description": "按举报数降序列出待审与被举报的评论，附点赞 / 举报计数，供版主按优先级处理。\n\n适用场景：后台审核台首屏：先看到被多人举报的那条，而不是按 id 顺序从最旧的一条翻起。",
+                "tags": [
+                    "comment"
+                ],
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "每页条数，默认 50，上限 200",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "description": "偏移量，默认 0",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "令牌无效或已过期",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限决策未放行（fail-closed）",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "参数校验未通过",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "请求过于频繁",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
                                 }
                             }
                         }

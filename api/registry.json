@@ -713,7 +713,7 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.39.0",
+                    "core_version": "0.40.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
@@ -1557,8 +1557,8 @@
             "idempotent": true,
             "side_effects": "none",
             "since": "0.2.0",
-            "summary": "按日期读取日志系统落盘的日志行尾部若干条。",
-            "scenario": "在零呈现 / Headless 模式下排查装卸操作与内核 trace，无需登录后台界面。",
+            "summary": "按日期读取日志系统落盘的日志行尾部若干条，并给出可查询日期与文件内总行数。",
+            "scenario": "在零呈现 / Headless 模式下排查装卸操作与内核 trace；控制台日志页用它做按日期浏览与截断提示。",
             "params": [
                 {
                     "name": "date",
@@ -1582,14 +1582,34 @@
                     "desc": "查询日期"
                 },
                 {
-                    "name": "lines",
-                    "type": "string[]",
-                    "desc": "日志行（最新若干条）"
+                    "name": "exists",
+                    "type": "bool",
+                    "desc": "该日期是否有日志文件；false 表示那天没有日志，不是空日志"
                 },
                 {
                     "name": "total",
                     "type": "int",
-                    "desc": "本次返回行数"
+                    "desc": "文件内非空行总数（不是本次返回行数）"
+                },
+                {
+                    "name": "returned",
+                    "type": "int",
+                    "desc": "本次返回行数（≤ limit）"
+                },
+                {
+                    "name": "truncated",
+                    "type": "bool",
+                    "desc": "total > returned 时为 true，表示只看到了尾部"
+                },
+                {
+                    "name": "lines",
+                    "type": "string[]",
+                    "desc": "日志行（文件尾部 limit 条，按时间正序）"
+                },
+                {
+                    "name": "dates",
+                    "type": "string[]",
+                    "desc": "可查询日期，倒序，最多 60 天"
                 }
             ],
             "errors": [
@@ -1603,10 +1623,17 @@
                 "message": "ok",
                 "data": {
                     "date": "2026-11-08",
+                    "exists": true,
+                    "total": 1,
+                    "returned": 1,
+                    "truncated": false,
                     "lines": [
                         "[2026-11-08 23:10:09] INFO    内核装配完成 {\"systems\":[]}"
                     ],
-                    "total": 1
+                    "dates": [
+                        "2026-11-08",
+                        "2026-11-07"
+                    ]
                 },
                 "request_id": "d8e4a1c0b73f5296",
                 "meta": {
@@ -1615,9 +1642,10 @@
                     "system": "log"
                 }
             },
-            "notes": "auth=admin 已在 v0.4 接入鉴权执行：未认证 40101、令牌失效 40102、角色不足 40301。写接口默认仅本机来源可调用。",
+            "notes": "auth=admin 已在 v0.4 接入鉴权执行：未认证 40101、令牌失效 40102、角色不足 40301。写接口默认仅本机来源可调用。 返回的是文件尾部而非头部：total 与 returned 必须一起看，前者是文件规模，后者是本次窗口。",
             "changelog": [
-                "0.2.0 初次发布"
+                "0.2.0 初次发布",
+                "0.40.0 total 改为文件内非空行总数（原实现先切片再计数，total 恒等于 limit）；新增 exists / returned / truncated / dates"
             ],
             "doc": "docs/api/API-LOG-001.md",
             "permission": "logs.read"

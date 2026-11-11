@@ -134,6 +134,20 @@ final class SystemIntrospection
     }
 
     /** @param array<string, mixed> $in @return array<string, mixed> */
+    /**
+     * 读取某一天的日志尾部。
+     *
+     * `total` 是**文件内非空行总数**，不是本次返回行数 —— 后者是 `returned`。
+     * 两者必须在同一响应里同时给出：只给一个数时，分页界面无法区分
+     * 「这一天只有 20 行」与「有 2000 行，我只看到最后 20 行」。
+     * 这曾经是个真实缺陷：先 `array_slice()` 再 `count()`，`total` 永远是 `limit`。
+     *
+     * `dates` 让页面不必知道日志目录在哪。日志文件按日期平铺在 `storage/logs`，
+     * 这是日志系统的实现细节；页面只消费「有哪几天」，不拼路径。
+     *
+     * @param array<string, mixed> $in
+     * @return array<string, mixed>
+     */
     public function logs(array $in): array
     {
         $date = (string) ($in['date'] ?? date('Y-m-d'));
@@ -141,11 +155,53 @@ final class SystemIntrospection
             throw new ApiOperationException('date 格式应为 YYYY-MM-DD', 42201);
         }
         $limit = max(1, min(200, (int) ($in['limit'] ?? 20)));
-        $file  = $this->kernel->root() . '/storage/logs/' . $date . '.log';
-        if (!is_file($file)) return ['date' => $date, 'lines' => [], 'total' => 0];
-        $lines = array_filter(explode("\n", (string) file_get_contents($file)),
-            static fn(string $l): bool => trim($l) !== '');
-        $lines = array_slice(array_values($lines), -$limit);
-        return ['date' => $date, 'lines' => $lines, 'total' => count($lines)];
+        $dir   = $this->kernel->root() . '/storage/logs';
+        $dates = $this->logDates($dir);
+        $file  = $dir . '/' . $date . '.log';
+
+        // 「文件不在」与「文件在但没行」是两种事实：前者说明那天没跑过站点，
+        // 后者说明跑了但没写日志。返回 exists 让调用方不必靠猜。
+        if (!is_file($file)) {
+            return ['date' => $date, 'exists' => false, 'total' => 0, 'returned' => 0,
+                'truncated' => false, 'lines' => [], 'dates' => $dates];
+        }
+        $raw = @file_get_contents($file);
+        if ($raw === false) {
+            // 目录可读但文件不可读（权限 / 被占用）是真故障，不能当成空日志。
+            throw new ApiOperationException('日志文件不可读：' . $date . '.log', 50001);
+        }
+
+        $all   = array_values(array_filter(explode("\n", $raw),
+            static fn(string $l): bool => trim($l) !== ''));
+        $total = count($all);
+        $lines = $limit >= $total ? $all : array_slice($all, -$limit);
+
+        return [
+            'date'      => $date,
+            'exists'    => true,
+            'total'     => $total,
+            'returned'  => count($lines),
+            'truncated' => $total > count($lines),
+            'lines'     => $lines,
+            'dates'     => $dates,
+        ];
+    }
+
+    /**
+     * 可查询的日期，倒序，最多 60 天。
+     *
+     * 只认 `YYYY-MM-DD.log`：目录里别的东西（.gitkeep、归档子目录）不该出现在日期选择里。
+     *
+     * @return list<string>
+     */
+    private function logDates(string $dir): array
+    {
+        $out = [];
+        foreach (glob($dir . '/*.log') ?: [] as $file) {
+            $name = basename($file, '.log');
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $name) === 1) $out[] = $name;
+        }
+        rsort($out, SORT_STRING);
+        return array_slice($out, 0, 60);
     }
 }

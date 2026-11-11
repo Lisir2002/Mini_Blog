@@ -18,6 +18,7 @@
 | v0.37 | `permission.roles` / `grant` / `revoke` / `role.parent` | 角色与许可只能 curl 改 |
 | v0.38 | `permission.decisions` / `permission.check` | 决策留痕只能翻库，站点上问不了「为什么允许」 |
 | v0.39 | `system.health` / `layers` / `contracts`、`lifecycle.units`、`release.status` | 运维只能 SSH 跑命令，站点上看不到自身状态 |
+| v0.40 | `logs.query` | 排查只能 SSH 看日志文件，页面上没有入口 |
 
 每一次都是「能力完备、闭环缺失」。人工检查不可持续，所以把它变成一个可重跑的查询。
 
@@ -68,4 +69,4 @@ v0.35 再减少 2 个：`content.create` 与 `content.update` 由 `/console/writ
 v0.36 再减少 2 个：`users.list` 与 `users.manage` 由 `/console/users` 消费。`users.view` 仍为零 —— 列表已经够用，详情接口留给后续的账号详情页。
 v0.37 再减少 3 个：`permission.roles`、`permission.catalog`、`permission.role.parent` 由 `/console/roles` 消费；`permission.grant` / `permission.revoke` 通过同一页的写入口消费（工具把它们算作页面调用）。
 v0.38 再减少 2 个：`permission.decisions` 与 `permission.check` 由 `/console/decisions` 消费。`permission.acl.list` / `permission.acl.set` / `permission.groups` / `permission.group` 仍为零 —— 资源 ACL 与用户组缺的是「选中某篇文章」的浏览路径，不是页面容器。
-v0.39 再减少 5 个：`system.health`、`system.layers`、`system.contracts`、`lifecycle.units`、`release.status` 由 `/console/system` 消费。`logs.query` 的 `total` 算法有缺陷（先切片再计数），留到日志页那一版一起修。
+v0.39 再减少 5 个：`system.health`、`system.layers`、`system.contracts`、`lifecycle.units`、`release.status` 由 `/console/system` 消费。v0.40 再减少 1 个：`logs.query` 由 `/console/logs` 消费；同一版修掉了它的 `total` 缺陷（先切片再计数），并补 `returned` / `truncated` / `exists` / `dates`。

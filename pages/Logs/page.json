@@ -1,0 +1,18 @@
+{
+  "slug": "logs",
+  "class": "Wx\\Pages\\Logs\\LogsPage",
+  "version": "0.1.0",
+  "priority": 45,
+  "enabled": true,
+  "layout": "admin",
+  "routes": [
+    "/console/logs"
+  ],
+  "_note": "系统日志：只读 logs.query。日期与条数走查询参数，不在页面里拼 storage/logs 路径（那是日志系统的实现细节）。不写任何东西，因此没有 form_ticket。",
+  "access": {
+    "auth": "admin",
+    "permission": "logs.read",
+    "deny_layout": "deny",
+    "_note": "日志带路径、异常消息与内部 trace，比授权信息更接近部署结构。"
+  }
+}

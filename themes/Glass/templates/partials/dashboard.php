@@ -24,6 +24,7 @@
       <a href="/console/stats">统计看板</a>
       <a href="/console/content">内容管理</a>
       <a href="/console/queue">审核队列</a>
+      <a href="/console/logs">系统日志</a>
     </nav>
     <div class="dash__side-foot">
       <span id="glass-version">版本读取中…</span>

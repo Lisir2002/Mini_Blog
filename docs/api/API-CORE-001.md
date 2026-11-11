@@ -98,7 +98,7 @@ GET /api/v1/system/info
     "message": "ok",
     "data": {
         "framework": "Mini Blog",
-        "core_version": "0.32.0",
+        "core_version": "0.40.0",
         "php": "8.3.6",
         "requires_php": ">=8.1",
         "api_version": "v1",

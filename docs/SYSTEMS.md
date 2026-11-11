@@ -56,17 +56,17 @@
 
 反过来，空的时候也要说「没有未应用的迁移」，而不是不给这块 —— 沉默会被读成「没检查」。
 
-## 已知缺陷（本版不修）
+## 已修缺陷（v0.40）
 
-`logs.query` 的 `total` 字段算错了：实现先 `array_slice()` 再 `count()`，
-所以 `total` 实际是「返回了几行」，不是「文件里共有几行」。想让它变成
-「共 2000 行，显示最近 20 行」需要改系统层的返回结构，属于日志页那一版的事。
-这一页不消费 `logs.query`，因此不受影响。
+`logs.query` 的 `total` 曾算错：实现先 `array_slice()` 再 `count()`，
+`total` 恒等于 `limit`。v0.40 已改为文件内非空行总数，并补 `returned` / `truncated` /
+`exists` / `dates`，日志页 `/console/logs` 据此做截断提示。详见 [`docs/LOGS.md`](LOGS.md)。
+本页仍不消费 `logs.query`：状态视图要的是汇总，不是逐行日志。
 
 ## 边界
 
 - 不提供 install / upgrade / rollback / uninstall：见上。
-- 不做日志查看：`logs.query` 零消费，单独一版，且要先修 `total`。
+- 不做日志查看：逐行日志在 `/console/logs`（v0.40），本页只回答「整体是否健康」。
 - 不做插件启用 / 停用：同样写文件。
 - 不展示 `permission_audit` 历史：那在决策轨迹页的边界里，需要新接口。
 - 页面声明 `system.config.read`：进程、路径、迁移清单都会暴露部署结构，

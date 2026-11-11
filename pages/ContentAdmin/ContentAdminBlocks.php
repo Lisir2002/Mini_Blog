@@ -29,6 +29,7 @@ final class ContentAdminBlocks
             ['label' => '文章', 'href' => '/console/content', 'active' => $view !== 'trash'],
             ['label' => '写文章', 'href' => '/console/write'],
             ['label' => '角色授权', 'href' => '/console/roles'],
+            ['label' => '决策轨迹', 'href' => '/console/decisions'],
             ['label' => '回收站', 'href' => '/console/content?view=trash', 'active' => $view === 'trash'],
             ['label' => '审核队列', 'href' => '/console/queue'],
             ['label' => '统计看板', 'href' => '/console/stats'],

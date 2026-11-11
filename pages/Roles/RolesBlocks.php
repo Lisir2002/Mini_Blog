@@ -35,7 +35,7 @@ final class RolesBlocks
              'note' => (string) count((array) ($data['catalog'] ?? [])) . ' 个'],
             ['label' => '紧凑视图', 'href' => '/console/roles', 'active' => !$showCatalog],
             ['label' => '用户管理', 'href' => '/console/users'],
-            ['label' => '内容管理', 'href' => '/console/content'],
+            ['label' => '决策轨迹', 'href' => '/console/decisions'],
         ]];
 
         foreach ((array) ($data['roles'] ?? []) as $name => $role) {

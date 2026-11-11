@@ -16,6 +16,7 @@
 | v0.35 | `content.create` / `content.update` | 能改状态、能进回收站，但站上写不了正文 |
 | v0.36 | `users.list` / `users.manage` | 授权只能 curl，站点上没有用户管理界面 |
 | v0.37 | `permission.roles` / `grant` / `revoke` / `role.parent` | 角色与许可只能 curl 改 |
+| v0.38 | `permission.decisions` / `permission.check` | 决策留痕只能翻库，站点上问不了「为什么允许」 |
 
 每一次都是「能力完备、闭环缺失」。人工检查不可持续，所以把它变成一个可重跑的查询。
 
@@ -65,3 +66,4 @@ v0.34 后零消费从 63 降到 57：`auth.session.create`（接缝）、`auth.s
 v0.35 再减少 2 个：`content.create` 与 `content.update` 由 `/console/write` 消费。
 v0.36 再减少 2 个：`users.list` 与 `users.manage` 由 `/console/users` 消费。`users.view` 仍为零 —— 列表已经够用，详情接口留给后续的账号详情页。
 v0.37 再减少 3 个：`permission.roles`、`permission.catalog`、`permission.role.parent` 由 `/console/roles` 消费；`permission.grant` / `permission.revoke` 通过同一页的写入口消费（工具把它们算作页面调用）。
+v0.38 再减少 2 个：`permission.decisions` 与 `permission.check` 由 `/console/decisions` 消费。`permission.acl.list` / `permission.acl.set` / `permission.groups` / `permission.group` 仍为零 —— 资源 ACL 与用户组缺的是「选中某篇文章」的浏览路径，不是页面容器。

@@ -1,0 +1,18 @@
+{
+  "slug": "decisions",
+  "class": "Wx\\Pages\\Decisions\\DecisionsPage",
+  "version": "0.1.0",
+  "priority": 43,
+  "enabled": true,
+  "layout": "admin",
+  "routes": [
+    "/console/decisions"
+  ],
+  "_note": "决策轨迹：只读 permission.decisions（进程内快照）与 permission.check（现场裁决）。不写库，因此没有表单票据；声明 permission.audit.read 而非 permission.read，因为决策链带 actor 与资源。",
+  "access": {
+    "auth": "admin",
+    "permission": "permission.audit.read",
+    "deny_layout": "deny",
+    "_note": "审计信息比授权信息更敏感：editor 有 permission.read 但没有 audit.read。"
+  }
+}

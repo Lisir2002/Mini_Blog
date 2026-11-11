@@ -563,7 +563,8 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | v0.22 | **启动期边界**：把「构造」纳入异常边界——`Kernel::serve()` 包住构造与 `run()`，`public/index.php` 只留一行调用。此前 `config/local.php`（主题启用唯一会写的文件）损坏会在构造期抛出、落在 `run()` 之外：`display_errors=0` 时 HTTP/1.0 500 空 body（白屏），`display_errors=1` 时 **HTTP 200** + 绝对路径与 `Parse error`（监控看到成功，缓存与爬虫把错误页当正常页收下）。新增 `tools/journey/Server.php`（内置服务器：端口探测 / 就绪等待 / 原始响应读出 / 强制回收）与 `tools/faults/StartupFaults.php`（装配期、构造期各含自愈，全程 `display_errors=1`），`faults` 从九类扩到十一类；`30` 组守卫做入口唯一性、兜底正文唯一性、子进程构造期断言。故障只进 SAPI 日志、不进响应体；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.23 | **稳定性的代价**：v0.20 的原子写与流式下载此前只有正确性守卫、没有数字。新增 `tools/bench/StabilityProbe.php` 与 `php tools/bench.php stability`：幂等 `claim`+`complete` 45 µs/次、限流 `check` 11 µs/次（约占一次请求 3.7 ms 的 1%）、6 进程 × 200 键并发落盘 **1200/1200** 一条不丢；附件 64 MB 全量 **66.0 MB** 峰值 / 分块 **2.0 MB**（−97%），本地落盘耗时约 1.8 倍。文档只锁「可重跑命令」，数值标注为机器快照；顺带修掉 PERFORMANCE §8 里写死的「250 passed / 50 分组文件」（早已静默过期），并把性能文档纳入事实对账。`31` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.24 | **反向锚点**：正向锚点只能核对「已经想到要核对的句子」——v0.20 起查出的四处漂移（README 徽章 `282 passing`、SPEC 漏登 5 个错误码、architecture.html 页眉「14 系统层 · 55 接口」、结构树「40 个分组 200 项守卫」）都不是写错，而是**没有锚点**，坏掉时对账仍报零漂移。新增 `tools/facts/Coverage.php`：扫「有单一真源的名词」前的数字，未被任一锚点覆盖且非史实句即为候选；候选不与绝对值比对（那会立刻产生 611 条噪音），而与 `coverage-baseline.php` 快照比增量，只报**新出现的组合**（611 → 32 条，当前零假红）。`php tools/facts.php verify` 输出 `NEW` 行并以非 0 退出；`accept` 是唯一写文件的模式，且只覆盖该快照。顺带把 26b 里「源码不含 `file_put_contents`」这条字符串近似断言改为行为验证（跑 verify 前后比对 docs / tools/facts 的 md5 与 mtime）。`32` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
-| **v0.37（当前）** | **角色授权**：`permission.roles` / `grant` / `revoke` / `role.parent` 此前零消费，改授权只能 curl。本轮补 `/console/roles`：角色表把**直接许可 / 继承自 / 有效许可**分三行显示 —— 继承是并集，在子角色上撤销撤不掉父角色给的许可，合并显示会让管理员以为收回了权限。页面只声明 `permission.read`，写操作在页面层再问一次 `permission.manage`。页面挡住三类接口不挡的脏数据：清单外的权限点（store 只 `INSERT IGNORE`，写进去永远不命中）、不存在的角色（孤儿许可没人能清理）、成环的继承（系统层消息是英文 reason，页面翻成人话）。改 `admin` 或动通配符 `*` 要求手写角色名：撤销之后这个页面自己也进不去，确认对应的后果真实存在。零新增接口、零新增系统层、`core/` 零改动；新增 `53` 组守卫。详见 [`docs/ROLES.md`](ROLES.md)。 |
+| **v0.38（当前）** | **决策轨迹**：`permission.decisions` / `permission.check` 零消费，遇到「为什么这个人能改那篇文章」只能翻库。本轮补 `/console/decisions`：现场裁决（三态 allow / deny / abstain 分开呈现 —— abstain 不是拒绝，它通常意味着动作名写错）+ 本次请求的决策链 + 权限缓存命中率。页面**必须先 check 再 decisions**：check 自己也会产生一条决策，先取快照就看不到刚才那一次。声明 `permission.audit.read` 而不是 `permission.read`，因为决策链带 actor 与资源。页面明确写「这不是历史」：接口返回进程内最近 100 条，历史在 `permission_audit` 表，本页不查库。零新增接口、零新增系统层、`core/` 零改动；新增 `54` 组守卫。详见 [`docs/DECISIONS.md`](DECISIONS.md)。 |
+| **v0.37** | **角色授权**：`permission.roles` / `grant` / `revoke` / `role.parent` 此前零消费，改授权只能 curl。本轮补 `/console/roles`：角色表把**直接许可 / 继承自 / 有效许可**分三行显示 —— 继承是并集，在子角色上撤销撤不掉父角色给的许可，合并显示会让管理员以为收回了权限。页面只声明 `permission.read`，写操作在页面层再问一次 `permission.manage`。页面挡住三类接口不挡的脏数据：清单外的权限点（store 只 `INSERT IGNORE`，写进去永远不命中）、不存在的角色（孤儿许可没人能清理）、成环的继承（系统层消息是英文 reason，页面翻成人话）。改 `admin` 或动通配符 `*` 要求手写角色名：撤销之后这个页面自己也进不去，确认对应的后果真实存在。零新增接口、零新增系统层、`core/` 零改动；新增 `53` 组守卫。详见 [`docs/ROLES.md`](ROLES.md)。 |
 | **v0.36** | **用户管理**：`users.list` / `users.manage` 此前零消费，授权只能 curl。本轮补 `/console/users`：列表（状态筛选 + offset 翻页）、禁用 / 启用、改角色、重置口令。页面只声明 `user.read`；写操作由页面层再问一次 `user.manage` —— 页面直接调执行者会绕过 API 分发器的权限检查，不补这一道「能看列表」就等于「能改任何人」。没有 manage 时只渲染只读表格。「不能禁用自己 / 不能移除最后一个管理员」由账号层抛 40906，页面原样呈现，不复制判断；禁用与重置都会撤销该账号全部令牌。零新增接口、零新增系统层、`core/` 零改动；新增 `52` 组守卫。详见 [`docs/USERS.md`](USERS.md)。 |
 | **v0.35** | **正文创作**：内容四态与生命周期早已齐备，但站上没有一个地方能写正文 —— `content.create` 只被旅程脚本调用，`content.update` 零消费。本轮补 `/console/write`：新建走 `content.create`，编辑读 `content.post`、写 `content.update`；两个提交按钮就是状态机（`draft` / `published`），状态缺失或非法一律 422，绝不默认成发布。新建允许自定义 slug，模式由隐藏字段 `mode` 明确给出 —— 用「slug 是否为空」推断会把自定义 slug 的新建当成更新，返回 404。成功 303，失败留在原页并把正文原样带回表单；标题上限 200 字符，超长拒绝而不截断。内容列表新增「编辑」直达入口，主题表单协议增加可选的第二个链接。权限沿用接口事实：页面 `admin + content.create`，编辑字段级 ACL 由 `content.update` 逐字段判定。零新增接口、零新增系统层、`core/` 零改动；新增 `51` 组守卫。详见 [`docs/WRITE.md`](WRITE.md)。 |
 | **v0.34** | **门必须先存在**：会话接口、账号接口、`wx_session` 守卫全都已实现，但 `pages/` 下没有一个认证入口 —— 后台 401 提示「需要登录」，浏览器里却无处可登，只能手工构造 `POST /api/v1/auth/session`。本轮补 `/login`、`/register`、`/account` 三个入口：登录成功 303 + `HttpOnly; SameSite=Lax` 会话 Cookie，失败 401 且不写 Cookie；账号页读 `users.me` / `auth.session.current`，写 `users.me.update` / `auth.password.change`，登出由安全层撤销会话令牌；注册关闭时 GET 阶段就显示「未开放」，不渲染必然 403 的表单。票据机制新增「无权限点」显式标记 `-`：自助页可证明「谁在提交」，仍不能跨路径挪用。顺带修三处旧账：拒绝页的假登录框改成真实入口、`users.me` 缺 `display_name` 时用成员投影补齐、3xx 不再把默认 payload 写成 JSON 正文。零新增接口、零新增系统层、`core/` 仅改 `Kernel.php` 一处 3xx 无实体判断；新增 `50` / `50b` 两组守卫。详见 [`docs/ACCOUNT-PAGES.md`](ACCOUNT-PAGES.md)。 |
@@ -582,10 +583,10 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **465 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
-- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`，v0.28 新增 `36`，v0.29 新增 `37` / `37b`，v0.30 新增 `38` / `38b`，v0.31 新增 `39` / `39b` / `40` / `40b` / `41` / `41b`，v0.32 新增 `42` / `43`，v0.33 新增 `44` / `44b` / `45` / `45b` / `46` / `47` / `48` / `49`，v0.34 新增 `50` / `50b`，v0.35 新增 `51`，v0.36 新增 `52`，v0.37 新增 `53`）。
+- `php -l` 全量 **469 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
+- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`，v0.28 新增 `36`，v0.29 新增 `37` / `37b`，v0.30 新增 `38` / `38b`，v0.31 新增 `39` / `39b` / `40` / `40b` / `41` / `41b`，v0.32 新增 `42` / `43`，v0.33 新增 `44` / `44b` / `45` / `45b` / `46` / `47` / `48` / `49`，v0.34 新增 `50` / `50b`，v0.35 新增 `51`，v0.36 新增 `52`，v0.37 新增 `53`，v0.38 新增 `54`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；465 个文件共 32,156 有效代码行，最大单文件 187 行，92 个 operation 全部绑定执行者。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；469 个文件共 32,467 有效代码行，最大单文件 187 行，92 个 operation 全部绑定执行者。
 - **18 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → metric → page`；**13 个契约接口文件**（容器运行时绑定 28 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个、页面守卫 1 个等内部注册项）、**92 个接口 / 92 份文档**、OpenAPI 3.1（84 路径 / 92 操作）、**30 个承载单元**（18 系统层 + 4 主题 + 6 独立页 + 2 插件）、**48 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
 - HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.25.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
@@ -1961,6 +1962,37 @@ robots，站点不能被订阅或收录。
 （`permission.acl.*` 仍零消费，缺「选中某篇文章」的浏览路径）、不做用户组
 （组是角色来源的扩展，与「谁能进后台」不是同一问题）、不做决策轨迹（需要
 `permission.audit.read`，是只读审计面，单独一页）。
+
+---
+
+## 48. 决策轨迹（v0.38）
+
+**这一页不改变任何授权，它只回答一个问题：这一次请求为什么被允许。**
+
+| 设计问题 | 选择 | 理由 |
+| --- | --- | --- |
+| 声明哪个权限 | **`permission.audit.read`** | 决策链带 actor 与资源，是审计信息，比授权信息更敏感 |
+| check 与 decisions 的先后 | **先 check 再 decisions** | check 自身也产生一条决策；先取快照会漏掉刚才那一次 |
+| `abstain` 怎么呈现 | **单列一态，不并进拒绝** | 它通常意味着动作名写错，排查入口完全不同 |
+| 快照与历史怎么区分 | **页面显式写出边界** | 只显示两三条时，必须让人知道这不是「没人用过权限」 |
+| 要不要查 `permission_audit` | **不查** | 页面只调接口；历史查询需要新接口，属独立一版 |
+| 能不能替别人裁决 | **不能** | 模拟身份会变成一条越权通道 |
+
+**实现中抓到的真问题**：
+
+1. **`abstain` 被当成「拒绝」写第一版**。`decide()` 返回三态，`denied` 与
+   `abstain` 的原因完全不同：前者是有人明确拒绝，后者是没人表态（多半是拼写错）。
+   混在一起，管理员会去查授权，而真正的问题在动作名。
+2. **页面级 `auth: admin` 比权限点更严**。默认许可里 `editor` 有 `permission.read`
+   与 `user.read`，但 `page.json` 的 `auth: admin` 只认 `role === 'admin'`，
+   editor 根本进不了后台。这不是本轮引入的，但这一版第一次把它写进文档与守卫
+   （`54` 里有一条用例记录现状并注明「这是现状，不是期望」）。统一改成
+   `auth: user` + 权限点是安全边界调整，应该独占一版。
+3. **`permission_audit` 的历史不在页面上**。接口给的是进程内环（100 条），
+   FPM 下一请求一进程，所以看到的通常只有本次请求。页面把这件事写成一句
+   显眼的边界说明，而不是让人以为「今天没人触发过决策」。
+
+**边界**：不做历史查询、不做时间线、不做跨用户模拟裁决、不在这里改授权。
 
 ---
 

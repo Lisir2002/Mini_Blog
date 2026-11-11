@@ -2,9 +2,10 @@
 /**
  * 通用区块协议渲染器 —— 页面只产结构化数据，标签结构由主题定义。
  * 变量：$blocks(list<array>)、$esc(callable)。
- * 支持 type：pre / text / list / table / form / notice / chart。
+ * 支持 type：pre / text / list / table / form / notice / chart / links。
  *   notice  显式状态条：data-stats-state 让降级 / 空窗口 / 正常可被文本证据区分；
- *   chart   纯 CSS 柱状图：零脚本、零外部资源，柱高由页面算好的 ratio 提供。
+ *   chart   纯 CSS 柱状图：零脚本、零外部资源，柱高由页面算好的 ratio 提供；
+ *   links   链接组：窗口切换等 GET 导航，active 用 aria-current 标出，不靠颜色单独表意。
  */
 ?>
 <?php foreach ($blocks as $b): ?>
@@ -49,6 +50,21 @@
     <p class="glass-notice__title"><?= $esc((string) ($b['title'] ?? '')) ?></p>
     <p class="glass-notice__value"><?= $esc((string) ($b['value'] ?? '')) ?></p>
   </div>
+<?php elseif ($type === 'links'): ?>
+  <nav class="glass-links" id="<?= $esc((string) ($b['id'] ?? '')) ?>"
+       aria-label="<?= $esc((string) ($b['title'] ?? '链接组')) ?>">
+<?php foreach ((array) ($b['items'] ?? []) as $it): ?>
+<?php   if (!is_array($it)) continue; ?>
+<?php   $on = !empty($it['active']); ?>
+    <a class="glass-links__item<?= $on ? ' is-active' : '' ?>"
+       href="<?= $esc((string) ($it['href'] ?? '')) ?>"<?= $on ? ' aria-current="page"' : '' ?>>
+      <?= $esc((string) ($it['label'] ?? '')) ?>
+<?php   if ((string) ($it['note'] ?? '') !== ''): ?>
+      <span class="glass-muted">（<?= $esc((string) $it['note']) ?>）</span>
+<?php   endif; ?>
+    </a>
+<?php endforeach; ?>
+  </nav>
 <?php elseif ($type === 'chart'): ?>
 <?php   $pts = (array) ($b['points'] ?? []); ?>
   <div class="glass-chart" id="<?= $esc((string) ($b['id'] ?? '')) ?>"

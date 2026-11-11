@@ -57,11 +57,9 @@ final class PostPage implements PackageInterface
             ]);
             return;
         }
-        // 主体上下文必须喂给列表：否则 actorKey 恒为空，liked/reported 永远 false ——
-        // 字段有值却不兑现，正是「安静地错」。GET 与 POST 共用 subject()，口径一致。
-        $comments = $registry->execute('comments.list',
-            ['post_slug' => $slug] + PostInteraction::subject($request, $visitor));
-        $comments['tree'] = PostInteraction::decorateTree((array) ($comments['tree'] ?? []));
+        // 读路径带守卫已裁决的身份：否则 actorKey 恒为空、作者自己的评论也标成不可编辑；
+        // 写路径仍用匿名主体（subject），页面对非 GET 不读 Cookie 的边界不变。
+        $comments = PostComments::load($kernel, $registry, $request, $slug, $visitor);
         $response->setLayout('post')->setPayload([
             'title'      => (string) ($post['title'] ?? '文章'),
             'page'       => 'post',
@@ -83,6 +81,20 @@ final class PostPage implements PackageInterface
         if (!$this->csrfOk($kernel, (string) ($body['_token'] ?? ''))) {
             $this->reject($kernel, $registry, $request, $response, $slug, $visitor,
                 403, 40301, '表单已过期，请刷新后重试');
+            return;
+        }
+
+        // 编辑意图先于 intent() 分流：POST 没有 Authorization 头，身份来自 GET 时签发的票据。
+        $edit = PostEdit::handle($kernel, $registry, $body);
+        if ($edit !== null) {
+            if (($edit['ok'] ?? false) === true) {
+                $response->setStatus(303)
+                    ->setHeader('Location', '/post?slug=' . rawurlencode($slug) . '#comments');
+                return;
+            }
+            $this->reject($kernel, $registry, $request, $response, $slug, $visitor,
+                (int) ($edit['status'] ?? 422), (int) ($edit['code'] ?? 42201),
+                (string) ($edit['message'] ?? '编辑未完成'));
             return;
         }
 
@@ -119,9 +131,7 @@ final class PostPage implements PackageInterface
         int $status, int $code, string $message): void
     {
         $post = $this->post($registry, $slug);
-        $comments = $registry->execute('comments.list',
-            ['post_slug' => $slug] + PostInteraction::subject($request, $visitor));
-        $comments['tree'] = PostInteraction::decorateTree((array) ($comments['tree'] ?? []));
+        $comments = PostComments::load($kernel, $registry, $request, $slug, $visitor);
         $response->setStatus($status)->setLayout('post')->setPayload([
             'title'      => (string) ($post['title'] ?? '文章'),
             'page'       => 'post',

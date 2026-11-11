@@ -23,3 +23,5 @@
 .wx-interact--report { color: var(--g-faint); }
 .wx-comment__report { font-size: .84rem; }
 .wx-comment__report summary { cursor: pointer; color: var(--g-faint); }
+.wx-comment__edit { font-size: .84rem; flex-basis: 100%; }
+.wx-comment__edit summary { cursor: pointer; color: var(--g-accent); }

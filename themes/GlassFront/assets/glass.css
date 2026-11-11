@@ -187,6 +187,12 @@ label { display: grid; gap: .3rem; font-size: .84rem; color: var(--g-muted); }
 .glass-chart__fill { display: block; width: 100%; min-height: 2px; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--g-accent), rgba(127, 157, 205, .35)); }
 .glass-chart__label { display: block; margin-top: .3rem; font-size: .62rem; color: var(--g-faint); white-space: nowrap; writing-mode: vertical-rl; transform: rotate(180deg); max-height: 62px; overflow: hidden; }
 
+/* 链接组：GET 导航（窗口切换）。active 同时靠 aria-current 与下划线表达，不单靠颜色 */
+.glass-links { display: flex; flex-wrap: wrap; gap: .45rem; }
+.glass-links__item { padding: .3rem .7rem; border: 1px solid var(--g-line-soft); border-radius: 999px; font-size: .82rem; color: var(--g-muted); text-decoration: none; }
+.glass-links__item:hover { color: var(--g-accent); border-color: var(--g-accent); }
+.glass-links__item.is-active { color: var(--g-text); border-color: var(--g-accent); background: rgba(127, 157, 205, .16); font-weight: 600; }
+
 /* 降级：不支持 backdrop-filter 或用户要求减少透明效果时，改用不透明面 */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass-panel, .glass-card, .state, .wx-comment, .wx-comments__compose, .wx-comment__reply {

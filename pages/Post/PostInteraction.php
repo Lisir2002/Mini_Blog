@@ -86,6 +86,22 @@ final class PostInteraction
         ];
     }
 
+    /**
+     * 读路径主体：GET 可以把页面守卫已认证的身份带进列表，写路径仍然不带。
+     *
+     * 这不是给写操作开口子——路由守卫只对 GET 解析 Cookie 令牌，
+     * 所以非 GET 的 $identity 恒为 null；此处只是避免「已登录作者看自己的评论
+     * 也被当成匿名」，那会让 editable / own 全为 false，编辑入口无从出现。
+     */
+    public static function readSubject(Request $request, string $visitor, ?array $identity): array
+    {
+        return [
+            '_identity'  => $identity,
+            '_ip'        => (string) ($request->clientIp() ?? ''),
+            'visitor_id' => $visitor,
+        ];
+    }
+
     /** 表单没带 _intent 时按 parent_id 兼容既有回复表单；显式非法值一律拒绝。 */
     public static function intent(array $body): string
     {

@@ -31,6 +31,12 @@ final class PageSystem extends AbstractSystem
         $guard  = new PageAccessGuard($kernel);
         $layoutByPath = [];
 
+        // 身份贯通（读路径）：独立页在 route.resolve 里可以取回「本次请求已裁决的身份」，
+        // 不必自己解析令牌。写操作仍只认请求头，守卫对非 GET 不读 Cookie 的边界不变。
+        $kernel->container()->bind(
+            PageAccessGuard::class, static fn(): PageAccessGuard => $guard, 'system:page', 10, true
+        );
+
         foreach ($loader->load($only === [] ? null : $only) as $slug => $package) {
             $meta = $package['meta'];
             $policy->add((string) $slug, $meta);

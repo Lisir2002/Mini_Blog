@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use Wx\Contracts\ApiRegistryInterface;
+use Wx\Pages\Stats\StatsBlocks;
 use Wx\Pages\Stats\StatsQuery;
 use Wx\Pages\Stats\StatsState;
 
@@ -33,7 +34,7 @@ check('窗口白名单：合法值归一，非法值显式拒绝而不是静默�
 });
 
 check('柱状图比例：max=0 不制造 NaN，非零值有最小可见高度', function (): void {
-    $zero = StatsQuery::chartPoints([
+    $zero = StatsBlocks::chartPoints([
         ['at' => '2026-11-11 10:00:00', 'value' => 0],
         ['at' => '2026-11-11 11:00:00', 'value' => 0],
     ]);
@@ -42,7 +43,7 @@ check('柱状图比例：max=0 不制造 NaN，非零值有最小可见高度', 
         truthy($p['ratio'] === 0.0, '全零时比例必须为 0，不能是 NaN / Infinity');
     }
 
-    $mixed = StatsQuery::chartPoints([
+    $mixed = StatsBlocks::chartPoints([
         ['at' => '2026-11-11 10:00:00', 'value' => 100],
         ['at' => '2026-11-11 11:00:00', 'value' => 1],
         ['at' => 'bad-date', 'value' => 0],
@@ -51,7 +52,7 @@ check('柱状图比例：max=0 不制造 NaN，非零值有最小可见高度', 
     truthy($mixed[1]['ratio'] >= 0.03, '极小值也要有可见高度，否则「有数据却看不见」');
     truthy($mixed[2]['label'] === 'bad-date', '脏时间不能伪装成今天');
 
-    truthy(StatsQuery::chartPoints([['at' => 'x', 'value' => -5]])[0]['value'] === -5,
+    truthy(StatsBlocks::chartPoints([['at' => 'x', 'value' => -5]])[0]['value'] === -5,
         '负值不该被悄悄抹平（由上游保证非负，页面不隐藏异常）');
 });
 
@@ -197,4 +198,21 @@ check('区块协议：两款主题都支持 notice 与 chart，且追加到共�
     foreach (['.glass-chart', '.glass-notice'] as $needle) {
         truthy(str_contains($cssA, $needle), '共享设计系统缺少样式：' . $needle);
     }
+});
+
+check('窗口切换是链接组：GET 可分享，active 唯一，非预设窗口不被悄悄拨回 24h', function (): void {
+    $std = StatsBlocks::windowLinks('7d');
+    truthy(count($std) === 3, '预设窗口应有 3 项，实际 ' . count($std));
+    $active = array_values(array_filter($std, static fn(array $i): bool => $i['active']));
+    truthy(count($active) === 1 && $active[0]['label'] === '7 天', 'active 不唯一或指错窗口');
+    foreach ($std as $item) {
+        truthy(str_starts_with($item['href'], '/console/stats?window='), '链接没有指向看板本身');
+        truthy(!str_contains($item['href'], ' '), '链接含空格，浏览器会截断');
+    }
+
+    $custom = StatsBlocks::windowLinks('12h');
+    truthy(count($custom) === 4, '非预设窗口应追加一项，实际 ' . count($custom));
+    $last = $custom[3];
+    truthy($last['active'] && $last['label'] === '12h', '非预设窗口没有以当前值出现');
+    truthy(str_contains($last['note'], '非预设'), '追加项没有说明它是非预设窗口');
 });

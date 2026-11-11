@@ -10,7 +10,7 @@ v0.26 建了统计系统：三类指标、小时聚合、四通道采集、`dura
 /console/stats  ──▶  StatsPage
                        │  权限：page admin + metric.read（复用 admin 布局）
                        ├─ StatsQuery::collect()  ──▶ stats.overview / series / operations / catalog
-                       ├─ StatsQuery::board()    ──▶ 结构化 blocks（notice / table / chart）
+                       ├─ StatsQuery::board()    ──▶ 结构化 blocks（notice / links / table / chart）
                        └─ 主题 blocks.php        ──▶ 纯 CSS 柱状图，零脚本
 ```
 
@@ -69,6 +69,20 @@ v0.26 建了统计系统：三类指标、小时聚合、四通道采集、`dura
 这带来一个有用的副作用：**数据库不可用时权限层先拒绝，页面拿不到数据也不会渲染假数字。**
 宁可不给，也不给错的。
 
+## 窗口切换：链接组，不是下拉框
+
+窗口是 `?window=` 参数，此前页面上没有入口 —— 读者只能看到默认 24 小时。
+v0.32 把它做成 `links` 区块协议：
+
+- 三项预设（24h / 7d / 30d）都是普通 `<a href>`，可分享、可前进后退、无脚本可用；
+- 当前项带 `aria-current="page"`，不单靠颜色表达；
+- 手传非预设值（如 `12h`）时**追加一项并注明「非预设」**，不把用户悄悄拨回 24h ——
+  否则页面显示的窗口与地址栏里的参数不一致，读者会以为自己的请求被忽略；
+- 非法值仍然 422，失败页不渲染链接组（没有数据可切）。
+
+`StatsBlocks::windowLinks()` 是纯函数，`40` 直接穷举 active 唯一性与非预设追加，
+`40b` 再从真实 HTML 里核对链接、`aria-current` 与 active 迁移。
+
 ## 实现中抓到的两个真问题
 
 1. **`window` 正则只允许两位数字**，`720h`（30 天上界）被误拒。
@@ -87,7 +101,7 @@ v0.26 建了统计系统：三类指标、小时聚合、四通道采集、`dura
 ## 可重跑证据
 
 ```bash
-php tests/run.php        # 40 / 40b：纯逻辑 + 真实权限与主题
+php tests/run.php        # 40 / 40b：纯逻辑 + 真实权限与主题（含窗口链接组）
 php tools/metrics.php verify
 ```
 

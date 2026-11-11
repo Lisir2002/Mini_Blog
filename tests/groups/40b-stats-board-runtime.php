@@ -73,6 +73,15 @@ check('合法窗口原样生效：7d 不会悄悄变成 24h', function () use ($
     [$s, , $b] = $html('/console/stats', ['window' => '7d'], $admin);
     truthy($s === 200, '7d 应 200，实际 ' . $s);
     truthy(str_contains($b, '7d'), '页面没有反映请求的窗口');
+
+    // 窗口切换真的可点：链接、active 迁移、aria-current 三件事同时成立。
+    truthy(str_contains($b, 'class="glass-links"'), '页面没有渲染窗口链接组');
+    truthy(str_contains($b, 'href="/console/stats?window=24h"'), '缺少切回 24h 的链接');
+    truthy(str_contains($b, 'href="/console/stats?window=30d"'), '缺少切到 30d 的链接');
+    truthy(substr_count($b, 'aria-current="page"') === 1, 'active 项不唯一');
+    $pos = strpos($b, 'href="/console/stats?window=7d"');
+    truthy($pos !== false && str_contains(substr($b, max(0, $pos - 200), 200), 'is-active'),
+        '当前窗口 7d 没有被标成 active');
 });
 
 check('Headless 退化为纯数据：状态、区块、窗口字段齐全且不含 HTML', function () use ($json, $admin): void {

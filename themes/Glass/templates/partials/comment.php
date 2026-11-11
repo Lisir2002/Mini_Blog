@@ -4,6 +4,8 @@
  * 变量：$comments（{total, items, tree}）、$esc、$csrf、$post、$visitorId。
  * 回复 / 点赞 / 举报全部走「同页 POST → 303」的 PRG，共用一枚 CSRF 一次性令牌；
  * 互动按钮只在页面算好的 can_interact 为真时出现，主题不判断业务状态。
+ * 编辑入口只在页面附了 edit_ticket 时出现：票据是服务端签发的短期凭证，
+ * 表单本身不带身份，这里绝不能凭 editable 就画一个提交必失败的按钮。
  */
 $renderNode = function (array $node) use (&$renderNode, $esc, $csrf, $post, $visitorId): void {
     $id      = (int) ($node['id'] ?? 0);
@@ -63,6 +65,22 @@ $renderNode = function (array $node) use (&$renderNode, $esc, $csrf, $post, $vis
           <option value="other">其他</option>
         </select>
         <button type="submit" class="wx-interact wx-interact--report">提交举报</button>
+      </form>
+    </details>
+<?php endif; ?>
+<?php if ((string) ($node['edit_ticket'] ?? '') !== ''): ?>
+    <details class="wx-comment__edit">
+      <summary>编辑</summary>
+      <form method="post" action="<?= $esc((string) ($node['edit_action'] ?? '/post')) ?>" class="wx-form wx-form--edit">
+        <input type="hidden" name="slug" value="<?= $esc($slug) ?>">
+        <input type="hidden" name="_token" value="<?= $esc($csrf) ?>">
+        <input type="hidden" name="visitor_id" value="<?= $esc($visitorId) ?>">
+        <input type="hidden" name="_intent" value="edit">
+        <input type="hidden" name="comment_id" value="<?= $id ?>">
+        <input type="hidden" name="_ticket" value="<?= $esc((string) $node['edit_ticket']) ?>">
+        <label>修改内容<textarea name="body" rows="3" required maxlength="5000"><?= $esc((string) ($node['body'] ?? '')) ?></textarea></label>
+        <p class="wx-form__hint">编辑窗口从发表时起算，不因修改而延长；保存成功后本页上的旧编辑入口会失效，请刷新后再改。</p>
+        <button type="submit">保存修改</button>
       </form>
     </details>
 <?php endif; ?>

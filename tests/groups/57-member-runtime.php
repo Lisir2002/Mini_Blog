@@ -13,7 +13,8 @@ use Wx\Core\Http\Request;
  *  2. 「查无此人」返回 40403，不拿一份 0 经验 / Lv.1 的空档案冒充用户；
  *  3. 头衔目录在后台必须显式 include_hidden —— 否则看不见自己建的隐藏头衔；
  *  4. 「空榜 / 没权限看规则 / 等级表断点」三种状态各有各的说法，不塌成一句「没有」；
- *  5. 只读：Cookie POST 401、Bearer POST 405；成员层停用时页面仍 200 但逐块降级。
+ *  5. 只读视图的边界：无票据 Cookie POST 401、PUT 405；成员层停用时页面仍 200 但逐块降级。
+ *     （v0.42 起本页接受带票据的 POST，写操作由 58 组覆盖。）
  */
 echo "\n=== 57. 成员成长页运行时 ===\n";
 
@@ -45,7 +46,7 @@ $cookie = 'wx_session=' . cookieValue((string) ($h['Set-Cookie'] ?? ''), 'wx_ses
 [$status, $page] = $hit('GET', '/console/member', [], [], ['Cookie' => $cookie]);
 check('管理员 GET：五块都渲染，空榜说清「还没有人获得经验」', function () use ($status, $page): void {
     truthy($status === 200, '管理员应 200，实际 ' . $status);
-    foreach (['成长数据的只读视图', '等级表 · 5 档', '经验规则 · 3 条', '还没有人获得经验', '账号在 /console/users'] as $needle) {
+    foreach (['成长数据：上面看现状，下面做改动', '等级表 · 5 档', '经验规则 · 3 条', '还没有人获得经验', '账号在 /console/users'] as $needle) {
         truthy(str_contains($page, $needle), '页面缺少「' . $needle . '」');
     }
     truthy(!str_contains($page, '共 0 位有档案的成员'), '空榜不该渲染成一份 0 人的排行表');
@@ -179,12 +180,12 @@ check('看不到规则：说「你没权限」而不是「没有规则」', func
     }
 });
 
-check('只读边界：Cookie POST 401，Bearer POST 405 + Allow', function () use ($hit, $cookie): void {
+check('方法边界：无票据 Cookie POST 401，PUT 405，带票据的写提交交给 58 组', function () use ($hit, $cookie): void {
     [$byCookie] = $hit('POST', '/console/member', [], [], ['Cookie' => $cookie]);
-    truthy($byCookie === 401, 'Cookie POST 应 401，实际 ' . $byCookie);
-    [$byToken, , $heads] = $hit('POST', '/console/member', [], [], bearer('test-admin-token'));
-    truthy($byToken === 405, 'Bearer POST 应 405，实际 ' . $byToken);
-    truthy(($heads['Allow'] ?? '') === 'GET, HEAD', 'Allow 头不对：' . ($heads['Allow'] ?? '(空)'));
+    truthy($byCookie === 401, '无票据的 Cookie POST 应 401，实际 ' . $byCookie);
+    [$put, , $heads] = $hit('PUT', '/console/member', [], [], bearer('test-admin-token'));
+    truthy($put === 405, 'PUT 应 405，实际 ' . $put);
+    truthy(($heads['Allow'] ?? '') === 'GET, HEAD, POST', 'Allow 头不对：' . ($heads['Allow'] ?? '(空)'));
 });
 
 check('成员层停用：页面仍 200，但逐块声明「不可用」而不是空白', function () use ($site, $prefix, $cookie): void {

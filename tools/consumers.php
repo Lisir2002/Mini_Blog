@@ -49,7 +49,15 @@ function consumers(string $root, array $ops): array
                 foreach ($m[1] as $op) $map[$op][] = $rel;
                 // 动态拼接的调用（如 $intent === 'reply' ? 'x' : 'y'）扫不到 execute()，
                 // 但操作名一定以字符串字面量出现；标成「引用」，与确证消费区分开。
-                preg_match_all('/[\'"]([a-z0-9_.]+)[\'"]/i', $src, $r);
+                //
+                // 必须先剔除 ACL 裁决调用：有些系统的权限点与 operation 同名
+                // （member 系统六个权限点全部如此）。`allows($identity, 'member.xp.award')`
+                // 只是「问能不能发经验」，不是「已经有人发经验」。不剔除的话，
+                // 一个只读页里的权限裁剪就会把写接口伪装成已消费 —— 零消费清单
+                // 从此永远看不见它，直到有人去读代码。字符串字面量只能证明「提到过」，
+                // 这里是唯一能明确判否的上下文，所以按调用整段抹掉再扫。
+                $refSrc = (string) preg_replace('/(?:->|::)\s*allows\s*\([^)]*\)/i', '', $src);
+                preg_match_all('/[\'"]([a-z0-9_.]+)[\'"]/i', $refSrc, $r);
                 foreach ($r[1] as $op) if (isset($known[$op])) $refs[$op][] = $rel;
             } else {
                 preg_match_all('/path:\s*[\'"]([^\'"]+)[\'"]/', $src, $m);

@@ -28,7 +28,7 @@ final class MemberBlocks
 
         $fail = (array) ($data['fail'] ?? []);
         $can  = (array) ($data['can'] ?? []);
-        $blocks = [self::header()];
+        $blocks = array_merge([self::header()], MemberNotice::build($data), MemberForms::build($data));
         $blocks = array_merge($blocks, MemberPanels::levels(
             self::payload($data, 'levels'), (string) ($fail['levels'] ?? '')));
         $blocks = array_merge($blocks, MemberPanels::titles(
@@ -57,11 +57,12 @@ final class MemberBlocks
     /** @return array<string, mixed> */
     private static function header(): array
     {
-        return ['type' => 'notice', 'id' => 'member-scope', 'tone' => 'info', 'state' => 'readonly',
-            'title' => '成长数据的只读视图',
-            'value' => '等级表、头衔目录、经验规则、排行榜与单人档案，全部来自 member.* 只读接口。'
-                . '这一页不写任何东西：发经验、授头衔、改等级与规则都不在这里 —— '
-                . '它们各自要处理幂等与「没配规则必须显式 amount」，值得单独一版。'];
+        return ['type' => 'notice', 'id' => 'member-scope', 'tone' => 'info', 'state' => 'read-write',
+            'title' => '成长数据：上面看现状，下面做改动',
+            'value' => '等级表、头衔目录、经验规则、排行榜与单人档案来自 member.* 只读接口；'
+                . '发经验、定规则、定头衔、授头衔、定等级走下面的操作台，一次只显示一张表单。'
+                . '能看这一页（member.read）不等于能改：每个动作各自要自己的写权限点，'
+                . '提交时现场裁决，票据只证明「谁从哪一页交的」。'];
     }
 
     /** @return array<string, mixed> */
@@ -83,6 +84,8 @@ final class MemberBlocks
             'value' => '榜单只含有成长档案的人（拿过经验的人），空榜不等于没有成员；'
                 . 'total 是有档案的成员总数，returned 才是本页条数。分页用 offset，'
                 . '榜单变动时会漏行或重行 —— 要严格快照得按经验游标翻页，那是另一版。'
-                . '经验流水无归档、等级变更不回溯通知、头衔不参与权限，这三条是刻意设计。'];
+                . '写操作不做批量、不回溯已入账经验、不展示经验流水（接口未开）；'
+                . '删除定义只改解释规则，不清理已落库的授予关系。'
+                . '等级变更不回溯通知、头衔不参与权限，都是刻意设计。'];
     }
 }

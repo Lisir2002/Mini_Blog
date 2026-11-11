@@ -71,8 +71,37 @@ check('会员页：五个只读接口都被算作消费方（经本地包装，�
     foreach (['member.levels', 'member.titles', 'member.xp.rules', 'member.leaderboard', 'member.profile'] as $op) {
         $row = (array) ($all[$op] ?? []);
         truthy(($row['kind'] ?? 'none') !== 'none', $op . ' 仍是零消费');
-        truthy(in_array('pages/Member/MemberQuery.php', (array) ($row['consumers'] ?? []), true),
-            $op . ' 没有算上 pages/Member/MemberQuery.php');
+        // v0.42 起 member.titles / member.profile 在 MemberAction 里也有直调，
+        // 消费方不再只有 MemberQuery；断言「有 pages/Member 下的消费方」而非某个具体文件。
+        $own = array_filter((array) ($row['consumers'] ?? []),
+            static fn(string $f): bool => str_starts_with($f, 'pages/Member/'));
+        truthy($own !== [], $op . ' 的消费方里没有 pages/Member/ 下的文件');
+    }
+});
+
+check('成员写操作：五个接口都不再零消费（经 MemberAction 的动作表，记为 ref）', function () use ($run): void {
+    $data = json_decode($run('--json')['text'], true) ?: [];
+    $all = (array) ($data['all'] ?? []);
+    foreach (['member.xp.award', 'member.xp.rule', 'member.title', 'member.title.grant', 'member.level'] as $op) {
+        $row = (array) ($all[$op] ?? []);
+        truthy(($row['kind'] ?? 'none') !== 'none', $op . ' 仍是零消费');
+        truthy(in_array('pages/Member/MemberAction.php', (array) ($row['consumers'] ?? []), true),
+            $op . ' 没有算上 pages/Member/MemberAction.php');
+    }
+});
+
+check('回归：ACL 权限点字符串不算接口消费', function () use ($run, $root): void {
+    // member 系统的权限点与 operation 同名。v0.41 的 MemberQuery 里
+    // `allows($identity, 'member.xp.award')` 一度把写接口伪装成已消费，
+    // 零消费清单从此看不见它。扫描器必须先把 allows(...) 调用整段抹掉再扫字符串。
+    $src = (string) file_get_contents($root . '/tools/consumers.php');
+    truthy(str_contains($src, 'allows') && str_contains($src, '$refSrc'),
+        '扫描器里没有剔除 ACL 裁决调用的净化逻辑');
+    $data = json_decode($run('--json')['text'], true) ?: [];
+    $all = (array) ($data['all'] ?? []);
+    foreach (['member.xp.award', 'member.title.grant'] as $op) {
+        truthy(!in_array('pages/Member/MemberQuery.php', (array) ($all[$op]['consumers'] ?? []), true),
+            $op . ' 又把只读页里的权限检查算成了消费');
     }
 });
 

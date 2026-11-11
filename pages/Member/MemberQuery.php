@@ -83,14 +83,19 @@ final class MemberQuery
      */
     public static function capabilities(Kernel $kernel, ?array $identity): array
     {
-        $can = ['rule' => false, 'award' => false, 'grant' => false];
+        // 键名与 MemberAction 的动作名一致：操作台按 panel 直接取 can[panel]，
+        // 不再把「能不能看」与「能不能改」混成两个手写的布尔量。
+        // rule 是历史键名（经验规则的读取裁剪），与 xp_rule 同一个权限点。
+        $can = ['rule' => false];
+        foreach (array_keys(MemberAction::PERMISSIONS) as $action) $can[$action] = false;
         $container = $kernel->container();
         if (!$container->has(AccessControlInterface::class)) return $can;
         $acl = $container->resolve(AccessControlInterface::class);
         if (!$acl instanceof AccessControlInterface) return $can;
-        $can['rule']  = $acl->allows($identity, 'member.xp.rule.manage');
-        $can['award'] = $acl->allows($identity, 'member.xp.award');
-        $can['grant'] = $acl->allows($identity, 'member.title.grant');
+        foreach (MemberAction::PERMISSIONS as $action => $permission) {
+            $can[$action] = $acl->allows($identity, $permission);
+        }
+        $can['rule'] = $can['xp_rule'];
         return $can;
     }
 
@@ -137,9 +142,11 @@ final class MemberQuery
      */
     private static function fail(int $status, string $message): array
     {
+        $can = ['rule' => false];
+        foreach (array_keys(MemberAction::PERMISSIONS) as $action) $can[$action] = false;
         return ['ok' => false, 'status' => $status, 'error' => $message, 'offset' => 0,
             'user' => '', 'levels' => null, 'titles' => null, 'rules' => null, 'board' => null,
             'profile' => null, 'profile_state' => 'idle', 'profile_error' => '',
-            'can' => ['rule' => false, 'award' => false, 'grant' => false], 'fail' => []];
+            'can' => $can, 'fail' => []];
     }
 }

@@ -1,18 +1,19 @@
 {
   "slug": "member",
   "class": "Wx\\Pages\\Member\\MemberPage",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "priority": 46,
   "enabled": true,
   "layout": "admin",
   "routes": [
     "/console/member"
   ],
-  "_note": "成员成长：只读 member.levels / member.titles / member.xp.rules / member.leaderboard / member.profile。页面不写任何东西，因此没有 form_ticket；档案查询走 GET 查询参数。",
+  "_note": "成员成长：只读 member.levels / member.titles / member.xp.rules / member.leaderboard / member.profile；写操作 member.xp.award / member.xp.rule / member.title / member.title.grant / member.level 走 ?panel= 操作台，一次只显示一张表单。成功一律 303，失败绝不跳转并回填表单。",
   "access": {
     "auth": "admin",
     "permission": "member.read",
+    "form_ticket": "member.read",
     "deny_layout": "deny",
-    "_note": "等级表与头衔目录本身是公开数据（接口 auth=public），页面要的是「后台视图的访问点」member.read；不放宽接口，也不借用写权限点来当读权限。经验规则另有 member.xp.rule.manage，页面按它裁剪而不是调一个注定 403 的接口。"
+    "_note": "票据按页面级的 member.read 签发；五个写动作各在 MemberAction 里现场问自己的写权限点（member.xp.award / member.xp.rule.manage / member.title.manage / member.title.grant / member.level.manage），页面直调执行者绕过 API 分发器，权限层缺席即 403。等级表与头衔目录接口仍是 public，不因后台加了写入口而收紧。"
   }
 }

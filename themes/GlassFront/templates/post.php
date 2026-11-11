@@ -27,6 +27,7 @@ $csrf = (string) ($csrf ?? '');
     <div class="glass-body"><?php include __DIR__ . '/partials/emoji.php'; ?></div>
   </article>
 <?php include __DIR__ . '/partials/state.php'; ?>
+<?php include __DIR__ . '/partials/attachments.php'; ?>
 <?php include __DIR__ . '/partials/comment.php'; ?>
 <?php endif; ?>
 </main>

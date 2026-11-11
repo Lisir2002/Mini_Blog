@@ -5,7 +5,10 @@
  * 支持 type：pre / text / list / table / form / notice / chart / links。
  *   notice  显式状态条：data-stats-state 让降级 / 空窗口 / 正常可被文本证据区分；
  *   chart   纯 CSS 柱状图：零脚本、零外部资源，柱高由页面算好的 ratio 提供；
- *   links   链接组：窗口切换等 GET 导航，active 用 aria-current 标出，不靠颜色单独表意。
+ *   links   链接组：窗口切换等 GET 导航，active 用 aria-current 标出，不靠颜色单独表意；
+ *   list    条目可为纯文本或 {label, href, note}：搜索结果需要标题即链接，纯文本行保持不变；
+ *   form    带 action 时输出真正的 <form>（含 hidden 与 submit），用于无脚本可提交的后台操作；
+ *           不带 action 时保持原样（无 name 的输入行，由 admin.js 读取），向后兼容。
  */
 ?>
 <?php foreach ($blocks as $b): ?>
@@ -17,7 +20,16 @@
 <?php elseif ($type === 'list'): ?>
   <ul class="glass-list" id="<?= $esc((string) ($b['id'] ?? '')) ?>">
 <?php foreach ((array) ($b['items'] ?? []) as $it): ?>
+<?php   if (is_array($it)): ?>
+    <li>
+      <a class="glass-link" href="<?= $esc((string) ($it['href'] ?? '')) ?>"><?= $esc((string) ($it['label'] ?? '')) ?></a>
+<?php     if ((string) ($it['note'] ?? '') !== ''): ?>
+      <span class="glass-muted"><?= $esc((string) $it['note']) ?></span>
+<?php     endif; ?>
+    </li>
+<?php   else: ?>
     <li><?= $esc((string) $it) ?></li>
+<?php   endif; ?>
 <?php endforeach; ?>
   </ul>
 <?php elseif ($type === 'table'): ?>
@@ -31,18 +43,42 @@
 <?php endforeach; ?>
   </table>
 <?php elseif ($type === 'form'): ?>
+<?php   $action = (string) ($b['action'] ?? ''); ?>
+<?php   $method = strtolower((string) ($b['method'] ?? 'post')) === 'get' ? 'get' : 'post'; ?>
+<?php   if ($action !== ''): ?>
+  <form class="glass-form" method="<?= $esc($method) ?>" action="<?= $esc($action) ?>">
+<?php     if ((string) ($b['body'] ?? '') !== ''): ?>
+    <p class="glass-form__body"><?= $esc((string) $b['body']) ?></p>
+<?php     endif; ?>
+<?php     if ((string) ($b['href'] ?? '') !== ''): ?>
+    <p><a class="glass-link" href="<?= $esc((string) $b['href']) ?>"><?= $esc((string) ($b['href_label'] ?? '查看')) ?></a></p>
+<?php     endif; ?>
+<?php     foreach ((array) ($b['hidden'] ?? []) as $h): ?>
+<?php       if (!is_array($h)) continue; ?>
+    <input type="hidden" name="<?= $esc((string) ($h['name'] ?? '')) ?>" value="<?= $esc((string) ($h['value'] ?? '')) ?>">
+<?php     endforeach; ?>
+<?php   endif; ?>
   <div class="glass-row">
 <?php foreach ((array) ($b['fields'] ?? []) as $f): ?>
 <?php   $tag = (string) ($f['tag'] ?? 'input'); ?>
+<?php   $name = (string) ($f['name'] ?? ''); ?>
 <?php   if ($tag === 'textarea'): ?>
-    <textarea id="<?= $esc((string) ($f['id'] ?? '')) ?>" placeholder="<?= $esc((string) ($f['placeholder'] ?? '')) ?>"></textarea>
+    <textarea id="<?= $esc((string) ($f['id'] ?? '')) ?>"<?= $name !== '' ? ' name="' . $esc($name) . '"' : '' ?> placeholder="<?= $esc((string) ($f['placeholder'] ?? '')) ?>"><?= $esc((string) ($f['value'] ?? '')) ?></textarea>
+<?php   elseif ($tag === 'submit'): ?>
+    <button<?= $name !== '' ? ' name="' . $esc($name) . '" value="' . $esc((string) ($f['value'] ?? '')) . '"' : '' ?> type="submit"><?= $esc((string) ($f['label'] ?? '提交')) ?></button>
 <?php   elseif ($tag === 'button'): ?>
     <button id="<?= $esc((string) ($f['id'] ?? '')) ?>" type="button"><?= $esc((string) ($f['label'] ?? '')) ?></button>
 <?php   else: ?>
-    <input id="<?= $esc((string) ($f['id'] ?? '')) ?>" type="<?= $esc((string) ($f['type'] ?? 'text')) ?>" placeholder="<?= $esc((string) ($f['placeholder'] ?? '')) ?>" autocomplete="off">
+    <input id="<?= $esc((string) ($f['id'] ?? '')) ?>"<?= $name !== '' ? ' name="' . $esc($name) . '"' : '' ?> type="<?= $esc((string) ($f['type'] ?? 'text')) ?>"<?= isset($f['value']) ? ' value="' . $esc((string) $f['value']) . '"' : '' ?> placeholder="<?= $esc((string) ($f['placeholder'] ?? '')) ?>" autocomplete="off">
 <?php   endif; ?>
 <?php endforeach; ?>
   </div>
+<?php   if ($action !== ''): ?>
+<?php     if ((string) ($b['note'] ?? '') !== ''): ?>
+  <p class="glass-muted"><?= $esc((string) $b['note']) ?></p>
+<?php     endif; ?>
+  </form>
+<?php   endif; ?>
 <?php elseif ($type === 'notice'): ?>
   <div class="glass-notice glass-notice--<?= $esc((string) ($b['tone'] ?? 'info')) ?>"
        id="<?= $esc((string) ($b['id'] ?? '')) ?>"

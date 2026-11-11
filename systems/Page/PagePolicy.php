@@ -16,7 +16,7 @@ final class PagePolicy
     /** 与 ApiAuthenticatorInterface::allows() 的级别语义一致，数值用于比较严格程度 */
     private const LEVEL = ['public' => 0, 'user' => 1, 'admin' => 2];
 
-    /** @var array<string, array{page:string,auth:string,permission:string,extra_permission:string,local_only:bool,deny_layout:string}> */
+    /** @var array<string, array{page:string,auth:string,permission:string,extra_permission:string,local_only:bool,deny_layout:string,form_ticket:string}> */
     private array $byPath = [];
     /** @var list<string> */
     private array $undeclared = [];
@@ -41,6 +41,10 @@ final class PagePolicy
                 'extra_permission' => '',
                 'local_only'       => (bool) ($raw['local_only'] ?? false),
                 'deny_layout'      => (string) ($raw['deny_layout'] ?? 'deny'),
+                // 表单票据：声明「本页的写操作需要一枚绑定该权限的票据」。
+                // 只对非 GET 生效，且票据里的权限必须与 permission 逐字一致 ——
+                // 否则一张审核票据就能拿去提交内容操作。
+                'form_ticket'      => (string) ($raw['form_ticket'] ?? ''),
             ];
         }
     }

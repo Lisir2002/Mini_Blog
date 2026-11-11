@@ -1,0 +1,19 @@
+{
+  "slug": "feed",
+  "class": "Wx\\Pages\\Feed\\FeedPage",
+  "version": "0.1.0",
+  "priority": 50,
+  "enabled": true,
+  "layout": "raw",
+  "routes": [
+    "/feed",
+    "/sitemap.xml",
+    "/robots.txt"
+  ],
+  "_note": "订阅与收录：RSS 2.0 / sitemap.xml / robots.txt。三者都是协议文档而不是站点外观，因此不走主题布局（layout=raw：主题没有该槽位，渲染器原样放行），页面直接产出 XML / 纯文本并显式声明 Content-Type。这是「非 HTML 响应」的第一条明确路径：页面声明格式、主题不参与",
+  "access": {
+    "auth": "public",
+    "deny_layout": "deny",
+    "_note": "公开读：订阅源与站点地图必须匿名可取，否则爬虫与阅读器都用不了"
+  }
+}

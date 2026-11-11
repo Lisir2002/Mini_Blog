@@ -50,9 +50,13 @@ final class PostQuery
             // MySQL 协议不支持同一个命名参数出现两次，复用会在 execute 抛
             // 「Invalid parameter number」。搜索从上线起就是 500，而内存实现用的是 str_contains，
             // 行为不一致，所以两组测试都没发现。
-            $where[] = '(title LIKE :kw_title OR body LIKE :kw_body)';
-            $params[':kw_title'] = '%' . $kw . '%';
-            $params[':kw_body']  = '%' . $kw . '%';
+            // 用户输入里的 % 与 _ 是普通字符，不是通配符：不转义的话，搜一个 % 会返回全站。
+            // 反斜杠先转，否则会把后面补的转义符再转一遍。ESCAPE 显式声明，不依赖
+            // 服务端 sql_mode（NO_BACKSLASH_ESCAPES 下默认转义会失效）。
+            $like = strtr($kw, ['\\' => '\\\\', '%' => '\\%', '_' => '\\_']);
+            $where[] = "(title LIKE :kw_title ESCAPE '\\\\' OR body LIKE :kw_body ESCAPE '\\\\')";
+            $params[':kw_title'] = '%' . $like . '%';
+            $params[':kw_body']  = '%' . $like . '%';
         }
         if ($term !== '') {
             $where[] = 'id IN (SELECT r.post_id FROM ' . $this->db->prefix() . 'content_term_relations r'

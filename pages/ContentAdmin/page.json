@@ -1,0 +1,19 @@
+{
+  "slug": "content",
+  "class": "Wx\\Pages\\ContentAdmin\\ContentAdminPage",
+  "version": "0.1.0",
+  "priority": 40,
+  "enabled": true,
+  "layout": "admin",
+  "routes": [
+    "/console/content"
+  ],
+  "_note": "内容管理台：列表 + 状态迁移 + 回收站（恢复 / 彻底删除）。不做正文编辑器 —— 那是下一版的事，混进来会让写表单、校验与权限判定同时变复杂。写路径全部走本页 POST + 表单票据（绑定 content.read / 本路径），按钮按 content.publish / content.delete 逐条裁剪，接口层再判一次",
+  "access": {
+    "auth": "user",
+    "permission": "content.read",
+    "form_ticket": "content.read",
+    "deny_layout": "deny",
+    "_note": "登录且具备 content.read 才可进入；写操作需要票据，票据权限点与页面声明一致才被接受"
+  }
+}

@@ -1,0 +1,19 @@
+{
+    "slug": "queue",
+    "class": "Wx\\Pages\\Queue\\QueuePage",
+    "version": "0.1.0",
+    "priority": 30,
+    "enabled": true,
+    "layout": "admin",
+    "routes": [
+        "/console/queue"
+    ],
+    "_note": "评论审核队列：消费既有 comments.queue / comments.moderate，零新增接口、零新增系统层。写操作由无脚本 <form> 提交，身份来自 GET 时签发的表单票据（access.form_ticket），守卫验票后才进入本页；票据只证明身份，权限仍由 ACL 现场判定",
+    "access": {
+        "auth": "admin",
+        "permission": "comment.moderate",
+        "form_ticket": "comment.moderate",
+        "deny_layout": "deny",
+        "_note": "与 comments.moderate 接口的权限点完全一致；form_ticket 让非 GET 也能证明身份，同时不打开 Cookie 写入口"
+    }
+}

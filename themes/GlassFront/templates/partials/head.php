@@ -14,6 +14,7 @@ $badge = $meta ? '元主题 · 初始化基线' : '主题';
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <title><?= $esc($title) ?> · <?= $esc($themeName) ?></title>
+<link rel="alternate" type="application/rss+xml" title="RSS" href="/feed">
 <style>
 <?= $css ?>
 </style>
@@ -29,6 +30,8 @@ $badge = $meta ? '元主题 · 初始化基线' : '主题';
       <a href="/"<?= $layout === 'site' ? ' class="is-active"' : '' ?>>首页</a>
       <a href="/post?slug=first-post">文章</a>
       <a href="/archive"<?= $layout === 'archive' ? ' class="is-active"' : '' ?>>归档</a>
+      <a href="/search"<?= str_starts_with($title, '搜索') ? ' class="is-active"' : '' ?>>搜索</a>
+      <a href="/feed" title="RSS 订阅">订阅</a>
       <a href="/terms">标签</a>
       <a href="/links">友链</a>
       <a href="/console">控制台</a>

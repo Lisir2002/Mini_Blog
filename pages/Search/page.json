@@ -1,0 +1,17 @@
+{
+  "slug": "search",
+  "class": "Wx\\Pages\\Search\\SearchPage",
+  "version": "0.1.0",
+  "priority": 30,
+  "enabled": true,
+  "layout": "site",
+  "routes": [
+    "/search"
+  ],
+  "_note": "站内搜索：只通过既有公开接口 content.posts 的 keyword 取数，产出结构化区块（搜索表单 / 状态条 / 结果列表）。四态必须可区分：未输入（200 + 引导）、无结果（200 + 明确「没有匹配」）、被截断（200 + 共 N 条本页 M 条）、不可用（503）。非法关键词 422。标签与样式全归主题",
+  "access": {
+    "auth": "public",
+    "deny_layout": "deny",
+    "_note": "公开页：读者搜索无需身份"
+  }
+}

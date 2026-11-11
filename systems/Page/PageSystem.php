@@ -28,7 +28,8 @@ final class PageSystem extends AbstractSystem
         $only   = (array) $kernel->config()->get('page.enabled', []);
         $loader = new PackageLoader($kernel, $kernel->root() . '/pages', 'page.json');
         $policy = new PagePolicy($kernel);
-        $guard  = new PageAccessGuard($kernel);
+        // 表单票据：page.json 的 access.form_ticket 声明后才启用，不声明就是零行为变化。
+        $guard  = new PageAccessGuard($kernel, new FormTicket($kernel->root() . '/storage'));
         $layoutByPath = [];
 
         // 身份贯通（读路径）：独立页在 route.resolve 里可以取回「本次请求已裁决的身份」，
@@ -78,6 +79,36 @@ final class PageSystem extends AbstractSystem
                 return $layoutByPath[$request->path()] ?? $layout;
             }, 20);
         }
+
+        // 404 兜底：没有任何页面认领这个路径时，返回 404 而不是「200 的空首页」。
+        // 此前拼错一个 URL 会拿到一个 200 的空壳站点：搜索引擎收录、读者以为页面存在、
+        // 监控看不到异常 —— 典型的静默成功。判定条件是「三空 + 非已声明页面」，
+        // API 与附件路由各自会写 body / 信封，因此不会被误伤。
+        $apiPrefix = rtrim((string) $kernel->config()->get('api.prefix', '/api/v1'), '/');
+        $kernel->hooks()->filter('route.response', static function (
+            Response $response, Request $request
+        ) use ($policy, $apiPrefix): Response {
+            if ($response->status() !== 200) return $response;
+            if ($response->payload() !== null || $response->body() !== '') return $response;
+            $path = $request->path();
+            if (in_array($path, $policy->paths(), true)) return $response;
+            if ($apiPrefix !== '' && str_starts_with($path, $apiPrefix)) return $response;
+            if (str_starts_with($path, '/attach/')) return $response;
+
+            return $response->setStatus(404)->setLayout('deny')->setPayload([
+                'title'  => '页面不存在',
+                'page'   => 'not_found',
+                'status' => 404,
+                'blocks' => [
+                    ['type' => 'text', 'title' => '这个地址没有对应的页面',
+                     'value' => '请求路径：' . $path . '。它可能是拼写错误，或页面包尚未启用。'],
+                    ['type' => 'links', 'title' => '可以回到', 'items' => [
+                        ['label' => '首页', 'href' => '/'],
+                        ['label' => '归档', 'href' => '/archive'],
+                    ]],
+                ],
+            ]);
+        }, 40);
 
         foreach ($policy->undeclared() as $slug) {
             $kernel->hooks()->emit('page.access.undeclared', $slug, $kernel);

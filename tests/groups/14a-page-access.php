@@ -8,13 +8,13 @@ use Wx\Systems\Page\PagePolicy;
 
 echo "\n=== 14a. 页面身份权限：清单分级 / 短路 / 统一决策 ===\n";
 
-check('清单分级：8 个页面都显式声明 access，未声明的策略缺省 fail-closed', function () use ($root): void {
+check('清单分级：12 个页面都显式声明 access，未声明的策略缺省 fail-closed', function () use ($root): void {
     $decls = [];
     foreach (glob($root . '/pages/*/page.json') ?: [] as $f) {
         $d = json_decode((string) file_get_contents($f), true);
         $decls[(string) $d['slug']] = $d['access'] ?? null;
     }
-    truthy(count($decls) === 8, '页面清单数量异常：' . count($decls));
+    truthy(count($decls) === 12, '页面清单数量异常：' . count($decls));
     foreach ($decls as $slug => $acc) {
         truthy(is_array($acc) && isset($acc['auth']), $slug . ' 未显式声明 access');
     }
@@ -34,7 +34,7 @@ check('清单分级：8 个页面都显式声明 access，未声明的策略缺�
     truthy($policy->forPath('/api/v1/system/info') === null, '未声明路径不应被页面系统裁决');
 });
 
-check('公开页匿名可访问；API 与未登记路径不受页面裁决影响', function (): void {
+check('公开页匿名可访问；API 不受页面裁决影响；未登记路径 404 而不是 200 空壳', function (): void {
     $k = kernel(null);
     foreach (['/', '/links'] as $path) {
         $r = $k->handle(new Request('GET', $path));
@@ -42,7 +42,12 @@ check('公开页匿名可访问；API 与未登记路径不受页面裁决影响
         truthy(array_key_exists('identity', (array) json_decode($r->body(), true)), $path . ' 未注入身份字段');
     }
     truthy($k->handle(new Request('GET', '/api/v1/system/info'))->status() === 200, 'API 被页面裁决误拦');
-    truthy($k->handle(new Request('GET', '/no-such-page'))->status() === 200, '未登记路径不应被拒绝');
+    // v0.33 起：没有任何页面认领的路径返回 404 + 结构化载荷。
+    // 此前的「200 空壳」会让拼错的地址看起来像存在的页面（搜索引擎还会收录）。
+    $nf = $k->handle(new Request('GET', '/no-such-page'));
+    truthy($nf->status() === 404, '未登记路径应 404，实际 ' . $nf->status());
+    truthy((json_decode($nf->body(), true)['page'] ?? '') === 'not_found', '404 未给出结构化原因');
+    truthy(!str_contains(strtolower($nf->body()), '<html'), '无主题时 404 不应输出 HTML');
 });
 
 check('受保护页匿名 401：短路使页面业务逻辑根本未执行', function (): void {

@@ -23,7 +23,7 @@ final class PageAccessGuard
     /** @var array<int, array<string, mixed>|null> 请求对象 id → 身份，同一次请求只认证一次 */
     private array $identityByRequest = [];
 
-    public function __construct(private Kernel $kernel) {}
+    public function __construct(private Kernel $kernel, private ?FormTicket $ticket = null) {}
 
     public function role(): string { return 'page_access_guard'; }
 
@@ -64,10 +64,23 @@ final class PageAccessGuard
             return ['allowed' => true, 'identity' => $identity, 'reason' => 'not_a_page', 'rule' => null];
         }
 
+        // 表单票据：非 GET 才启用。Cookie 不参与非 GET（CSRF 边界不变），
+        // 身份改由「GET 时签发的、绑定路径与权限的短期票据」证明。
+        // 注意必须用工方法判定，而不是「声明了 form_ticket 就算尝试过」：
+        // 否则匿名 GET 会被判成「票据失效」，把「请先登录」错说成「表单过期」。
+        $ticketTried = false;
+        if ($identity === null && $rule['form_ticket'] !== ''
+            && !in_array($request->method(), ['GET', 'HEAD'], true)) {
+            $ticketTried = true;
+            $identity = $this->ticketIdentity($request, $rule);
+        }
+
         // 1) 身份级别：复用 API 的同一个 allows()
         $level = (string) $rule['auth'];
         if ($level !== 'public') {
-            if ($identity === null) return $this->no($identity, 'unauthenticated', $rule);
+            if ($identity === null) {
+                return $this->no($identity, $ticketTried ? 'ticket_invalid' : 'unauthenticated', $rule);
+            }
             $auth = $this->authenticator();
             if ($auth === null || !$auth->allows($level, $identity)) {
                 return $this->no($identity, 'level_denied', $rule);
@@ -101,21 +114,23 @@ final class PageAccessGuard
     {
         $rule   = (array) $result['rule'];
         $reason = (string) $result['reason'];
-        // 未认证 / 无效令牌统一 401，其余（级别不足 / 非本机 / 权限未放行）统一 403
-        $status = $reason === 'unauthenticated' ? 401 : 403;
+        // 未认证 / 票据失效统一 401，其余（级别不足 / 非本机 / 权限未放行）统一 403
+        $status = in_array($reason, ['unauthenticated', 'ticket_invalid'], true) ? 401 : 403;
         $labels = [
             'unauthenticated'   => '该页面需要登录。请携带站点签发的 Bearer 令牌（Authorization 请求头或 wx_token Cookie）后重试。',
+            'ticket_invalid'    => '表单已过期或不属于本页：票据有效期 20 分钟，且只能用于签发它的路径。请刷新页面后重新提交。',
             'level_denied'      => '当前身份级别不足以访问该页面。',
             'local_only'        => '该页面仅允许本机来源访问。',
             'permission_denied' => '权限决策未放行（fail-closed）：缺少所需权限点。',
         ];
         $permission = (string) $rule['permission'];
+        $title = $reason === 'ticket_invalid' ? '表单已失效' : ($status === 401 ? '需要登录' : '无权访问');
 
         return $response
             ->setStatus($status)
             ->setLayout((string) $rule['deny_layout'])
             ->setPayload([
-                'title'          => $status === 401 ? '需要登录' : '无权访问',
+                'title'          => $title,
                 'page'           => 'access_denied',
                 'status'         => $status,
                 'reason'         => $reason,
@@ -143,6 +158,26 @@ final class PageAccessGuard
             ]);
     }
 
+    /**
+     * 只对非 GET 生效：GET 的身份来自 Cookie / 请求头，不需要票据。
+     * 票据里的权限点必须与清单声明的逐字一致 —— 这是「票据不能跨页挪用」的关键，
+     * 光靠路径绑定不够：同一路径下未来可能追加不同权限的操作。
+     * 返回的 role 是签发时的快照，因此角色被降级后最迟 TTL 生效；权限点仍每次现场判定。
+     * @param array<string, mixed> $rule
+     * @return array<string, mixed>|null
+     */
+    private function ticketIdentity(Request $request, array $rule): ?array
+    {
+        if (in_array($request->method(), ['GET', 'HEAD'], true)) return null;
+        if ($this->ticket === null) return null;
+
+        // 验签、路径绑定、权限点比对都在票据内部完成：守卫只负责从请求里取字符串，
+        // 不必认识 HMAC 细节，也不会出现「守卫与票据各判一半」的偏差。
+        return $this->ticket->identityFor(
+            (string) ($request->body()['_form_ticket'] ?? ''), (string) $rule['permission'], $request->path()
+        );
+    }
+
     private function identity(Request $request): ?array
     {
         $token = $this->token($request);
@@ -165,10 +200,14 @@ final class PageAccessGuard
 
         $cookie = (string) ($request->header('Cookie') ?? '');
         if ($cookie === '') return '';
-        foreach (['wx_session', 'wx_token'] as $name) {
-            if (preg_match('/(?:^|;\s*)' . $name . '=([^;\s]+)/', $cookie, $m)) {
-                return rawurldecode((string) $m[1]);
-            }
+        // 逐段解析而不是正则：这里的输入是不可信请求头，行数少、行为更容易穷举；
+        // 同时让本类的职权域停在 http + security 两域（守卫自己也要守职责预算）。
+        foreach (explode(';', $cookie) as $piece) {
+            $pair = explode('=', trim($piece), 2);
+            if (count($pair) !== 2) continue;
+            if (!in_array($pair[0], ['wx_session', 'wx_token'], true)) continue;
+            $value = rawurldecode(trim($pair[1]));
+            if ($value !== '') return $value;
         }
         return '';
     }

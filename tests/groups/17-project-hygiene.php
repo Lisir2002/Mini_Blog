@@ -99,7 +99,7 @@ check('项目树纪律：tools/ 只放可重跑的正式工具', function () use
     $allowed = ['audit', 'bench', 'journey', 'facts', 'faults', 'scale',
                 'audit-responsibility.php', 'bench.php', 'data.php', 'export-openapi.php',
                 'gen-api-docs.php', 'sign-package.php', 'theme.php', 'journey.php', 'facts.php',
-                'faults.php', 'scale.php', 'metrics.php'];
+                'faults.php', 'scale.php', 'metrics.php', 'consumers.php'];
     $unexpected = [];
     foreach (scandir($root . '/tools') as $entry) {
         if (in_array($entry, ['.', '..'], true)) {

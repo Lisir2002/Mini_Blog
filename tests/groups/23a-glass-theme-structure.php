@@ -88,7 +88,8 @@ check('无主题时后台退化为纯数据；未登录被拒走主题 deny 布�
     $denied = pageKernel('glass')->handle(new Request('GET', '/console', [], []));
     truthy(str_contains($denied->contentType(), 'text/html'), '拒绝页未由主题渲染');
     truthy(str_contains($denied->body(), 'data-layout="deny"'), '未使用主题 deny 布局');
-    truthy(str_contains($denied->body(), '403 · Glass'), '缺少主题拒绝页标识');
+    // 标记里的状态码必须与真实状态一致：拒绝页此前把 401 硬写成 403。
+truthy(str_contains($denied->body(), $denied->status() . ' · Glass'), '缺少主题拒绝页标识或状态码不一致');
 });
 
 check('主题渲染经安全系统转义，注入标题不会成为标签', function () use ($root): void {

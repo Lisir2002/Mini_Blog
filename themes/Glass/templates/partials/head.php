@@ -11,6 +11,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <title><?= $esc($title) ?> · <?= $esc($themeName) ?></title>
+<link rel="alternate" type="application/rss+xml" title="RSS" href="/feed">
 <style>
 <?= $css ?>
 </style>

@@ -1,0 +1,118 @@
+<?php
+declare(strict_types=1);
+namespace Wx\Pages\ContentAdmin;
+
+use Wx\Contracts\ApiRegistryInterface;
+use Wx\Contracts\PackageInterface;
+use Wx\Core\Http\Request;
+use Wx\Core\Http\Response;
+use Wx\Core\Kernel;
+use Wx\Pages\Shared\ConsoleTicket;
+
+/**
+ * 内容管理台 —— 只产结构化数据，标签与样式归主题的 admin 布局。
+ *
+ * 这一页回答的是「站点能不能自己用」：此前 draft / published / archived / trash
+ * 四态与五个生命周期接口都齐全，但页面上一个字都写不了，只能 curl。
+ *
+ * 写路径与审核队列同构：GET 签票据（绑定 content.read 与 /console/content），
+ * POST 由页面守卫验签后才进入本页；非 GET 仍不读 Cookie。
+ * 按钮再按 content.publish / content.delete 裁剪一层 —— 页面与接口做两次判定，
+ * 前一次是为了不给假按钮，后一次才是真边界。
+ */
+final class ContentAdminPage implements PackageInterface
+{
+    private const PATH = '/console/content';
+    private const PERMISSION = 'content.read';
+
+    public function slug(): string { return 'content'; }
+
+    public function register(Kernel $kernel): void
+    {
+        $kernel->hooks()->on('route.resolve', function (Request $request, Response $response) use ($kernel): void {
+            if ($request->path() !== self::PATH) return;
+
+            $registry = $this->registry($kernel);
+            if ($registry === null) {
+                $this->emit($kernel, $request, $response, 503, 'live',
+                    ['items' => [], 'total' => 0, 'shown' => 0, 'truncated' => false],
+                    ['title' => '内容管理不可用', 'message' => '接口清单未装配，无法读取文章列表。'], true);
+                return;
+            }
+
+            if ($request->method() === 'POST') {
+                $this->submit($kernel, $registry, $request, $response);
+                return;
+            }
+            $this->view($kernel, $registry, $request, $response);
+        }, 10);
+    }
+
+    private function view(Kernel $kernel, ApiRegistryInterface $registry,
+        Request $request, Response $response): void
+    {
+        $view = (($request->query()['view'] ?? '') === 'trash') ? 'trash' : 'live';
+        try {
+            $query = new ContentAdminQuery($registry);
+            $data = $view === 'trash' ? $query->trash() : $query->live();
+        } catch (\Throwable $e) {
+            $this->emit($kernel, $request, $response, 503, $view,
+                ['items' => [], 'total' => 0, 'shown' => 0, 'truncated' => false],
+                ['title' => '内容列表读取失败', 'message' => $e->getMessage()], true);
+            return;
+        }
+        $this->emit($kernel, $request, $response, 200, $view, $data, null, false);
+    }
+
+    private function submit(Kernel $kernel, ApiRegistryInterface $registry,
+        Request $request, Response $response): void
+    {
+        $result = ContentAdminAction::run($registry, $request->body(),
+            ConsoleTicket::identity($kernel, $request));
+        if (($result['ok'] ?? false) === true) {
+            // PRG：成功后回到「操作前的视图」，刷新不会重复执行。
+            $to = (string) ($request->body()['op'] ?? '') === 'restore'
+                ? self::PATH . '?view=trash' : self::PATH;
+            $response->setStatus(303)->setHeader('Location', $to);
+            return;
+        }
+
+        $view = (string) ($request->body()['op'] ?? '') === 'restore' ? 'trash' : 'live';
+        $data = ['items' => [], 'total' => 0, 'shown' => 0, 'truncated' => false];
+        try {
+            $query = new ContentAdminQuery($registry);
+            $data = $view === 'trash' ? $query->trash() : $query->live();
+        } catch (\Throwable) {
+            // 失败态里连列表都读不到：仍然渲染错误本身，不假装成功。
+        }
+        // 失败态必须自己固定 admin 布局：4xx 会被 render.layout 跳过路径映射，
+        // 否则会落到 site 槽位，错误说明一个字都看不到。
+        $this->emit($kernel, $request, $response, (int) ($result['status'] ?? 422), $view, $data, [
+            'phase' => 'failed', 'code' => (int) ($result['code'] ?? 42201),
+            'title' => '操作未完成', 'message' => (string) ($result['message'] ?? ''),
+            'hint' => '列表已重新载入；票据有效期 20 分钟，过期请刷新本页。',
+        ], false);
+    }
+
+    /** @param array<string, mixed> $data @param array<string, mixed>|null $state */
+    private function emit(Kernel $kernel, Request $request, Response $response, int $status,
+        string $view, array $data, ?array $state, bool $degraded): void
+    {
+        $ticket = $degraded ? '' : ConsoleTicket::issue($kernel, $request, self::PERMISSION, self::PATH);
+        $allowed = ContentAdminAction::allowed($kernel, ConsoleTicket::identity($kernel, $request));
+
+        $response->setStatus($status)->setLayout('admin')->setPayload([
+            'title'  => $view === 'trash' ? '回收站' : '内容管理',
+            'page'   => 'content',
+            'view'   => 'content',
+            'state'  => $state,
+            'blocks' => ContentAdminBlocks::build($view, $data, $ticket, $allowed, $state, $degraded),
+        ]);
+    }
+
+    private function registry(Kernel $kernel): ?ApiRegistryInterface
+    {
+        return $kernel->container()->has(ApiRegistryInterface::class)
+            ? $kernel->container()->resolve(ApiRegistryInterface::class) : null;
+    }
+}

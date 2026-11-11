@@ -35,7 +35,11 @@ final class GlassFrontRenderer implements RendererInterface
         $items = (array) ($payload['items'] ?? []);
         $blocks = (array) ($payload['blocks'] ?? []);
         $state = is_array($payload['state'] ?? null) ? $payload['state'] : null;
+        // 拒绝页 / 404 页共用 deny 槽位：状态码决定标题，不能把 404 说成 403。
+        $status = (int) ($payload['status'] ?? 403);
         $post = is_array($payload['post'] ?? null) ? $payload['post'] : null;
+        $attachments = is_array($payload['attachments'] ?? null)
+            ? $payload['attachments'] : ['items' => [], 'total' => 0, 'state' => null, 'message' => ''];
         $comments = is_array($payload['comments'] ?? null)
             ? $payload['comments'] : ['total' => 0, 'items' => [], 'tree' => []];
         $csrf = (string) ($payload['csrf'] ?? '');

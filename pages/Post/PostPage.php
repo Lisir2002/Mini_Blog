@@ -61,10 +61,11 @@ final class PostPage implements PackageInterface
         // 写路径仍用匿名主体（subject），页面对非 GET 不读 Cookie 的边界不变。
         $comments = PostComments::load($kernel, $registry, $request, $slug, $visitor);
         $response->setLayout('post')->setPayload([
-            'title'      => (string) ($post['title'] ?? '文章'),
-            'page'       => 'post',
-            'post'       => $post,
-            'comments'   => $comments,
+            'title'       => (string) ($post['title'] ?? '文章'),
+            'page'        => 'post',
+            'post'        => $post,
+            'comments'    => $comments,
+            'attachments' => PostAttachments::load($registry, $slug),
             'csrf'       => $this->csrf($kernel),
             'visitor_id' => $visitor,
             'state'      => null,
@@ -133,10 +134,11 @@ final class PostPage implements PackageInterface
         $post = $this->post($registry, $slug);
         $comments = PostComments::load($kernel, $registry, $request, $slug, $visitor);
         $response->setStatus($status)->setLayout('post')->setPayload([
-            'title'      => (string) ($post['title'] ?? '文章'),
-            'page'       => 'post',
-            'post'       => $post,
-            'comments'   => $comments,
+            'title'       => (string) ($post['title'] ?? '文章'),
+            'page'        => 'post',
+            'post'        => $post,
+            'comments'    => $comments,
+            'attachments' => PostAttachments::load($registry, $slug),
             'csrf'       => $this->csrf($kernel),
             'visitor_id' => $visitor,
             'state'      => ['phase' => 'failed', 'code' => $code, 'title' => '操作未完成',

@@ -1,0 +1,19 @@
+{
+  "slug": "write",
+  "class": "Wx\\Pages\\Write\\WritePage",
+  "version": "0.1.0",
+  "priority": 42,
+  "enabled": true,
+  "layout": "admin",
+  "routes": [
+    "/console/write"
+  ],
+  "_note": "写文章：新建走 content.create，编辑走 content.update；两个提交按钮即状态机（draft / published）。正文以 textarea 原样提交，不在页面里做 HTML 清洗或 Markdown 渲染。",
+  "access": {
+    "auth": "admin",
+    "permission": "content.create",
+    "form_ticket": "content.create",
+    "deny_layout": "deny",
+    "_note": "content.create 接口本身要求 admin + content.create，页面不越过接口放宽；作者角色的入口需要先改契约。"
+  }
+}

@@ -51,7 +51,10 @@
     <p class="glass-form__body"><?= $esc((string) $b['body']) ?></p>
 <?php     endif; ?>
 <?php     if ((string) ($b['href'] ?? '') !== ''): ?>
-    <p><a class="glass-link" href="<?= $esc((string) $b['href']) ?>"><?= $esc((string) ($b['href_label'] ?? '查看')) ?></a></p>
+    <p><a class="glass-link" href="<?= $esc((string) $b['href']) ?>"><?= $esc((string) ($b['href_label'] ?? '查看')) ?></a>
+<?php     if ((string) ($b['href2'] ?? '') !== ''): ?>
+      <a class="glass-link" href="<?= $esc((string) $b['href2']) ?>"><?= $esc((string) ($b['href2_label'] ?? '打开')) ?></a>
+<?php     endif; ?></p>
 <?php     endif; ?>
 <?php     foreach ((array) ($b['hidden'] ?? []) as $h): ?>
 <?php       if (!is_array($h)) continue; ?>

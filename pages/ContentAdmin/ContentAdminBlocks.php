@@ -27,6 +27,7 @@ final class ContentAdminBlocks
         $blocks = [self::notice($view, $data, $state, $degraded)];
         $blocks[] = ['type' => 'links', 'id' => 'content-nav', 'title' => '视图与管理入口', 'items' => [
             ['label' => '文章', 'href' => '/console/content', 'active' => $view !== 'trash'],
+            ['label' => '写文章', 'href' => '/console/write'],
             ['label' => '回收站', 'href' => '/console/content?view=trash', 'active' => $view === 'trash'],
             ['label' => '审核队列', 'href' => '/console/queue'],
             ['label' => '统计看板', 'href' => '/console/stats'],
@@ -91,6 +92,9 @@ final class ContentAdminBlocks
             ],
             'href' => $view === 'trash' ? '' : '/post?slug=' . rawurlencode($slug),
             'href_label' => '查看文章',
+            // 回收站里的文章不能编辑；列表页给出直达编辑器的入口，省掉手拼 URL。
+            'href2' => $view === 'trash' ? '' : '/console/write?slug=' . rawurlencode($slug),
+            'href2_label' => '编辑',
             'fields' => $fields,
             'note' => self::note($view, $ticket, $fields),
         ];

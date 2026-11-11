@@ -13,6 +13,7 @@
 | v0.28 | 四态与五个生命周期接口 | 页面上一个字都写不了，只能 curl |
 | v0.33 | `attachments.list` | 附件传了，文章页不显示 |
 | v0.34 | `auth.session.*` / `auth.register` / `users.me` | 后台说「需要登录」，浏览器里却没有登录页 |
+| v0.35 | `content.create` / `content.update` | 能改状态、能进回收站，但站上写不了正文 |
 
 每一次都是「能力完备、闭环缺失」。人工检查不可持续，所以把它变成一个可重跑的查询。
 
@@ -59,3 +60,4 @@ v0.34 后零消费从 63 降到 57：`auth.session.create`（接缝）、`auth.s
 `auth.register`、`auth.password.change`、`users.me`、`users.me.update` 均已离开零消费。
 `auth.session.revoke` / `auth.logout` 仍为零：页面登出直接调 `SessionManager::revoke()`，
 这两个接口保留给 API 客户端 —— 零消费不等于无用，只等于「站点不经过它」。
+v0.35 再减少 2 个：`content.create` 与 `content.update` 由 `/console/write` 消费，当前零消费 56 个。

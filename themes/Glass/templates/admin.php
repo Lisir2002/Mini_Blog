@@ -6,7 +6,7 @@
  * 零新增布局槽位：所有呈现都由同一个 admin 槽位按页面 view 分流。
  */
 ?>
-<?php $serverView = in_array((string) ($view ?? ''), ['stats', 'queue', 'content'], true); ?>
+<?php $serverView = in_array((string) ($view ?? ''), ['stats', 'queue', 'content', 'write'], true); ?>
 <?php include __DIR__ . '/partials/head.php'; ?>
 <main class="glass-admin" data-theme="<?= $esc($themeName) ?>" data-view="<?= $esc($view ?? '') ?>">
 <?php if ($serverView): ?>

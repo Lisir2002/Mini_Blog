@@ -1,0 +1,19 @@
+{
+  "slug": "users",
+  "class": "Wx\\Pages\\Users\\UsersPage",
+  "version": "0.1.0",
+  "priority": 41,
+  "enabled": true,
+  "layout": "admin",
+  "routes": [
+    "/console/users"
+  ],
+  "_note": "用户管理：users.list 读列表，users.manage 写（禁用/启用/改角色/重置口令）。页面只声明 user.read；写操作在页面层再问一次 user.manage，权限层缺席时 fail-closed。",
+  "access": {
+    "auth": "admin",
+    "permission": "user.read",
+    "form_ticket": "user.read",
+    "deny_layout": "deny",
+    "_note": "能看列表不等于能改账号：表单按 user.manage 裁剪，UsersAction 提交时再判一次。"
+  }
+}

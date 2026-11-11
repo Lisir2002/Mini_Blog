@@ -8,13 +8,16 @@ use Wx\Systems\Page\PagePolicy;
 
 echo "\n=== 14a. 页面身份权限：清单分级 / 短路 / 统一决策 ===\n";
 
-check('清单分级：12 个页面都显式声明 access，未声明的策略缺省 fail-closed', function () use ($root): void {
+check('清单分级：页面清单与目录一一对应，且都显式声明 access', function () use ($root): void {
     $decls = [];
-    foreach (glob($root . '/pages/*/page.json') ?: [] as $f) {
+    $files = glob($root . '/pages/*/page.json') ?: [];
+    foreach ($files as $f) {
         $d = json_decode((string) file_get_contents($f), true);
         $decls[(string) $d['slug']] = $d['access'] ?? null;
     }
-    truthy(count($decls) === 12, '页面清单数量异常：' . count($decls));
+    // 不锁死具体数字：新增页面不该让守卫报错，但丢页或 slug 重复必须报。
+    truthy(count($decls) === count($files), '页面清单与目录不一致：' . count($decls) . ' vs ' . count($files));
+    truthy(count($decls) >= 12, '页面数量异常：' . count($decls));
     foreach ($decls as $slug => $acc) {
         truthy(is_array($acc) && isset($acc['auth']), $slug . ' 未显式声明 access');
     }

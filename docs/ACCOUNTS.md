@@ -40,6 +40,12 @@
 
 `users.me`（读取当前身份）与 `users.me.update` 都不声明权限点：把「看自己的身份」交给可编程授权，会让新注册用户登录后连自己是谁都读不到。
 
+**浏览器入口（v0.34）**：上表的自助能力此前只有接口，站内没有页面能用。现在由
+`/login`、`/register`、`/account` 承接：登录 303 + `HttpOnly; SameSite=Lax` 会话 Cookie，
+失败不写 Cookie；账号页读 `users.me` / `auth.session.current`，写 `users.me.update` /
+`auth.password.change`，登出由安全层撤销会话令牌。页面登录与 API 登录共用同一个
+`attemptLogin()`，锁定与禁用判定不分叉。详见 [`docs/ACCOUNT-PAGES.md`](ACCOUNT-PAGES.md)。
+
 ## 3. 登录判定顺序
 
 `PdoUserProvider::attemptLogin()` 是 API 登录与页面会话登录的唯一入口，顺序固定：
@@ -113,7 +119,7 @@
 ## 9. 可重跑验证
 
 ```
-php tests/run.php                      # 35 组：注册 / 改密 / 登出 / 禁用 / 锁定 / 防呆
+php tests/run.php                      # 35 组账号闭环 + 50 / 50b 页面入口与账号自助
 php tools/facts.php verify             # 文档计数与错误码双向对账
 php tools/audit-responsibility.php     # 职责预算与协作图
 ```

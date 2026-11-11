@@ -43,6 +43,9 @@ check('本轮接入的页面确实被算作消费方', function () use ($run): v
         'content.transition'=> 'pages/ContentAdmin/ContentAdminAction.php',
         'attachments.list'  => 'pages/Post/PostAttachments.php',
         'comments.moderate' => 'pages/Queue/QueueAction.php',
+        'auth.register'     => 'pages/Auth/AuthAction.php',
+        'users.me'          => 'pages/Account/AccountQuery.php',
+        'auth.password.change' => 'pages/Account/AccountAction.php',
     ];
     foreach ($expect as $op => $file) {
         $consumers = (array) ($all[$op]['consumers'] ?? []);
@@ -50,6 +53,14 @@ check('本轮接入的页面确实被算作消费方', function () use ($run): v
             . '（实际：' . implode(', ', $consumers) . '）');
         truthy(($all[$op]['kind'] ?? '') === 'exec', $op . ' 的消费类型不是确证调用');
     }
+});
+
+check('系统层接缝：@consumes 声明的会话登录被算作消费方', function () use ($run): void {
+    $data = json_decode($run('--json')['text'], true) ?: [];
+    $row = (array) (($data['all']['auth.session.create'] ?? []));
+    truthy(($row['kind'] ?? '') === 'seam', '会话登录不是接缝消费：' . json_encode($row));
+    truthy(in_array('systems/Security/PageSession.php', (array) ($row['consumers'] ?? []), true),
+        '没有把 PageSession 算作会话登录的消费方');
 });
 
 check('零消费清单与确证消费互斥', function () use ($run): void {

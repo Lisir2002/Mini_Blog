@@ -61,6 +61,8 @@ final class PageSystem extends AbstractSystem
         $kernel->hooks()->filter('route.response', static function (
             Response $response, Request $request
         ) use ($guard): Response {
+            // 3xx 是重定向：没有正文，也不该被「身份注入」造出一个 JSON 体。
+            if ($response->status() >= 300 && $response->status() < 400) return $response;
             $data = $response->payload();
             if (is_array($data)) {
                 $data['identity'] = $guard->identityFor($request);

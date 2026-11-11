@@ -23,11 +23,12 @@ $registry = json_decode((string) file_get_contents($root . '/api/registry.json')
 $endpoints = (array) ($registry['endpoints'] ?? []);
 
 /** @param list<string> $ops 已知 operation，用于识别「作为字符串被引用」的动态调用
- *  @return array{exec: array<string, list<string>>, refs: array<string, list<string>>} */
+ *  @return array{exec: array<string, list<string>>, refs: array<string, list<string>>, seam: array<string, list<string>>} */
 function consumers(string $root, array $ops): array
 {
     $map = [];
     $refs = [];
+    $seam = [];
     $known = array_flip($ops);
     $dirs = [$root . '/pages', $root . '/tools'];
     foreach (glob($root . '/themes/*/assets', GLOB_ONLYDIR) ?: [] as $assets) $dirs[] = $assets;
@@ -63,7 +64,27 @@ function consumers(string $root, array $ops): array
         }
         ksort($bucket);
     }
-    return ['exec' => $map, 'refs' => $refs];
+
+    // 系统层的「接缝」：页面不直接 execute，而是经过一个有名字的服务（如 PageSession
+    // 调 auth.session.create）。这类调用不该被当成实现细节抹掉，也不该把整个 systems/
+    // 都算成消费方；只认显式 `@consumes op` 声明，且声明必须能在清单里找到。
+    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(
+        $root . '/systems', FilesystemIterator::SKIP_DOTS
+    ));
+    foreach ($it as $file) {
+        if (!$file->isFile() || $file->getExtension() !== 'php') continue;
+        $src = (string) file_get_contents($file->getPathname());
+        if (!str_contains($src, '@consumes')) continue;
+        $rel = ltrim(str_replace($root, '', $file->getPathname()), '/');
+        preg_match_all('/@consumes\s+([a-z0-9_.]+)/i', $src, $m);
+        foreach ($m[1] as $op) if (isset($known[$op])) $seam[$op][] = $rel;
+    }
+    foreach ($seam as $op => $files) {
+        $seam[$op] = array_values(array_unique($files));
+        sort($seam[$op]);
+    }
+    ksort($seam);
+    return ['exec' => $map, 'refs' => $refs, 'seam' => $seam];
 }
 
 $ops = array_values(array_filter(array_map(
@@ -80,6 +101,10 @@ foreach ($endpoints as $endpoint) {
     $files = array_values(array_unique(array_merge($used[$op] ?? [], $byPath)));
     sort($files);
     $kind = 'exec';
+    if ($files === []) {
+        $files = $scan['seam'][$op] ?? [];
+        $kind = $files === [] ? 'none' : 'seam';
+    }
     if ($files === []) {
         $files = $scan['refs'][$op] ?? [];
         $kind = $files === [] ? 'none' : 'ref';
@@ -105,7 +130,7 @@ if (!$onlyZero) {
     echo "--- 已消费 ---\n";
     foreach ($rows as $op => $row) {
         if ($row['consumers'] === []) continue;
-        $mark = $row['kind'] === 'ref' ? '~ ' : '';
+        $mark = $row['kind'] === 'ref' ? '~ ' : ($row['kind'] === 'seam' ? '≈ ' : '');
         echo '  ' . str_pad($op, 30) . '<- ' . $mark . implode(', ', $row['consumers']) . "\n";
     }
     echo "\n";

@@ -1,0 +1,18 @@
+{
+  "slug": "account",
+  "class": "Wx\\Pages\\Account\\AccountPage",
+  "version": "0.1.0",
+  "priority": 44,
+  "enabled": true,
+  "layout": "site",
+  "routes": [
+    "/account"
+  ],
+  "_note": "账号自助：读 users.me / auth.session.current，写 users.me.update / auth.password.change，登出交安全层撤销会话。写表单使用绑定「身份 + /account + 无权限点」的票据，非 GET 仍不读 Cookie。",
+  "access": {
+    "auth": "user",
+    "form_ticket": "self",
+    "deny_layout": "deny",
+    "_note": "登录用户可访问；不挂权限点 —— 看自己的资料不该需要额外授权。form_ticket 只对非 GET 生效。"
+  }
+}

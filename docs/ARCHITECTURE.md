@@ -563,7 +563,8 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | v0.22 | **启动期边界**：把「构造」纳入异常边界——`Kernel::serve()` 包住构造与 `run()`，`public/index.php` 只留一行调用。此前 `config/local.php`（主题启用唯一会写的文件）损坏会在构造期抛出、落在 `run()` 之外：`display_errors=0` 时 HTTP/1.0 500 空 body（白屏），`display_errors=1` 时 **HTTP 200** + 绝对路径与 `Parse error`（监控看到成功，缓存与爬虫把错误页当正常页收下）。新增 `tools/journey/Server.php`（内置服务器：端口探测 / 就绪等待 / 原始响应读出 / 强制回收）与 `tools/faults/StartupFaults.php`（装配期、构造期各含自愈，全程 `display_errors=1`），`faults` 从九类扩到十一类；`30` 组守卫做入口唯一性、兜底正文唯一性、子进程构造期断言。故障只进 SAPI 日志、不进响应体；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.23 | **稳定性的代价**：v0.20 的原子写与流式下载此前只有正确性守卫、没有数字。新增 `tools/bench/StabilityProbe.php` 与 `php tools/bench.php stability`：幂等 `claim`+`complete` 45 µs/次、限流 `check` 11 µs/次（约占一次请求 3.7 ms 的 1%）、6 进程 × 200 键并发落盘 **1200/1200** 一条不丢；附件 64 MB 全量 **66.0 MB** 峰值 / 分块 **2.0 MB**（−97%），本地落盘耗时约 1.8 倍。文档只锁「可重跑命令」，数值标注为机器快照；顺带修掉 PERFORMANCE §8 里写死的「250 passed / 50 分组文件」（早已静默过期），并把性能文档纳入事实对账。`31` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.24 | **反向锚点**：正向锚点只能核对「已经想到要核对的句子」——v0.20 起查出的四处漂移（README 徽章 `282 passing`、SPEC 漏登 5 个错误码、architecture.html 页眉「14 系统层 · 55 接口」、结构树「40 个分组 200 项守卫」）都不是写错，而是**没有锚点**，坏掉时对账仍报零漂移。新增 `tools/facts/Coverage.php`：扫「有单一真源的名词」前的数字，未被任一锚点覆盖且非史实句即为候选；候选不与绝对值比对（那会立刻产生 611 条噪音），而与 `coverage-baseline.php` 快照比增量，只报**新出现的组合**（611 → 32 条，当前零假红）。`php tools/facts.php verify` 输出 `NEW` 行并以非 0 退出；`accept` 是唯一写文件的模式，且只覆盖该快照。顺带把 26b 里「源码不含 `file_put_contents`」这条字符串近似断言改为行为验证（跑 verify 前后比对 docs / tools/facts 的 md5 与 mtime）。`32` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
-| **v0.33（当前）** | **五条闭环 + 一个矩阵**：此前能力大多落地，但断在「用不上」——举报进了队列没人能处置、关键词搜索没有入口、内容四态只能 curl、附件传了不显示、站点不能被订阅或收录。本轮把五条一起接上：`/console/queue`（票据写路径，`comments.queue` / `comments.moderate`）、`/search`（四态 + `%` / `_` 字面量转义）、`/console/content`（列表 + 状态迁移 + 回收站，按钮按 `content.publish` / `content.delete` 裁剪）、文章页附件区块（三态，私有附件在匿名读路径上不可见）、`/feed` + `/sitemap.xml` + `/robots.txt`（`layout=raw`：协议文档不走主题，非 HTML 响应的第一条明确路径）。同时补两条治理线：未登记路径从「200 空壳」改为结构化 404；新增 `tools/consumers.php` 输出「接口 → 消费方」矩阵，把零消费变成可查证据（`49` 组守它自洽）。零新增接口、零新增系统层、`core/` 零改动；新增 `44` / `44b` / `45` / `45b` / `46` / `47` / `48` / `49` 八组守卫。详见 [`docs/SEARCH.md`](SEARCH.md)、[`docs/CONTENT-ADMIN.md`](CONTENT-ADMIN.md)、[`docs/FEED.md`](FEED.md)、[`docs/CONSUMERS.md`](CONSUMERS.md)。 |
+| **v0.34（当前）** | **门必须先存在**：会话接口、账号接口、`wx_session` 守卫全都已实现，但 `pages/` 下没有一个认证入口 —— 后台 401 提示「需要登录」，浏览器里却无处可登，只能手工构造 `POST /api/v1/auth/session`。本轮补 `/login`、`/register`、`/account` 三个入口：登录成功 303 + `HttpOnly; SameSite=Lax` 会话 Cookie，失败 401 且不写 Cookie；账号页读 `users.me` / `auth.session.current`，写 `users.me.update` / `auth.password.change`，登出由安全层撤销会话令牌；注册关闭时 GET 阶段就显示「未开放」，不渲染必然 403 的表单。票据机制新增「无权限点」显式标记 `-`：自助页可证明「谁在提交」，仍不能跨路径挪用。顺带修三处旧账：拒绝页的假登录框改成真实入口、`users.me` 缺 `display_name` 时用成员投影补齐、3xx 不再把默认 payload 写成 JSON 正文。零新增接口、零新增系统层、`core/` 仅改 `Kernel.php` 一处 3xx 无实体判断；新增 `50` / `50b` 两组守卫。详见 [`docs/ACCOUNT-PAGES.md`](ACCOUNT-PAGES.md)。 |
+| **v0.33** | **五条闭环 + 一个矩阵**：此前能力大多落地，但断在「用不上」——举报进了队列没人能处置、关键词搜索没有入口、内容四态只能 curl、附件传了不显示、站点不能被订阅或收录。本轮把五条一起接上：`/console/queue`（票据写路径，`comments.queue` / `comments.moderate`）、`/search`（四态 + `%` / `_` 字面量转义）、`/console/content`（列表 + 状态迁移 + 回收站，按钮按 `content.publish` / `content.delete` 裁剪）、文章页附件区块（三态，私有附件在匿名读路径上不可见）、`/feed` + `/sitemap.xml` + `/robots.txt`（`layout=raw`：协议文档不走主题，非 HTML 响应的第一条明确路径）。同时补两条治理线：未登记路径从「200 空壳」改为结构化 404；新增 `tools/consumers.php` 输出「接口 → 消费方」矩阵，把零消费变成可查证据（`49` 组守它自洽）。零新增接口、零新增系统层、`core/` 零改动；新增 `44` / `44b` / `45` / `45b` / `46` / `47` / `48` / `49` 八组守卫。详见 [`docs/SEARCH.md`](SEARCH.md)、[`docs/CONTENT-ADMIN.md`](CONTENT-ADMIN.md)、[`docs/FEED.md`](FEED.md)、[`docs/CONSUMERS.md`](CONSUMERS.md)。 |
 | **v0.32** | **从「能用」到「用得上」：窗口切换 / 编辑入口 / 多站点隔离**：看板的窗口此前只能手改 URL，本轮把 24h / 7d / 30d 做成 GET 链接组（`links` 区块协议，`aria-current` 标当前项，非预设窗口追加并注明「非预设」，不把用户悄悄拨回 24h）。评论编辑此前仍是一张空头支票：`editable` 已按窗口判定，但文章页 GET 用匿名主体取列表、已登录作者也看不到入口，页面表单又没有 Authorization 头。本轮补「读路径带身份 + 写路径签发票据」：GET 用页面守卫已裁决的身份取列表，给本人可编辑的评论附 15 分钟 HMAC 票据（绑定评论 / 作者 / `edit_count`），提交时验签取回身份调用同一个 `comments.edit`；改一次版本前进，旧票自然失效，不引入一次性记录表。第三步是治理线：`43` 组守卫在同一库上用两套表前缀同时跑两个站点，验证归档、术语、统计看板互不串站（此前「前缀即隔离」只有文档，没有证据）。零新增接口、零新增系统层、`core/` 零改动；`42` / `43` 两组守卫。 |
 | **v0.31** | **呈现层的三个缺口：互动入口 / 统计看板 / 归档筛选**：v0.29 的点赞举报只有接口、读者点不到，`liked` 在页面上恒为 `false`；v0.26 的统计只有 JSON 与 CLI、运维不 curl 就看不见；v0.30 的归档只能顺着翻、找不到去年的文章。三件事一起补：文章页新增 PRG + 一次性令牌的点赞 / 举报表单（`visitor_id` 稳定下发，`_identity` 恒 null 是 CSRF 取舍而非漏注入），`/console/stats` 看板复用 `stats.*` 与 `admin` 布局、把 `durable` / `degraded` / 空窗口 / 不可用四态做成页面一等公民，归档补 `year` / `month` / `page` / `per_page` 与 `site_total` / `total` 双口径、越界页显式 `beyond`。零新增接口、零新增系统层、`core/` 零改动；新增六组守卫。详见 [`docs/POST-INTERACTIONS.md`](POST-INTERACTIONS.md) 与 [`docs/STATS-BOARD.md`](STATS-BOARD.md)。 |
 | **v0.30** | **归档 / 标签 / 分类页**：v0.28 的分类标签与 v0.29 的互动能力此前只有接口、读者看不到 —— 站内没有标签入口、没有分类索引、往期文章只能顺着列表翻。新增独立页 `pages/Archive`（`/archive` 按年月分组、`/terms` 标签云、`/term` 术语详情），只经既有公开接口 `content.posts` / `content.terms` 取数；两款元主题成对新增 `archive` 布局与逐字同源的 `archive.css`，`Bare` / `BareHtml` 刻意不提供，激活时显式退化为纯 JSON。四种状态可判定（确实没有 / 被截断 / 功能不可用 / 参数或术语错），失败态自行固定布局以避开 `render.layout` 对 4xx 的跳过；标签云计数与点进去的列表同口径。零新增接口、零新增系统层、`core/` 零改动；新增两组守卫，七布局出厂契约同步。详见 [`docs/ARCHIVE-PAGES.md`](ARCHIVE-PAGES.md)。 |
@@ -578,10 +579,10 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **439 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
-- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`，v0.28 新增 `36`，v0.29 新增 `37` / `37b`，v0.30 新增 `38` / `38b`，v0.31 新增 `39` / `39b` / `40` / `40b` / `41` / `41b`，v0.32 新增 `42` / `43`，v0.33 新增 `44` / `44b` / `45` / `45b` / `46` / `47` / `48` / `49`）。
+- `php -l` 全量 **450 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
+- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`，v0.28 新增 `36`，v0.29 新增 `37` / `37b`，v0.30 新增 `38` / `38b`，v0.31 新增 `39` / `39b` / `40` / `40b` / `41` / `41b`，v0.32 新增 `42` / `43`，v0.33 新增 `44` / `44b` / `45` / `45b` / `46` / `47` / `48` / `49`，v0.34 新增 `50` / `50b`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；439 个文件共 29,999 有效代码行，最大单文件 187 行，92 个 operation 全部绑定执行者。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；450 个文件共 30,887 有效代码行，最大单文件 187 行，92 个 operation 全部绑定执行者。
 - **18 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → metric → page`；**13 个契约接口文件**（容器运行时绑定 28 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个、页面守卫 1 个等内部注册项）、**92 个接口 / 92 份文档**、OpenAPI 3.1（84 路径 / 92 操作）、**30 个承载单元**（18 系统层 + 4 主题 + 6 独立页 + 2 插件）、**48 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
 - HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.25.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
@@ -1830,6 +1831,45 @@ robots，站点不能被订阅或收录。
 标题与正文做子串匹配，没有分词与相关性排序，数百篇以上会明显变慢；RSS 只输出最近 20 篇
 且不含全文；`robots.txt` 不是访问控制（它只是建议，真正的边界是页面守卫）；
 `pages/*` 仍不产 HTML / CSS / JS，主题仍不调用接口。
+
+---
+
+## 44. 门必须先存在（v0.34）
+
+**这一版仍然没有新增接口和系统层。它补的是一个更基础的缺口：身份能力齐全，但浏览器里没有入口。**
+
+`auth.session.*`、`auth.register`、`auth.password.change`、`auth.logout`、`users.me.update`
+全部零消费；`PageAccessGuard` 能读 `wx_session`，401 的 payload 里也带着 `session_endpoint`，
+但全仓没有一个消费方。拒因写在文档里、能力留在清单里，用户实际看到的却是一张点不动的假表单。
+
+| 设计问题 | 选择 | 理由 |
+| --- | --- | --- |
+| 登录表单要不要套票据 | **不套** | 凭据本身就是证明；给匿名表单发票据只会制造「票据是什么」的误导 |
+| 登录失败能不能 303 | **不能** | 303 表示「去看另一个地址」，失败必须留在原地显示原因 |
+| 会话 Cookie 谁能写 | **只有安全层** | 页面通过 `PageSession` 拿结果；Cookie 的属性、清法只在 `SessionCookie` 一处 |
+| 无权限点的自助写怎么防 CSRF | **票据 + 显式 `-` 标记** | 空串会让「字段缺失」与「本页不需要权限」变成同一种状态 |
+| 改密要不要踢掉当前会话 | **保留当前，撤销其他** | 改密是止损，不该把正在操作的人一起踢下线 |
+| 登出走接口还是走服务 | **同一个 `SessionManager::revoke()`** | 接口按 `_identity.token_hash` 撤销；页面手里就是令牌，多一次认证没有收益 |
+| 已登录再访问 `/login` | **303 到 `/account`** | 不显示一张提交后只会覆盖会话的表单 |
+| 注册关闭怎么表现 | **GET 就显示「未开放」** | 渲染一个必然 403 的按钮是假入口；POST 仍由接口再判一次 |
+
+**实现中抓到的真问题**：
+
+1. **拒绝页的登录框是假的**。`type=form` 没有 `action`，字段没有 `name`，只有主题脚本才可能
+   接上；在没有脚本的环境里它什么也不做。现在改成指向 `/login?next=…` 的真实链接，
+   并保留 `login_endpoint` / `session_endpoint` 给 API 客户端。
+2. **`users.me` 不返回 `display_name`**。它返回的是令牌里的身份快照；账号表里的显示名只在
+   成员系统的 `member.display_name` 投影里。结果就是「保存成功、页面仍显示未设置」。
+   账号页读不到顶层字段时用投影补齐，并在文档里写明这两个来源的差别。
+3. **3xx 带着默认 payload**。核心此前只跳过主题渲染，随后「没有正文但有 payload → 退化为纯数据」
+   又把站点的默认标题与插件条目写成 JSON。重定向没有实体，这一条现在显式排除 3xx。
+4. **测试闭包不会继承外部变量**。`$ticketOf` 在闭包里是未定义，PHP 只在调用时炸；
+   第一次跑守卫时四条用例一起报 `Value not callable` —— 这正是「失败要响」的价值。
+5. **登录限流不能只靠账号锁定**。锁定挡的是「猜某一个账号」，挡不住「同一来源轮着猜很多账号」；
+   页面登录因此有独立桶，存储不可用时放行但留痕，不把登录整站打死。
+
+**边界**：不做找回口令 / 邮箱验证 / 验证码（没有邮件与短信通道）；不做「记住我」；
+不做头像上传（附件系统还没有图片专用写路径）；页面仍只产区块数据，登录页的样式全部来自主题。
 
 ---
 

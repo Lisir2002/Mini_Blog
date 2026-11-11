@@ -34,6 +34,7 @@ $badge = $meta ? '元主题 · 初始化基线' : '主题';
       <a href="/feed" title="RSS 订阅">订阅</a>
       <a href="/terms">标签</a>
       <a href="/links">友链</a>
+      <a href="/login"<?= $title === '登录' ? ' class="is-active"' : '' ?>>登录</a>
       <a href="/console">控制台</a>
     </div>
     <span class="front-nav__badge"><?= $esc($badge) ?></span>

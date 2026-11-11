@@ -117,7 +117,7 @@ final class PageAccessGuard
         // 未认证 / 票据失效统一 401，其余（级别不足 / 非本机 / 权限未放行）统一 403
         $status = in_array($reason, ['unauthenticated', 'ticket_invalid'], true) ? 401 : 403;
         $labels = [
-            'unauthenticated'   => '该页面需要登录。请携带站点签发的 Bearer 令牌（Authorization 请求头或 wx_token Cookie）后重试。',
+            'unauthenticated'   => '该页面需要登录。请先登录；脚本可携带站点签发的 Bearer 令牌（Authorization 请求头或 wx_token Cookie）。',
             'ticket_invalid'    => '表单已过期或不属于本页：票据有效期 20 分钟，且只能用于签发它的路径。请刷新页面后重新提交。',
             'level_denied'      => '当前身份级别不足以访问该页面。',
             'local_only'        => '该页面仅允许本机来源访问。',
@@ -149,12 +149,13 @@ final class PageAccessGuard
                         ['k' => '要求权限', 'v' => $permission !== '' ? $permission : '无'],
                         ['k' => '裁决原因', 'v' => $reason],
                     ]],
-                    ['type' => 'form', 'title' => '登录', 'fields' => [
-                        ['tag' => 'input', 'id' => 'username', 'type' => 'text', 'placeholder' => '用户名'],
-                        ['tag' => 'input', 'id' => 'password', 'type' => 'password', 'placeholder' => '口令'],
-                        ['tag' => 'button', 'id' => 'login', 'label' => '签发令牌'],
-                    ]],
-                ],
+                    // 只给「去哪里登录」，不渲染一个没有 action 的表单：
+                    // 旧版这里是一个点不动的假登录框，比没有更误导。
+                    ['type' => 'links', 'title' => '登录入口', 'items' => [
+                        ['label' => '去登录', 'href' => '/login?next='
+                            . rawurlencode($request->path()), 'note' => '登录后回到本页'],
+                        ['label' => '注册', 'href' => '/register', 'note' => '站点开放注册时可用'],
+                    ]],                ],
             ]);
     }
 

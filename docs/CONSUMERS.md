@@ -12,6 +12,7 @@
 | v0.25 | `content.posts` 的 `keyword` | 搜索从上线起 500，前台也没有入口 |
 | v0.28 | 四态与五个生命周期接口 | 页面上一个字都写不了，只能 curl |
 | v0.33 | `attachments.list` | 附件传了，文章页不显示 |
+| v0.34 | `auth.session.*` / `auth.register` / `users.me` | 后台说「需要登录」，浏览器里却没有登录页 |
 
 每一次都是「能力完备、闭环缺失」。人工检查不可持续，所以把它变成一个可重跑的查询。
 
@@ -28,7 +29,11 @@ php tools/consumers.php --json   # 机器可读（守卫用）
 - **确证调用**（`<-`）：源码里出现 `execute('op')`，或前端脚本引用了该接口路径；
 - **字符串引用**（`<- ~`）：操作名作为字面量出现，但没有直接 `execute` ——
   典型是 `$intent === 'reply' ? 'comments.reply' : 'comments.add'` 这类动态分派。
-  标成引用而不是消费，是为了不把「提到过」当成「用上了」。
+  标成引用而不是消费，是为了不把「提到过」当成「用上了」；
+- **系统层接缝**（`<- ≈`）：页面不直接调用，而是经过一个有名字的服务（如
+  `systems/Security/PageSession.php` 调 `auth.session.create`）。这类文件必须在
+  docblock 里显式写 `@consumes <operation>`，工具才认；声明必须能在清单里找到。
+  不把整个 `systems/` 算成消费方 —— 系统层之间的相互调用是实现耦合，不是站点可达。
 
 **零消费**只列两类都没有的 operation。
 
@@ -48,4 +53,9 @@ php tools/consumers.php --json   # 机器可读（守卫用）
 ## 证据
 
 `49` 组守卫：矩阵覆盖全部 operation、本轮新接的页面确实被算作消费方、
-零消费与确证消费互斥、`--zero` 不混入已消费段。
+零消费与确证消费互斥、`--zero` 不混入已消费段，以及 `@consumes` 接缝能被识别。
+
+v0.34 后零消费从 63 降到 57：`auth.session.create`（接缝）、`auth.session.current`、
+`auth.register`、`auth.password.change`、`users.me`、`users.me.update` 均已离开零消费。
+`auth.session.revoke` / `auth.logout` 仍为零：页面登出直接调 `SessionManager::revoke()`，
+这两个接口保留给 API 客户端 —— 零消费不等于无用，只等于「站点不经过它」。

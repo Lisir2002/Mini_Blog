@@ -97,7 +97,8 @@ final class Kernel
             $response = $renderer->render($response, $this);
         }
         // 没有任何呈现层写过内容 → 退化为纯数据（零标签、零样式），核心绝不兜底输出 HTML。
-        if ($response->body() === '' && $response->payload() !== null) {
+        // 重定向没有实体：3xx 既不该被主题包成页面，也不该把默认 payload 写成 JSON 正文。
+        if (!$isRedirect && $response->body() === '' && $response->payload() !== null) {
             $response->asData();
         }
         return $response;

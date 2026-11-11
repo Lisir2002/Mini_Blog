@@ -25,6 +25,13 @@ final class FormTicket
 
     public function __construct(private string $storageDir) {}
 
+    /**
+     * 自助页（/account）没有权限点可绑，但仍需要「提交者是谁 + 从哪来」的证明。
+     * 用 '-' 作为「无权限点」的显式标记，而不是空串：空串会让「票据字段缺失」
+     * 与「本页本来就不需要权限」变成同一种状态，验签时无法区分。
+     */
+    public const NO_PERMISSION = '-';
+
     /** @return string|null 签发失败返回 null（密钥不可得），调用方不得降级 */
     public function sign(int|string $userId, string $username, string $role,
         string $permission, string $path): ?string
@@ -34,7 +41,8 @@ final class FormTicket
 
         $payload = self::encode([
             'u' => $userId, 'n' => $username, 'r' => $role,
-            'p' => $permission, 't' => $path, 'e' => time() + self::TTL,
+            'p' => $permission === '' ? self::NO_PERMISSION : $permission,
+            't' => $path, 'e' => time() + self::TTL,
         ]);
         return $payload . '.' . self::mac($payload, $key);
     }
@@ -58,7 +66,6 @@ final class FormTicket
         // 路径绑定：审核票据不能拿去提交文章操作，反之亦然。
         if (!hash_equals((string) ($data['t'] ?? ''), $path)) return null;
         if ((string) ($data['p'] ?? '') === '' || (string) ($data['n'] ?? '') === '') return null;
-
         return [
             'identity' => [
                 'user_id'  => $data['u'] ?? 0,
@@ -82,10 +89,12 @@ final class FormTicket
      */
     public function identityFor(string $ticket, string $permission, string $path): ?array
     {
-        if ($permission === '') return null;
+        // 空权限点不是「跳过校验」，而是「本页没有权限点可绑」：期望值变成 '-'，
+        // 与普通票据走同一条 hash_equals 比对，绝不因为规则宽松就直接放行。
+        $expected = $permission === '' ? self::NO_PERMISSION : $permission;
         $hit = $this->verify($ticket, $path);
         if ($hit === null) return null;
-        if (!hash_equals($permission, $hit['permission'])) return null;
+        if (!hash_equals($expected, $hit['permission'])) return null;
         return $hit['identity'];
     }
 

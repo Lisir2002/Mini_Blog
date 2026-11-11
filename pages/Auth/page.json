@@ -1,0 +1,18 @@
+{
+  "slug": "auth",
+  "class": "Wx\\Pages\\Auth\\AuthPage",
+  "version": "0.1.0",
+  "priority": 45,
+  "enabled": true,
+  "layout": "site",
+  "routes": [
+    "/login",
+    "/register"
+  ],
+  "_note": "登录与注册入口：消费 auth.session.create / auth.register，成功后由安全层写 HttpOnly 会话 Cookie。页面只产区块数据；注册关闭时渲染「未开放」而不是一个必然 403 的表单。",
+  "access": {
+    "auth": "public",
+    "deny_layout": "deny",
+    "_note": "公开页：登录与注册本就发生在匿名状态。登录表单不套表单票据 —— 凭据本身就是证明，票据只会多一层误导。"
+  }
+}

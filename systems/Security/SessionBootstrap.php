@@ -39,5 +39,14 @@ final class SessionBootstrap
         (new SessionOperations($sessions, $users, $this->kernel))->register(
             $container->resolve(ApiRegistryInterface::class)
         );
+
+        // 页面登录与 API 会话共用同一个 SessionManager：绑定后，承载层不必自己 new，
+        // 也不会出现「页面用一套 TTL、接口用另一套」的双口径。
+        $container->bind(
+            SessionManager::class, static fn(): SessionManager => $sessions, 'system:security', 10, true
+        );
+        $registry = $container->resolve(ApiRegistryInterface::class);
+        $container->bind(PageSession::class, fn(): PageSession
+            => new PageSession($this->kernel, $registry, $sessions), 'system:security', 10, true);
     }
 }

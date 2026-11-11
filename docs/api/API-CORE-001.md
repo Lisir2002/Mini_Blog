@@ -103,7 +103,7 @@ GET /api/v1/system/info
         "requires_php": ">=8.1",
         "api_version": "v1",
         "systems": 18,
-        "contracts": 28,
+        "contracts": 30,
         "api_operations": 92,
         "database": "mysql",
         "theme_active": null,

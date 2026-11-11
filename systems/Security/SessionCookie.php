@@ -44,14 +44,41 @@ final class SessionCookie
                 );
                 $response
                     ->setBody($json === false ? '{}' : $json)
-                    ->setHeader('Set-Cookie', 'wx_session=' . rawurlencode($token)
-                        . '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' . $maxAge);
+                    ->setHeader('Set-Cookie', self::header($token, $maxAge));
                 return $response;
             }
             if ($request->method() === 'DELETE') {
-                $response->setHeader('Set-Cookie', 'wx_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+                $response->setHeader('Set-Cookie', self::clearHeader());
             }
             return $response;
         }, 40);
+    }
+
+    /** 会话 Cookie 的唯一写法：HttpOnly + SameSite=Lax + 全站路径。 */
+    public static function header(string $token, int $maxAge): string
+    {
+        return 'wx_session=' . rawurlencode($token)
+            . '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' . max(0, $maxAge);
+    }
+
+    public static function clearHeader(): string
+    {
+        return 'wx_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+    }
+
+    /**
+     * 只读 wx_session，不认 wx_token：页面会话与 API 令牌是两种凭据，
+     * 混读会让「登出」把一个脚本令牌误当成会话撤销。
+     */
+    public static function read(Request $request): string
+    {
+        $cookie = (string) ($request->header('Cookie') ?? '');
+        if ($cookie === '') return '';
+        foreach (explode(';', $cookie) as $piece) {
+            $pair = explode('=', trim($piece), 2);
+            if (count($pair) !== 2 || $pair[0] !== 'wx_session') continue;
+            return rawurldecode(trim($pair[1]));
+        }
+        return '';
     }
 }

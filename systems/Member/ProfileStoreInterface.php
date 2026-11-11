@@ -35,6 +35,14 @@ interface ProfileStoreInterface
     /** @return list<array<string, mixed>> 按经验降序，user_id 升序保证稳定 */
     public function leaderboard(int $limit, int $offset): array;
 
+    /**
+     * 有成长档案的成员总数 —— 用于「共多少人」与「还有没有下一页」。
+     *
+     * 它必须与 leaderboard() 同一口径（同一张表、同一批行），否则
+     * 「第 1–20 位 / 共 3 人」这种自洽但错误的组合又会回来。
+     */
+    public function count(): int;
+
     /** 只升不降：等级回退会让人「越写越低」，与成长语义矛盾。 */
     public function setLevel(string $userId, int $level): void;
 }

@@ -91,6 +91,12 @@ final class PdoProfileStore implements ProfileStoreInterface
         return $stmt->fetchAll();
     }
 
+    public function count(): int
+    {
+        $stmt = $this->db->pdo()->query('SELECT COUNT(*) FROM ' . $this->table('member_profiles'));
+        return $stmt === false ? 0 : (int) $stmt->fetchColumn();
+    }
+
     public function setLevel(string $userId, int $level): void
     {
         $stmt = $this->db->pdo()->prepare(

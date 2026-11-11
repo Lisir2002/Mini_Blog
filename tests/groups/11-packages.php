@@ -126,7 +126,7 @@ check('命名 / 版本 / PHP 最低版本已定案（不再待定）', function 
     truthy(($v['name'] ?? null) === 'miniblog-core', '正式名未定案');
     truthy(($v['product'] ?? null) === 'Mini Blog', '产品名未定案');
     truthy(($v['namespace'] ?? null) === 'Wx\\', '命名空间未定案');
-    truthy(($v['version'] ?? null) === '0.40.0', '版本未定案');
+    truthy(($v['version'] ?? null) === '0.41.0', '版本未定案');
     truthy(($v['requires_php'] ?? null) === '>=8.1', 'PHP 最低版本未定案为 8.1+');
     truthy(PHP_VERSION_ID >= 80100, '当前 PHP 低于定案要求');
 });

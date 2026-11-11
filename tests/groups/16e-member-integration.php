@@ -53,16 +53,17 @@ check('成员层可停用：users.me 不再有 member 键，成长接口返回 5
     }
 });
 
-check('拔掉数据库：成长数据回退内存实现，公开接口仍可用，写接口 fail-closed', function (): void {
+check('拔掉数据库：等级表回退内存基线，档案不编造（40403），写接口 fail-closed', function (): void {
     global $root;
     $k = new Kernel($root, [
         'database' => ['dsn' => '', 'auto_fallback' => true],
         'api'      => ['rate_limit' => ['enabled' => false],
                        'tokens' => ['test-admin-token' => ['role' => 'admin', 'username' => 'admin', 'user_id' => 1]]],
     ]);
+    // v0.41 起「查不到人」一律 40403：无库时用户表也读不到，与其返回一份
+    // 0 经验 / Lv.1 的空档案（看起来像真用户），不如如实说查不到。
     $profile = integGet($k, '/api/v1/member/profile', ['user_id' => '1']);
-    truthy(($profile['code'] ?? null) === 0, '无库时成长档案不可读');
-    truthy(($profile['data']['xp'] ?? -1) === 0 && ($profile['data']['level'] ?? 0) === 1, '无库时应为初始成长状态');
+    truthy(($profile['code'] ?? null) === 40403, '无库时仍编造了成长档案');
 
     $levels = integGet($k, '/api/v1/member/levels');
     truthy(count((array) ($levels['data']['levels'] ?? [])) >= 3, '无库时未提供基线等级表');
@@ -73,11 +74,11 @@ check('拔掉数据库：成长数据回退内存实现，公开接口仍可用�
     truthy(($write['body']['code'] ?? null) === 40303, '无库时写接口未 fail-closed');
 });
 
-check('权限点自报：五个成员权限点均被收录，撤销 admin 通配符后写接口返回 40303', function (): void {
+check('权限点自报：六个成员权限点均被收录，撤销 admin 通配符后写接口返回 40303', function (): void {
     global $root;
     $k = adminKernel(['api' => ['rate_limit' => ['enabled' => false]]]);
     $registry = new PermissionRegistry($root);
-    foreach (['member.xp.award', 'member.xp.rule.manage', 'member.title.manage', 'member.title.grant', 'member.level.manage'] as $perm) {
+    foreach (['member.read', 'member.xp.award', 'member.xp.rule.manage', 'member.title.manage', 'member.title.grant', 'member.level.manage'] as $perm) {
         truthy($registry->has($perm), '权限点未自报：' . $perm);
     }
 

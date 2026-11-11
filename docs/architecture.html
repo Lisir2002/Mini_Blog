@@ -77,7 +77,7 @@
 <div class="wrap">
 
 <header>
-  <div class="eyebrow">Architecture Overview · v0.40</div>
+  <div class="eyebrow">Architecture Overview · v0.41</div>
   <h1>Mini Blog</h1>
   <p class="lede">核心只做装配与调度；一切能力是系统层，一切呈现是承载包，一切交互是接口，一切单元的装卸由元层管辖。删光所有系统层与包，框架仍能启动——只是什么都不做，且一个字节的样式都不会输出。</p>
   <div class="principle">第一性原理：高度自定义，万象皆接口</div>
@@ -242,11 +242,11 @@ upgrade   备份当前 → staging → 替换
     <div class="card"><div class="tag ok">安全</div><h3>鉴权从声明变执行</h3><p>令牌落库只存 SHA-256 摘要、带过期与撤销；40101 / 40102 / 40301 / 40302；CSRF 落库一次性；CSP 可配置。</p></div>
     <div class="card"><div class="tag ok">接口</div><h3>幂等 · 限流 · 分页 · OpenAPI</h3><p><code>Idempotency-Key</code> 服务端去重、429 + Retry-After、游标分页、由清单导出标准 OpenAPI 3.1 文档。</p></div>
     <div class="card"><div class="tag ok">承载包</div><h3>后台与独立页</h3><p>可卸载控制台、工具页、只读安装向导、零 CSS 的 bare-html 主题；<strong>v0.6 起全部改由主题提供布局</strong>，独立页不再持有任何 CSS/JS。</p></div>
-    <div class="card"><div class="tag ok">定案</div><h3>命名 / 版本 / 冲突策略</h3><p>「Mini Blog」<code>Wx\</code>（保留的历史命名空间）、v0.40.0、PHP ≥ 8.1；保留显式 priority + fail-fast + 留痕；包签名验签（HMAC-SHA256）落地。</p></div>
+    <div class="card"><div class="tag ok">定案</div><h3>命名 / 版本 / 冲突策略</h3><p>「Mini Blog」<code>Wx\</code>（保留的历史命名空间）、v0.41.0、PHP ≥ 8.1；保留显式 priority + fail-fast + 留痕；包签名验签（HMAC-SHA256）落地。</p></div>
     <div class="card"><div class="tag ok">规矩 H</div><h3>单文件职责预算</h3><p>行数 / 责任主体 / 扇出 / 职权跨度四指标分层预算，<code>audit-responsibility.php</code> 静态审计。上帝类 563 行 → 188 行编排者 + 7 个协作者。</p></div>
     <div class="card"><div class="tag ok">规矩 I</div><h3>协作全方位验证</h3><p>8 类协作矩阵 C1–C8 + 存在性 / 一致性 / 运行时贯通 / 故障注入四维；C9 断言每一类都有实际跑过的守卫。</p></div>
     <div class="card"><div class="tag ok">规矩 J · v0.6</div><h3>呈现权完全归主题</h3><p>后台布局同样过主题系统。独立页只产数据 + 声明 <code>layout</code> 槽位，主题包持有 site / admin / tool / install 全部模板与 CSS/JS；主题缺某布局 → 该页退化为纯 JSON，框架绝不兜底。<code>standalone</code> 绕过主题的后门已拆除。</p></div>
-    <div class="card"><div class="tag ok">规矩 K · v0.6</div><h3>权限系统（第 12 层）</h3><p>用户权限 RBAC / 文章权限资源 ACL / 系统权限各层自报；决策三态 <code>allow·deny·abstain</code>、fail-closed、策略钩子只能收紧不能提权、每次决策留痕。48 个权限点、14 个权限接口（<code>API-PERM-001~014</code>）、9 张权限表（全站 24 张）。</p></div>
+    <div class="card"><div class="tag ok">规矩 K · v0.6</div><h3>权限系统（第 12 层）</h3><p>用户权限 RBAC / 文章权限资源 ACL / 系统权限各层自报；决策三态 <code>allow·deny·abstain</code>、fail-closed、策略钩子只能收紧不能提权、每次决策留痕。49 个权限点、14 个权限接口（<code>API-PERM-001~014</code>）、9 张权限表（全站 24 张）。</p></div>
     <div class="card"><div class="tag ok">v0.7 深化</div><h3>继承 / 缓存 / 字段级</h3><p>角色继承用 <code>permission_role_parents</code> 边表 + 决策时展开，自环 / 成环 / 深度超限写入即拒；决策缓存只缓存基础读取、绝不缓存最终决策，授权变更显式失效；ACL 新增 <code>field</code> 维度，精确拒绝某字段而不剔除整篇。<code>core/</code> 仍 24 个 PHP。</p></div>
     <div class="card"><div class="tag ok">v0.8 规矩 L</div><h3>页面权限 / 覆盖鉴权</h3><p>5 个页面在 <code>page.json</code> 声明分级 <code>access</code>，<code>route.access</code> 统一裁决并短路；与 API 共用认证器与权限决策器，策略钩子只能收紧，拒绝页样式归主题 <code>deny</code> 布局。契约覆盖新增授权台账：<code>require_grant</code> 开启后未授权覆盖 fail-closed，授权必须经运行时身份。<code>core/</code> 未新增文件。</p></div>
     <div class="card"><div class="tag ok">v0.9 规矩 M</div><h3>主体可扩展 / 凭据单一来源</h3><p>用户组只作「角色来源」，主体角色集合 = 自身角色 ∪ 组绑定角色，决策骨架与 deny 优先级一字未改；页面会话与 API 令牌<strong>同表同过期同撤销</strong>，只换 HttpOnly + SameSite=Lax 载体，且会话令牌不得当 Bearer 调普通 API；权限缓存新增可换后端（进程内 / 文件），以 epoch 换代失效；<code>content.update</code> 逐字段裁决、任一被拒整次拒绝，绝不部分写入；契约覆盖默认 <code>require_grant=true</code>，仅已注册系统层自动登记，<code>plugin: / theme: / page:</code> 必须运行时授权。<code>core/</code> 仍 24 个 PHP。</p></div>
@@ -307,7 +307,7 @@ upgrade   备份当前 → staging → 替换
 <section>
   <h2>验证结果</h2>
   <p class="passed">✓ php tests/run.php 全绿 · 职责审计 0 违规 / 0 孤儿协作 · 出厂主题复核 / 性能基准可重跑</p>
-  <p class="sub" style="margin-top:.6rem"><code>php -l</code> 全量 <strong>479</strong> 个 PHP 文件通过（<code>core/</code> 仅 24 个、0 个 CSS/JS）；最大单文件 187 行；18 个系统层自动装配、13 个契约（容器运行时绑定 27 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个、统计层 2 个内部注册项）、92 个接口对应 92 份文档、OpenAPI 3.1（84 路径 / 92 操作）。真实 MariaDB 10.11 上建立 29 张业务表（另 2 张运行时台账表）并验证文章 / 评论树写入读回、附件内容寻址与私有下载授权、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进；拔掉 DSN 自动回退。HTTP 端到端：<code>GET /</code> 纯 JSON 零 HTML，未捕获异常经 <code>kernel.exception</code> 渲染为失败态，无令牌访问受保护接口 HTTP 401 + <code>40101</code>，用 <code>admin/admin123</code> 换令牌后返回 <code>code=0</code>，<code>/console</code> / <code>/install</code> / <code>/toolbox</code> 无主题时返回纯 JSON，启用主题后由主题布局输出 HTML。所有结论均为<strong>可重跑的文本证据</strong>，未使用截图（规矩 A）。</p>
+  <p class="sub" style="margin-top:.6rem"><code>php -l</code> 全量 <strong>485</strong> 个 PHP 文件通过（<code>core/</code> 仅 24 个、0 个 CSS/JS）；最大单文件 187 行；18 个系统层自动装配、13 个契约（容器运行时绑定 27 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个、统计层 2 个内部注册项）、92 个接口对应 92 份文档、OpenAPI 3.1（84 路径 / 92 操作）。真实 MariaDB 10.11 上建立 29 张业务表（另 2 张运行时台账表）并验证文章 / 评论树写入读回、附件内容寻址与私有下载授权、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进；拔掉 DSN 自动回退。HTTP 端到端：<code>GET /</code> 纯 JSON 零 HTML，未捕获异常经 <code>kernel.exception</code> 渲染为失败态，无令牌访问受保护接口 HTTP 401 + <code>40101</code>，用 <code>admin/admin123</code> 换令牌后返回 <code>code=0</code>，<code>/console</code> / <code>/install</code> / <code>/toolbox</code> 无主题时返回纯 JSON，启用主题后由主题布局输出 HTML。所有结论均为<strong>可重跑的文本证据</strong>，未使用截图（规矩 A）。</p>
   <div class="callout ok" style="margin-top:1.25rem">
     <strong>9 项决策已全部执行：</strong>内容系统、MySQL 全量实现、接口鉴权执行、写接口公网边界、可卸载后台、standalone 独立页、bare-html 主题、幂等/限流/分页/OpenAPI、包签名验签，以及 PHP 8.1+ / 「Mini Blog <code>Wx\</code>」/ 冲突策略定案。逐项兑现记录见 <code>docs/ARCHITECTURE.md</code> 第 16 节。
   </div>
@@ -368,7 +368,7 @@ upgrade   备份当前 → staging → 替换
     <strong>v0.18 新增：</strong>主题接口面与可视化操作。<strong>判断</strong>：接口面为空不是结构违规（<code>api</code> / <code>data</code> / <code>plugin</code> / <code>page</code> 同样无自报接口），但「当前启用态」既无接口也无 UI、只能手改 <code>config/app.php</code> 是真缺口；<code>23a</code>–<code>24b</code> 共 32 项守卫没有任何一项守「主题可管理」。<strong>落地</strong>：能力归 <code>systems/Theme</code>（两个契约 + <code>theme.list</code> / <code>theme.activate</code>），界面归 <code>themes/Glass</code>；启用只写本地覆盖层，不碰主配置与 <code>core/</code>。<strong>顺带修复</strong>：双台账语义裂缝（<code>deactivate</code> 当前启用主题返回 <code>40901</code>）与第 4 节陈旧计数（12 / 21 → 13 / 69）。<code>25a</code> / <code>25b</code> 两组守卫归入规矩 J，详见 <code>docs/THEMES.md</code>。
   </div>
   <div class="callout" style="margin-top:.8rem">
-    <strong>仍需注意的边界：</strong>控制台为只读 + 令牌查询原型；匿名评论已有审核状态机，但仍需验证码与速率型风控；演示账号 <code>admin/admin123</code> 与配置中的明文口令 / 空签名密钥仅用于本地原型，投产前必须删除、改密并由环境注入；限流与幂等缓存基于文件存储，多实例部署需换共享存储。权限系统剩余边界：用户组不支持嵌套（等价能力已由角色继承提供）、缓存跨主机共享未做（换 Redis 只改后端实现）、会话无多设备管理界面、字段级写目前只作用于 <code>content.update</code>。<code>require_grant</code> 已默认开启，迁移存量站点前须先对账登记合法覆盖。成员系统剩余边界：经验流水无归档、排行榜为 <code>limit/offset</code>、等级变更不回溯通知、成员层零页面零样式（展示权归主题）、头衔不参与权限是刻意设计。<code>core/</code> 已达 24 个 PHP 上限。包仓库协议、多站点、契约版本协商列入 v1.0。</div>
+    <strong>仍需注意的边界：</strong>控制台为只读 + 令牌查询原型；匿名评论已有审核状态机，但仍需验证码与速率型风控；演示账号 <code>admin/admin123</code> 与配置中的明文口令 / 空签名密钥仅用于本地原型，投产前必须删除、改密并由环境注入；限流与幂等缓存基于文件存储，多实例部署需换共享存储。权限系统剩余边界：用户组不支持嵌套（等价能力已由角色继承提供）、缓存跨主机共享未做（换 Redis 只改后端实现）、会话无多设备管理界面、字段级写目前只作用于 <code>content.update</code>。<code>require_grant</code> 已默认开启，迁移存量站点前须先对账登记合法覆盖。成员系统剩余边界：经验流水无归档、排行榜为 <code>limit/offset</code>（榜单变动时会漏行或重行）、等级变更不回溯通知、<code>/console/member</code> 只读（发经验 / 授头衔 / 改等级与规则仍未接上页面）、头衔不参与权限是刻意设计。<code>core/</code> 已达 24 个 PHP 上限。包仓库协议、多站点、契约版本协商列入 v1.0。</div>
 </section>
 
 <footer>

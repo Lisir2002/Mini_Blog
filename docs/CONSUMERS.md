@@ -19,6 +19,7 @@
 | v0.38 | `permission.decisions` / `permission.check` | 决策留痕只能翻库，站点上问不了「为什么允许」 |
 | v0.39 | `system.health` / `layers` / `contracts`、`lifecycle.units`、`release.status` | 运维只能 SSH 跑命令，站点上看不到自身状态 |
 | v0.40 | `logs.query` | 排查只能 SSH 看日志文件，页面上没有入口 |
+| v0.41 | `member.levels` / `titles` / `xp.rules` / `leaderboard` / `profile` | 等级表、头衔、排行、档案在站点上一个都看不见 |
 
 每一次都是「能力完备、闭环缺失」。人工检查不可持续，所以把它变成一个可重跑的查询。
 
@@ -70,3 +71,4 @@ v0.36 再减少 2 个：`users.list` 与 `users.manage` 由 `/console/users` 消
 v0.37 再减少 3 个：`permission.roles`、`permission.catalog`、`permission.role.parent` 由 `/console/roles` 消费；`permission.grant` / `permission.revoke` 通过同一页的写入口消费（工具把它们算作页面调用）。
 v0.38 再减少 2 个：`permission.decisions` 与 `permission.check` 由 `/console/decisions` 消费。`permission.acl.list` / `permission.acl.set` / `permission.groups` / `permission.group` 仍为零 —— 资源 ACL 与用户组缺的是「选中某篇文章」的浏览路径，不是页面容器。
 v0.39 再减少 5 个：`system.health`、`system.layers`、`system.contracts`、`lifecycle.units`、`release.status` 由 `/console/system` 消费。v0.40 再减少 1 个：`logs.query` 由 `/console/logs` 消费；同一版修掉了它的 `total` 缺陷（先切片再计数），并补 `returned` / `truncated` / `exists` / `dates`。
+v0.41 再减少 5 个：`member.levels`、`member.titles`、`member.xp.rules`、`member.leaderboard`、`member.profile` 由 `/console/member` 消费（前四个经本地 `call()` 包装，矩阵记为字符串引用；`member.profile` 是直调）。同一版修掉了 `leaderboard` 的 `total`（原先是本页条数）与 `profile` 对不存在的数字 ID 编造空档案两个缺陷。成员层的五个写接口仍为零消费 —— 发经验 / 授头衔 / 改等级与规则留给下一版。

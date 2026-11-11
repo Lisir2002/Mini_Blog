@@ -57,6 +57,11 @@ final class MemoryProfileStore implements ProfileStoreInterface
         return array_slice($rows, $offset, $limit);
     }
 
+    public function count(): int
+    {
+        return count($this->profiles);
+    }
+
     public function setLevel(string $userId, int $level): void
     {
         if (!isset($this->profiles[$userId])) {

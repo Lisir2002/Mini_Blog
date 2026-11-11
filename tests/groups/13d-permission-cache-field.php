@@ -177,6 +177,6 @@ check('协作对账：88 个 operation 全绑定，新增协作者零违规零�
         truthy($hit, '审计器未收录新增协作者：' . $rel);
     }
     $perms = new PermissionRegistry($root);
-    truthy(count($perms->all()) === 48, '权限点总数异常');
+    truthy(count($perms->all()) === 49, '权限点总数异常');
     truthy(($perms->bySystem()['page'] ?? 0) === 3, 'v0.8 页面权限点应由 Page 层自报');
 });

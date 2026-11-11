@@ -75,6 +75,12 @@ check('手动授予 / 撤销头衔：档案如实回显，来源标记为 manual
     $uid = 9201;
     memberPurge($k, [$uid]);
     try {
+        // 先记一笔经验建档案：v0.41 起没有档案也没有账号的 ID 查不到（40403），
+        // 而头衔关系本身不建档案 —— 这正是「授予头衔不写成长数据」的证据。
+        memberPost($k, '/api/v1/member/xp/award', [
+            'user_id' => (string) $uid, 'action' => 'manual.adjust',
+            'event_key' => 't16b-grant-' . $uid, 'amount' => 1,
+        ], adminHeaders());
         memberPost($k, '/api/v1/member/title/grant', ['user_id' => (string) $uid, 'title_key' => 'founder'], adminHeaders());
         $profile = memberGet($k, '/api/v1/member/profile', ['user_id' => (string) $uid])['body']['data'] ?? [];
         $keys = array_column((array) ($profile['titles'] ?? []), 'title_key');
@@ -96,6 +102,13 @@ check('等级自动头衔：达到 min_level 自动出现，来源标记为 leve
     $uid = 9202;
     memberPurge($k, [$uid]);
     try {
+        // v0.41 起「查无此人」返回 40403，不再编造空档案；没有档案时先记账一笔 1 经验再看头衔。
+        $missing = memberGet($k, '/api/v1/member/profile', ['user_id' => (string) $uid]);
+        truthy(($missing['body']['code'] ?? 0) === 40403, '无档案的陌生 ID 应返回 40403');
+        memberPost($k, '/api/v1/member/xp/award', [
+            'user_id' => (string) $uid, 'action' => 'manual.adjust',
+            'event_key' => 't16b-low-' . $uid, 'amount' => 1,
+        ], adminHeaders());
         $low = memberGet($k, '/api/v1/member/profile', ['user_id' => (string) $uid])['body']['data'] ?? [];
         truthy(!in_array('veteran', array_column((array) ($low['titles'] ?? []), 'title_key'), true), '1 级不该有 4 级头衔');
 

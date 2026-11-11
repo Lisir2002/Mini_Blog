@@ -1,0 +1,18 @@
+{
+  "slug": "member",
+  "class": "Wx\\Pages\\Member\\MemberPage",
+  "version": "0.1.0",
+  "priority": 46,
+  "enabled": true,
+  "layout": "admin",
+  "routes": [
+    "/console/member"
+  ],
+  "_note": "成员成长：只读 member.levels / member.titles / member.xp.rules / member.leaderboard / member.profile。页面不写任何东西，因此没有 form_ticket；档案查询走 GET 查询参数。",
+  "access": {
+    "auth": "admin",
+    "permission": "member.read",
+    "deny_layout": "deny",
+    "_note": "等级表与头衔目录本身是公开数据（接口 auth=public），页面要的是「后台视图的访问点」member.read；不放宽接口，也不借用写权限点来当读权限。经验规则另有 member.xp.rule.manage，页面按它裁剪而不是调一个注定 403 的接口。"
+  }
+}

@@ -63,6 +63,19 @@ check('系统层接缝：@consumes 声明的会话登录被算作消费方', fun
         '没有把 PageSession 算作会话登录的消费方');
 });
 
+check('会员页：五个只读接口都被算作消费方（经本地包装，记为 ref）', function () use ($run): void {
+    $data = json_decode($run('--json')['text'], true) ?: [];
+    $all = (array) ($data['all'] ?? []);
+    // MemberQuery 通过本地 call() 包装执行操作，扫描器看到的是操作名引用而非 ->execute( 直调。
+    // 这不是漏报：ref 与 exec 的区别是「谁在调」，两者都证明接口不再零消费。
+    foreach (['member.levels', 'member.titles', 'member.xp.rules', 'member.leaderboard', 'member.profile'] as $op) {
+        $row = (array) ($all[$op] ?? []);
+        truthy(($row['kind'] ?? 'none') !== 'none', $op . ' 仍是零消费');
+        truthy(in_array('pages/Member/MemberQuery.php', (array) ($row['consumers'] ?? []), true),
+            $op . ' 没有算上 pages/Member/MemberQuery.php');
+    }
+});
+
 check('零消费清单与确证消费互斥', function () use ($run): void {
     $data = json_decode($run('--json')['text'], true) ?: [];
     $zero = (array) ($data['zero'] ?? []);

@@ -713,7 +713,7 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.40.0",
+                    "core_version": "0.41.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
@@ -3086,6 +3086,11 @@
                     "desc": "显示名"
                 },
                 {
+                    "name": "orphan",
+                    "type": "bool",
+                    "desc": "档案在、账号解析不到（账号被删，或档案按 user_id 直接写入）"
+                },
+                {
                     "name": "xp",
                     "type": "int",
                     "desc": "经验余额"
@@ -3146,6 +3151,7 @@
                     "user_id": "1",
                     "username": "admin",
                     "display_name": "站点管理员",
+                    "orphan": false,
                     "xp": 150,
                     "level": 2,
                     "level_name": "常驻读者",
@@ -3172,9 +3178,10 @@
                     "system": "member"
                 }
             },
-            "notes": "档案是只读投影：经验来自流水，等级按当前门槛表解释，头衔是手动授予与等级自动授予的并集。头衔不参与任何权限决策。",
+            "notes": "档案是只读投影：经验来自流水，等级按当前门槛表解释，头衔是手动授予与等级自动授予的并集。头衔不参与任何权限决策。用户解析不出来且没有档案时返回 40403 —— 返回一份 0 经验 / Lv.1 的空档案会把「查无此人」伪装成一个真实用户。orphan=true 表示档案还在、账号解析不到：可能是账号被删，也可能是插件按 user_id 直接记过账（发经验不校验账号存在）。这类记录仍会被排行榜列出。",
             "changelog": [
-                "0.10.0 初次发布"
+                "0.10.0 初次发布",
+                "0.41.0 补 orphan 字段；不存在的用户（含纯数字 ID）一律 40403，不再编造空档案"
             ],
             "doc": "docs/api/API-MEMBER-001.md"
         },
@@ -3211,12 +3218,27 @@
                 {
                     "name": "items",
                     "type": "array",
-                    "desc": "排行条目：rank / user_id / username / display_name / xp / level / level_name"
+                    "desc": "排行条目：rank / user_id / username / display_name / orphan / xp / level / level_name"
                 },
                 {
                     "name": "total",
                     "type": "int",
-                    "desc": "本页条目数"
+                    "desc": "有成长档案的成员总数（不是本页条数）"
+                },
+                {
+                    "name": "returned",
+                    "type": "int",
+                    "desc": "本页返回条数"
+                },
+                {
+                    "name": "has_more",
+                    "type": "bool",
+                    "desc": "后面还有没有下一页"
+                },
+                {
+                    "name": "next_offset",
+                    "type": "int|null",
+                    "desc": "下一页的 offset；没有下一页为 null"
                 }
             ],
             "errors": [
@@ -3235,12 +3257,16 @@
                             "user_id": "1",
                             "username": "admin",
                             "display_name": "站点管理员",
+                            "orphan": false,
                             "xp": 150,
                             "level": 2,
                             "level_name": "常驻读者"
                         }
                     ],
-                    "total": 1
+                    "total": 37,
+                    "returned": 1,
+                    "has_more": true,
+                    "next_offset": 1
                 },
                 "meta": {
                     "api": "API-MEMBER-002",
@@ -3248,9 +3274,10 @@
                     "system": "member"
                 }
             },
-            "notes": "只暴露公开字段，不含角色、邮箱、口令摘要。排序为 xp 降序 + user_id 升序，保证同分时名次稳定。",
+            "notes": "只暴露公开字段，不含角色、邮箱、口令摘要。排序为 xp 降序 + user_id 升序，保证同分时名次稳定。榜单只包含「有成长档案」的人：从没拿过经验的注册用户不会出现，所以空榜的意思是「还没有人获得经验」，不是「站点没有成员」。total 是有档案的成员总数、returned 是本页条数、has_more 决定还有没有下一页；三者分开才能回答「共多少人、看到第几页」。offset 分页在榜单变动时会漏行或重行，需要严格快照请按 xp 游标翻页。",
             "changelog": [
-                "0.10.0 初次发布"
+                "0.10.0 初次发布",
+                "0.41.0 total 改为有档案的成员总数（原实现返回本页条数），补 returned / has_more / next_offset 与条目 orphan"
             ],
             "doc": "docs/api/API-MEMBER-002.md"
         },

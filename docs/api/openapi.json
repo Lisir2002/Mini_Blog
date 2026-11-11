@@ -1517,7 +1517,7 @@
             "get": {
                 "operationId": "logs.query",
                 "summary": "查询日志",
-                "description": "按日期读取日志系统落盘的日志行尾部若干条。\n\n适用场景：在零呈现 / Headless 模式下排查装卸操作与内核 trace，无需登录后台界面。",
+                "description": "按日期读取日志系统落盘的日志行尾部若干条，并给出可查询日期与文件内总行数。\n\n适用场景：在零呈现 / Headless 模式下排查装卸操作与内核 trace；控制台日志页用它做按日期浏览与截断提示。",
                 "tags": [
                     "log"
                 ],

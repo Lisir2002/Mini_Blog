@@ -24,7 +24,7 @@
 
 **适用场景**：站点侧边栏「活跃成员」、独立页的贡献榜。
 
-**实现备注**：只暴露公开字段，不含角色、邮箱、口令摘要。排序为 xp 降序 + user_id 升序，保证同分时名次稳定。
+**实现备注**：只暴露公开字段，不含角色、邮箱、口令摘要。排序为 xp 降序 + user_id 升序，保证同分时名次稳定。榜单只包含「有成长档案」的人：从没拿过经验的注册用户不会出现，所以空榜的意思是「还没有人获得经验」，不是「站点没有成员」。total 是有档案的成员总数、returned 是本页条数、has_more 决定还有没有下一页；三者分开才能回答「共多少人、看到第几页」。offset 分页在榜单变动时会漏行或重行，需要严格快照请按 xp 游标翻页。
 
 ## 3. 请求规范
 
@@ -65,8 +65,11 @@
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `items` | `array` | 排行条目：rank / user_id / username / display_name / xp / level / level_name |
-| `total` | `int` | 本页条目数 |
+| `items` | `array` | 排行条目：rank / user_id / username / display_name / orphan / xp / level / level_name |
+| `total` | `int` | 有成长档案的成员总数（不是本页条数） |
+| `returned` | `int` | 本页返回条数 |
+| `has_more` | `bool` | 后面还有没有下一页 |
+| `next_offset` | `int|null` | 下一页的 offset；没有下一页为 null |
 
 ## 5. 错误码
 
@@ -99,12 +102,16 @@ GET /api/v1/member/leaderboard?limit=2
                 "user_id": "1",
                 "username": "admin",
                 "display_name": "站点管理员",
+                "orphan": false,
                 "xp": 150,
                 "level": 2,
                 "level_name": "常驻读者"
             }
         ],
-        "total": 1
+        "total": 37,
+        "returned": 1,
+        "has_more": true,
+        "next_offset": 1
     },
     "meta": {
         "api": "API-MEMBER-002",
@@ -127,6 +134,7 @@ GET /api/v1/member/leaderboard?limit=2
 ## 8. 变更记录
 
 - 0.10.0 初次发布
+- 0.41.0 total 改为有档案的成员总数（原实现返回本页条数），补 returned / has_more / next_offset 与条目 orphan
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；
 > 追加可选字段、新增接口、新增可选过滤值属于兼容性变更，沿用当前版本。

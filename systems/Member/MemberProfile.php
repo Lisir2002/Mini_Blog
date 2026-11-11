@@ -33,6 +33,12 @@ final class MemberProfile
         return is_array($user) ? $user : null;
     }
 
+    /** 是否已有成长档案（不等于「用户存在」：账号被删后档案会留下来）。 */
+    public function hasProfile(string $userId): bool
+    {
+        return $this->profiles->profile(trim($userId)) !== null;
+    }
+
     /** @return array<string, mixed> */
     public function of(string $userId): array
     {
@@ -47,6 +53,7 @@ final class MemberProfile
             'user_id'      => $userId,
             'username'     => (string) ($user['username'] ?? ''),
             'display_name' => (string) ($user['display_name'] ?? ''),
+            'orphan'       => $user === null,
             'xp'           => (int) $profile['xp'],
             'level'        => (int) $level['level'],
             'level_name'   => (string) $level['name'],
@@ -61,12 +68,18 @@ final class MemberProfile
 
     /**
      * 排行榜：只暴露公开字段（用户名 / 显示名 / 经验 / 等级），不含角色与邮箱。
-     * @return array{items: list<array<string, mixed>>, total: int}
+     *
+     * total 是**有档案的成员总数**，returned 才是本页条数 —— 这两个数一混，
+     * 「第 1–20 位 / 共 20 人」就会在站点有 2000 个成员时依然成立，且不报错。
+     *
+     * @return array{items: list<array<string, mixed>>, total: int, returned: int,
+     *               has_more: bool, next_offset: int|null}
      */
     public function leaderboard(int $limit, int $offset): array
     {
         $limit = max(1, min(100, $limit));
         $offset = max(0, $offset);
+        $total = $this->profiles->count();
         $rows = $this->profiles->leaderboard($limit, $offset);
         $levels = $this->levels->levels();
         $items = [];
@@ -78,11 +91,15 @@ final class MemberProfile
                 'user_id'      => (string) $row['user_id'],
                 'username'     => (string) ($user['username'] ?? ''),
                 'display_name' => (string) ($user['display_name'] ?? ''),
+                'orphan'       => $user === null,
                 'xp'           => (int) $row['xp'],
                 'level'        => (int) $level['level'],
                 'level_name'   => (string) $level['name'],
             ];
         }
-        return ['items' => $items, 'total' => count($items)];
+        $returned = count($items);
+        $more     = $offset + $returned < $total;
+        return ['items' => $items, 'total' => $total, 'returned' => $returned,
+            'has_more' => $more, 'next_offset' => $more ? $offset + $returned : null];
     }
 }

@@ -92,5 +92,5 @@ check('不越界：旅程不新增系统层 / 接口 / 契约，core/ 仍 24 文
     foreach (glob($root . '/systems/*/permissions.json') ?: [] as $f) {
         $perms += count((array) (json_decode((string) file_get_contents($f), true)['permissions'] ?? []));
     }
-    truthy($perms === 48, '权限点数量被改动：' . $perms);
+    truthy($perms === 49, '权限点数量被改动：' . $perms);
 });

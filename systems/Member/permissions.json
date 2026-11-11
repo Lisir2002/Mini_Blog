@@ -1,6 +1,7 @@
 {
   "system": "member",
   "permissions": [
+    {"name": "member.read", "description": "查看成长数据：档案、等级表、头衔目录、经验规则、排行榜"},
     {"name": "member.xp.award", "description": "为用户发放经验（含手动调整）"},
     {"name": "member.xp.rule.manage", "description": "定义经验规则与每日上限"},
     {"name": "member.title.manage", "description": "定义 / 删除头衔"},

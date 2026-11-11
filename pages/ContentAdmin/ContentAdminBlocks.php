@@ -28,6 +28,7 @@ final class ContentAdminBlocks
         $blocks[] = ['type' => 'links', 'id' => 'content-nav', 'title' => '视图与管理入口', 'items' => [
             ['label' => '文章', 'href' => '/console/content', 'active' => $view !== 'trash'],
             ['label' => '写文章', 'href' => '/console/write'],
+            ['label' => '角色授权', 'href' => '/console/roles'],
             ['label' => '回收站', 'href' => '/console/content?view=trash', 'active' => $view === 'trash'],
             ['label' => '审核队列', 'href' => '/console/queue'],
             ['label' => '统计看板', 'href' => '/console/stats'],

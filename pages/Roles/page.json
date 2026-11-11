@@ -1,0 +1,19 @@
+{
+  "slug": "roles",
+  "class": "Wx\\Pages\\Roles\\RolesPage",
+  "version": "0.1.0",
+  "priority": 42,
+  "enabled": true,
+  "layout": "admin",
+  "routes": [
+    "/console/roles"
+  ],
+  "_note": "角色授权：permission.roles / permission.catalog 读，permission.grant / permission.revoke / permission.role.parent 写。页面只声明 permission.read；写操作在页面层再问一次 permission.manage，权限层缺席时 fail-closed。",
+  "access": {
+    "auth": "admin",
+    "permission": "permission.read",
+    "form_ticket": "permission.read",
+    "deny_layout": "deny",
+    "_note": "能看授权不等于能改授权：表单按 permission.manage 裁剪，RolesAction 提交时再判一次。改 admin 或动通配符 * 要求手写角色名。"
+  }
+}

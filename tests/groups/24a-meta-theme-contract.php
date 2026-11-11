@@ -5,7 +5,7 @@ echo "\n=== 24a. 元主题（初始化主题）出厂契约 ===\n";
 
 $front = $root . '/themes/GlassFront';
 $back = $root . '/themes/Glass';
-$required = ['site', 'post', 'admin', 'tool', 'install', 'deny'];
+$required = ['site', 'post', 'archive', 'admin', 'tool', 'install', 'deny'];
 
 $manifest = static function (string $dir): array {
     $m = json_decode((string) file_get_contents($dir . '/theme.json'), true);
@@ -46,7 +46,7 @@ check('元主题 glass.css 逐字同源（同一磨砂玻璃材质，不是「�
     truthy(str_contains($a, '@supports not'), '缺少降级');
 });
 
-check('两款元主题六布局齐全，可各自作为初始化基线独立启用', function () use ($front, $back, $required, $manifest): void {
+check('两款元主题七布局齐全，可各自作为初始化基线独立启用', function () use ($front, $back, $required, $manifest): void {
     foreach ([$front => 'glass-front', $back => 'glass'] as $dir => $slug) {
         $layouts = (array) ($manifest($dir)['layouts'] ?? []);
         truthy(array_diff($required, $layouts) === [], $slug . ' 布局槽位不齐全');

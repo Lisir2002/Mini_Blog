@@ -14,7 +14,7 @@ use Wx\Core\Kernel;
  */
 final class GlassTheme implements PackageInterface
 {
-    private const LAYOUTS = ['site', 'post', 'admin', 'tool', 'install', 'deny'];
+    private const LAYOUTS = ['site', 'post', 'archive', 'admin', 'tool', 'install', 'deny'];
 
     public function slug(): string { return 'glass'; }
 

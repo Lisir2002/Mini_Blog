@@ -563,7 +563,8 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | v0.22 | **启动期边界**：把「构造」纳入异常边界——`Kernel::serve()` 包住构造与 `run()`，`public/index.php` 只留一行调用。此前 `config/local.php`（主题启用唯一会写的文件）损坏会在构造期抛出、落在 `run()` 之外：`display_errors=0` 时 HTTP/1.0 500 空 body（白屏），`display_errors=1` 时 **HTTP 200** + 绝对路径与 `Parse error`（监控看到成功，缓存与爬虫把错误页当正常页收下）。新增 `tools/journey/Server.php`（内置服务器：端口探测 / 就绪等待 / 原始响应读出 / 强制回收）与 `tools/faults/StartupFaults.php`（装配期、构造期各含自愈，全程 `display_errors=1`），`faults` 从九类扩到十一类；`30` 组守卫做入口唯一性、兜底正文唯一性、子进程构造期断言。故障只进 SAPI 日志、不进响应体；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.23 | **稳定性的代价**：v0.20 的原子写与流式下载此前只有正确性守卫、没有数字。新增 `tools/bench/StabilityProbe.php` 与 `php tools/bench.php stability`：幂等 `claim`+`complete` 45 µs/次、限流 `check` 11 µs/次（约占一次请求 3.7 ms 的 1%）、6 进程 × 200 键并发落盘 **1200/1200** 一条不丢；附件 64 MB 全量 **66.0 MB** 峰值 / 分块 **2.0 MB**（−97%），本地落盘耗时约 1.8 倍。文档只锁「可重跑命令」，数值标注为机器快照；顺带修掉 PERFORMANCE §8 里写死的「250 passed / 50 分组文件」（早已静默过期），并把性能文档纳入事实对账。`31` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.24 | **反向锚点**：正向锚点只能核对「已经想到要核对的句子」——v0.20 起查出的四处漂移（README 徽章 `282 passing`、SPEC 漏登 5 个错误码、architecture.html 页眉「14 系统层 · 55 接口」、结构树「40 个分组 200 项守卫」）都不是写错，而是**没有锚点**，坏掉时对账仍报零漂移。新增 `tools/facts/Coverage.php`：扫「有单一真源的名词」前的数字，未被任一锚点覆盖且非史实句即为候选；候选不与绝对值比对（那会立刻产生 611 条噪音），而与 `coverage-baseline.php` 快照比增量，只报**新出现的组合**（611 → 32 条，当前零假红）。`php tools/facts.php verify` 输出 `NEW` 行并以非 0 退出；`accept` 是唯一写文件的模式，且只覆盖该快照。顺带把 26b 里「源码不含 `file_put_contents`」这条字符串近似断言改为行为验证（跑 verify 前后比对 docs / tools/facts 的 md5 与 mtime）。`32` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
-| **v0.29（当前）** | **评论互动与治理**：此前评论只有发 / 删 / 审，`editable` 是恒真的空头支票 —— 前端照它渲染「编辑」按钮，点进去却没有编辑接口。新增互动主体识别（登录身份 > IP 不可逆指纹 > 匿名标识，三者都拿不到就明确拒绝，不塌成统一匿名键）、点赞与举报按 `(comment_id, actor_key)` 联合主键幂等去重、举报按独立人数达阈值自动把 `published` 打回 `pending`、编辑窗口（`created_at` 起算、编辑不续命）+ `edit_count` 乐观锁 + 复用 `CommentGuard`、审核队列（待审或有举报，MySQL / 内存降级逐字同口径）、列表补互动计数走一次批量查询、写入节流默认关闭且只在校验通过后计数。新增四个接口 / 四个错误码（`40912` / `40913` / `40914` / `42903`）/ 两组守卫；`CommentInteractionStoreInterface` 作为系统层内部契约，不进 `core/Contracts`，`core/` 未新增文件。详见 [`docs/COMMENT-INTERACTIONS.md`](COMMENT-INTERACTIONS.md)。 |
+| **v0.30（当前）** | **归档 / 标签 / 分类页**：v0.28 的分类标签与 v0.29 的互动能力此前只有接口、读者看不到 —— 站内没有标签入口、没有分类索引、往期文章只能顺着列表翻。新增独立页 `pages/Archive`（`/archive` 按年月分组、`/terms` 标签云、`/term` 术语详情），只经既有公开接口 `content.posts` / `content.terms` 取数；两款元主题成对新增 `archive` 布局与逐字同源的 `archive.css`，`Bare` / `BareHtml` 刻意不提供，激活时显式退化为纯 JSON。四种状态可判定（确实没有 / 被截断 / 功能不可用 / 参数或术语错），失败态自行固定布局以避开 `render.layout` 对 4xx 的跳过；标签云计数与点进去的列表同口径。零新增接口、零新增系统层、`core/` 零改动；新增两组守卫，七布局出厂契约同步。详见 [`docs/ARCHIVE-PAGES.md`](ARCHIVE-PAGES.md)。 |
+| **v0.29** | **评论互动与治理**：此前评论只有发 / 删 / 审，`editable` 是恒真的空头支票 —— 前端照它渲染「编辑」按钮，点进去却没有编辑接口。新增互动主体识别（登录身份 > IP 不可逆指纹 > 匿名标识，三者都拿不到就明确拒绝，不塌成统一匿名键）、点赞与举报按 `(comment_id, actor_key)` 联合主键幂等去重、举报按独立人数达阈值自动把 `published` 打回 `pending`、编辑窗口（`created_at` 起算、编辑不续命）+ `edit_count` 乐观锁 + 复用 `CommentGuard`、审核队列（待审或有举报，MySQL / 内存降级逐字同口径）、列表补互动计数走一次批量查询、写入节流默认关闭且只在校验通过后计数。新增四个接口 / 四个错误码（`40912` / `40913` / `40914` / `42903`）/ 两组守卫；`CommentInteractionStoreInterface` 作为系统层内部契约，不进 `core/Contracts`，`core/` 未新增文件。详见 [`docs/COMMENT-INTERACTIONS.md`](COMMENT-INTERACTIONS.md)。 |
 | **v0.28** | **内容生命周期与分类体系**：此前 `ContentRepositoryInterface` 连删除都没有，`status` 是不受约束的字符串 —— 写错一个值文章就从所有列表里消失，而创建接口返回成功。新增四态状态机（迁移矩阵穷举，拼错 42201 / 不可达 40908）、回收站（软删除与 `status` 正交，恢复回到原状态）、定时发布（读路径判定，未到点对外 40403 且不计入存量）、置顶推荐位（不混进 keyset 主序）、分类与标签（术语表 + 关系表，绑定只接受已存在的 `kind:slug`）。`total` 改为与筛选条件同口径。系统层 18、接口 88、权限点 48、`36` 组守卫 10 项；表 27 张。 |
 | **v0.27** | **账号体系闭环**：此前全站只有一个 `seed()` 出来的 `admin/admin123`，不能注册、不能改密、不能改资料、爆破无成本。新增注册（默认关闭 + 口令策略）、改密（保留当前令牌、踢掉其他设备）、登出、改资料，以及管理端列表 / 详情 / 禁用 / 启用 / 改角色 / 重置口令；登录失败计数与锁定、禁用立即吊销全部令牌、禁止禁用自己与移除最后一个管理员。错误码补 40103 / 40105 / 40304 / 40906 / 40907 / 42902，登录失败不再与「令牌无效」共用 40102。`core/` 仍 24 文件；接口 80、权限点 47、`35` 组守卫 16 项。 |
 | **v0.26** | **统计系统（第 18 层）**：此前只有零散计数（`QueryProfiler`、`health`、`data stats`），没有统一口径回答「多少请求、错多少、多慢、谁被调得多、存量多少」。新增 `systems/Metric`：三类指标（counter / gauge / histogram）、小时聚合表、四通道自动埋点（HTTP / 接口 / SQL / 业务事件）、四个只读接口、`tools/metrics.php report/prune/verify`；白名单字典 + 标签收窄 + `metric_dropped`，同时挡住基数爆炸与拼写黑洞；写入失败只降级不反噬业务。`core/` 仍 24 文件，仅 `Kernel` 给关闭钩子补时长参数、`ApiDispatcher` 广播 `api.executed`；系统层 18、接口 73、权限点 47、`34` 组守卫 12 项。 |
@@ -574,10 +575,10 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **382 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
-- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`，v0.28 新增 `36`，v0.29 新增 `37` / `37b`）。
+- `php -l` 全量 **389 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
+- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`，v0.28 新增 `36`，v0.29 新增 `37` / `37b`，v0.30 新增 `38` / `38b`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；382 个文件共 24,967 有效代码行，最大单文件 187 行，92 个 operation 全部绑定执行者。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；389 个文件共 25,760 有效代码行，最大单文件 187 行，92 个 operation 全部绑定执行者。
 - **18 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → metric → page`；**13 个契约接口文件**（容器运行时绑定 27 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个内部注册项）、**92 个接口 / 92 份文档**、OpenAPI 3.1（84 路径 / 92 操作）、**30 个承载单元**（18 系统层 + 4 主题 + 6 独立页 + 2 插件）、**48 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
 - HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.25.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
@@ -1437,7 +1438,7 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 
 用户提出「根据已有的各个系统，做后台首个主题，风格半透明磨砂玻璃」。这一步**不新增第 18 层、不新增接口、不碰 `core/`**：主题是承载包，后台外观本来就该由它提供，规矩 J 在 v0.6 已经把这条路留好了。
 
-`themes/Glass/` 自报六个布局槽位（`site / post / admin / tool / install / deny`），共用一份 `assets/glass.css` 设计系统：半透明玻璃面 `rgba(255,255,255,.07)`、1px 高光边与内外双层阴影、`backdrop-filter: blur(22px) saturate(160%)`，以及三层纯 CSS 径向渐变光晕作为「可被模糊的内容」。不支持模糊时 `@supports not` 降级为不透明面，`prefers-reduced-transparency` / `prefers-reduced-motion` 各自收敛效果；状态五态的 `role` / `aria-live` / `aria-busy` 与 `:focus-visible` 一并保留。
+`themes/Glass/` 自报七个布局槽位（`site / post / archive / admin / tool / install / deny`），共用一份 `assets/glass.css` 设计系统：半透明玻璃面 `rgba(255,255,255,.07)`、1px 高光边与内外双层阴影、`backdrop-filter: blur(22px) saturate(160%)`，以及三层纯 CSS 径向渐变光晕作为「可被模糊的内容」。不支持模糊时 `@supports not` 降级为不透明面，`prefers-reduced-transparency` / `prefers-reduced-motion` 各自收敛效果；状态五态的 `role` / `aria-live` / `aria-busy` 与 `:focus-visible` 一并保留。
 
 后台仪表盘由**既有接口**驱动，而不是主题内置数据：
 
@@ -1448,7 +1449,7 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 | 接口探针 | 各系统层自己的 GET 接口 | 按五组排列，`auth: true` 需 Bearer 令牌 |
 | 响应明细 | 点击后的真实响应 | HTTP 状态 + JSON 信封 |
 
-令牌只存页面内存变量，输出一律 `textContent`；`23b` 守卫逐条比对 `admin.js` 中的 `path` / `probe` 与 `api/registry.json`，确保主题不臆造接口，并断言呈现元数据覆盖运行时返回的全部 17 层。`23a` 守卫则守六布局、玻璃三要素、CSS/JS 逐字注入、无主题退化与 `deny` 布局。
+令牌只存页面内存变量，输出一律 `textContent`；`23b` 守卫逐条比对 `admin.js` 中的 `path` / `probe` 与 `api/registry.json`，确保主题不臆造接口，并断言呈现元数据覆盖运行时返回的全部 17 层。`23a` 守卫则守布局槽位清单、玻璃三要素、CSS/JS 逐字注入、无主题退化与 `deny` 布局。
 
 **明确不新增规矩字母**：本轮交付是承载层内容，不是新的工程约束；两组守卫归入规矩 J。若只想让 Glass 负责后台，把 `LAYOUTS` 收窄为 `admin / deny` 即可，未提供的槽位按规矩 J 自动退化为纯数据。完整说明见 [`docs/THEMES.md`](THEMES.md)。
 
@@ -1464,9 +1465,9 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 | `surface: front|back` | 主打呈现面：访客门户 / 后台管理 |
 | `family: glass` | 材质家族；同家族两款主题共享**逐字同源**的 `glass.css` |
 
-**成对出厂、能力对等**：第一款前端主题 `themes/GlassFront` 与第一款后台主题 `themes/Glass` 都声明六布局、都可独立作为初始化基线启用；区别只在 `surface` 与各自内容侧重（访客门户 / 系统层仪表盘）。`glass.css` 是材质层（逐字同源，由 `24a` 守卫断言字节相等），`front.css` / `admin.css` 是各自结构层，互不重复定义质感。两款主题各自自包含、不跨包引用。
+**成对出厂、能力对等**：第一款前端主题 `themes/GlassFront` 与第一款后台主题 `themes/Glass` 都声明七布局、都可独立作为初始化基线启用；区别只在 `surface` 与各自内容侧重（访客门户 / 系统层仪表盘）。`glass.css` 是材质层（逐字同源，由 `24a` 守卫断言字节相等），`front.css` / `admin.css` 是各自结构层，互不重复定义质感。两款主题各自自包含、不跨包引用。
 
-**初始化 ≠ 强制启用**：`theme.active` 默认仍是 `null`，Headless 根基不动（规矩 J 有大量守卫支撑）。元主题是「开箱即在、一行启用」的基线，启用权归配置 / 装卸系统裁决。`tools/theme.php list/verify` 是纯静态只读的出厂复核：枚举清单、校验 front / back 成对、family 一致、设计系统同源、六布局齐全、零外部资源、默认 Headless 未改。
+**初始化 ≠ 强制启用**：`theme.active` 默认仍是 `null`，Headless 根基不动（规矩 J 有大量守卫支撑）。元主题是「开箱即在、一行启用」的基线，启用权归配置 / 装卸系统裁决。`tools/theme.php list/verify` 是纯静态只读的出厂复核：枚举清单、校验 front / back 成对、family 一致、设计系统同源、布局槽位齐全、零外部资源、默认 Headless 未改。
 
 **第一款前端元主题**：门户以访客为重心——品牌导航、Hero、站点概览、文章卡片流、文章正文（token → 表情）、评论树与五态。数据来自既有公开 GET 接口（`content.posts` / `content.stats` / `system.info` / `emojis`）与页面 payload，主题不新增接口、不写 SQL、不内置业务数据。服务端模板先直出可读内容、`front.js` 再渐进增强，无脚本或接口不可用时页面仍可读；`24b` 守卫逐条比对探针路径与 registry 的公开接口，断言输出走 `textContent`、无持久化、无写操作、转义生效。
 
@@ -1657,6 +1658,41 @@ storage/lifecycle/releases/<type>-<slug>/<version>-<YmdHis><微秒>/
 **边界**：`systems/Comment` 不产 HTML（点赞按钮与举报入口归主题）、
 不做设备指纹（匿名去重依赖 `visitor_id` 稳定性）、不删除举报台账（自动下架只改状态）、
 不新增核心契约（`core/` 未新增文件）。详见 [`docs/COMMENT-INTERACTIONS.md`](COMMENT-INTERACTIONS.md)。
+
+---
+
+## 40. 归档 / 标签 / 分类页：把「已有的能力」接到读者眼前（v0.30）
+
+**此前的状态是「能力齐了，呈现没接上」。** v0.28 把分类标签做成可穷举的规则，
+v0.29 把评论互动做成可判定的事实，但读者侧只有首页文章流与文章详情：
+术语表躺在库里，标签没有入口、分类没有索引、往期文章只能顺着列表一页页翻。
+四个方向里 A（内容）、B（账号）、C（评论）都做完之后，剩下的正是 D ——
+让前面几轮的能力真正被看见。
+
+| 设计问题 | 选择 | 理由 |
+| --- | --- | --- |
+| 落点 | **独立页产数据 + 主题新增 `archive` 布局** | 不需要表 / 权限点 / 业务规则，不进系统层；呈现权归主题（规矩 J） |
+| 是否新增接口 | **零新增，复用 `content.posts` / `content.terms`** | 筛选、计数、定时发布、回收站口径都已在系统层，复制一份必然漂移 |
+| 列表怎么取全 | **游标翻到末尾 + 篇数 / 页数硬上限 + `truncated`** | 单页上限 100；「只列了一部分」必须声明，`total` 仍是真值 |
+| 分组依据 | **`created_at` 年月，脏日期进「日期未知」桶** | 脏数据不能悄悄变成 1970 年 1 月凭空多出一组 |
+| 术语详情怎么判空 | **先确认术语存在，再查文章** | 「拼错的 slug」与「该术语下暂无文章」不能同貌 |
+| 四种状态 | **确实没有 / 被截断 / 功能不可用 / 参数或术语错，各自独立** | 混成一种是本项目要消灭的「安静地错」 |
+| 内存降级 | **标签云旁路 `terms_state`，归档主体照常；`/terms` 直接 503** | 旁路失败不反噬业务，但「没有标签」不等于「功能不可用」 |
+| 失败态布局 | **自行 `setLayout('archive')`** | `render.layout` 对 4xx 跳过路径映射，否则甩回 `site` 渲染成空首页 |
+| 主题覆盖 | **两款元主题成对新增，`archive.css` 逐字同源** | 初始化基线要能独立承载全站，缺一不可 |
+| 非元主题 | **`Bare` / `BareHtml` 不提供，显式退化为纯 JSON** | 退化是规矩 J 允许的可判定行为，不是白屏或空 HTML 壳子 |
+
+**实现中抓到的真问题**：失败态被 `render.layout` 甩回 `site` 槽位（只有真实发出
+404 并检查布局标记才会显形）；隔离站点会 seed 两篇示例文章，守卫一开始的
+「共 2 篇」断言因此不稳，改成前置先把 seed 移入回收站；新增的运行时守卫同时沾
+四个职权域、触发规矩 H 的跨度硬上限，把字面令牌换成既有 `adminHeaders()` 后
+降到三域 —— 审计器在这里守住了自己；标签云若直接把降级异常抛到外层，
+会让整篇归档一起 503，改成旁路状态后文章仍可读且失败区域有说明。
+
+**边界**：`pages/Archive` 不产 HTML / CSS / JS、不认识 SQL、不注册接口；
+主题不调用接口、不自造默认文章；归档有展示上限，全量遍历仍归分页接口；
+点赞 / 举报等写操作仍走接口与既有公网写边界，本轮不给主题开写路径。
+详见 [`docs/ARCHIVE-PAGES.md`](ARCHIVE-PAGES.md)。
 
 ---
 

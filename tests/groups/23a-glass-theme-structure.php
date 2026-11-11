@@ -8,9 +8,9 @@ use Wx\Core\Kernel;
 echo "\n=== 23a. Glass 主题：清单 / 布局 / 磨砂玻璃基元 / 零兜底 ===\n";
 
 $dir   = $root . '/themes/Glass';
-$slots = ['site', 'post', 'admin', 'tool', 'install', 'deny'];
+$slots = ['site', 'post', 'archive', 'admin', 'tool', 'install', 'deny'];
 
-check('主题清单与实现类一致，装配后自报六个布局槽位', function () use ($root, $dir, $slots): void {
+check('主题清单与实现类一致，装配后自报七个布局槽位', function () use ($root, $dir, $slots): void {
     $meta = json_decode((string) file_get_contents($dir . '/theme.json'), true);
     truthy(($meta['slug'] ?? null) === 'glass', '主题 slug 不是 glass');
     truthy(($meta['layouts'] ?? []) === $slots, '清单声明的布局槽位与约定不一致');
@@ -25,7 +25,7 @@ check('主题清单与实现类一致，装配后自报六个布局槽位', func
     }
 });
 
-check('六个布局都是原生 PHP 模板，渲染器只 include 不拼标签', function () use ($dir, $slots): void {
+check('七个布局都是原生 PHP 模板，渲染器只 include 不拼标签', function () use ($dir, $slots): void {
     foreach ($slots as $slot) {
         $file = $dir . '/templates/' . ($slot === 'site' ? 'page.php' : $slot . '.php');
         truthy(is_file($file), '缺少布局模板：' . $slot);
@@ -61,11 +61,12 @@ check('控制台样式与脚本逐字来自主题包，无内联兜底', functio
     truthy(str_contains($r->body(), 'id="glass-output"'), '缺少响应明细容器');
 });
 
-check('六个布局均输出玻璃 HTML，且各自使用正确槽位', function (): void {
+check('七个布局均输出玻璃 HTML，且各自使用正确槽位', function (): void {
     $cases = [
         ['/', [], 'site'],
         ['/links', [], 'site'],
         ['/post', ['slug' => 'first-post'], 'post'],
+        ['/archive', [], 'archive'],
         ['/toolbox', [], 'tool'],
         ['/install', [], 'install'],
         ['/console', [], 'admin'],

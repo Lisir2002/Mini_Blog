@@ -8,9 +8,9 @@ use Wx\Core\Kernel;
 echo "\n=== 24b. 第一款前端元主题 GlassFront：门户呈现与边界 ===\n";
 
 $dir = $root . '/themes/GlassFront';
-$slots = ['site', 'post', 'admin', 'tool', 'install', 'deny'];
+$slots = ['site', 'post', 'archive', 'admin', 'tool', 'install', 'deny'];
 
-check('清单与实现类一致，装配后自报六布局、绑定渲染器', function () use ($root, $dir, $slots): void {
+check('清单与实现类一致，装配后自报七布局、绑定渲染器', function () use ($root, $dir, $slots): void {
     $m = json_decode((string) file_get_contents($dir . '/theme.json'), true);
     truthy(($m['slug'] ?? null) === 'glass-front', 'slug 不符');
     truthy(($m['layouts'] ?? []) === $slots, '清单布局与约定不一致');
@@ -25,7 +25,7 @@ check('清单与实现类一致，装配后自报六布局、绑定渲染器', f
     }
 });
 
-check('六布局都是原生 PHP 模板，渲染器只 include 不拼标签', function () use ($dir, $slots): void {
+check('七布局都是原生 PHP 模板，渲染器只 include 不拼标签', function () use ($dir, $slots): void {
     foreach ($slots as $s) {
         $file = $dir . '/templates/' . ($s === 'site' ? 'page.php' : $s . '.php');
         truthy(is_file($file), '缺少布局模板：' . $s);
@@ -115,6 +115,7 @@ check('各布局真实渲染且槽位正确；未登录拒绝走 deny；无主�
         ['/', [], 'site'],
         ['/links', [], 'site'],
         ['/post', ['slug' => 'first-post'], 'post'],
+        ['/archive', [], 'archive'],
         ['/toolbox', [], 'tool'],
         ['/install', [], 'install'],
         ['/console', [], 'admin'],

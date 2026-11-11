@@ -1,0 +1,19 @@
+{
+  "slug": "archive",
+  "class": "Wx\\Pages\\Archive\\ArchivePage",
+  "version": "0.1.0",
+  "priority": 20,
+  "enabled": true,
+  "layout": "archive",
+  "routes": [
+    "/archive",
+    "/terms",
+    "/term"
+  ],
+  "_note": "归档 / 标签云 / 术语详情：只通过既有公开接口 content.posts 与 content.terms 取数，产出结构化分组、术语链接与显式状态（空 / 截断 / 不可用 / 不存在）；标签与样式全部由主题的 archive 布局承载。主题未提供该布局时退化为纯 JSON 而不是白屏。失败态自行固定布局，避免 4xx 被 render.layout 跳过映射后落到 site 槽位",
+  "access": {
+    "auth": "public",
+    "deny_layout": "deny",
+    "_note": "公开页：读者可见的分类标签与归档，无需身份"
+  }
+}

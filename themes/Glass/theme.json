@@ -7,6 +7,6 @@
   "meta": true,
   "surface": "back",
   "family": "glass",
-  "layouts": ["site", "post", "admin", "tool", "install", "deny"],
-  "_note": "出厂元主题（初始化主题）· 后端面：半透明磨砂玻璃质感，重点为后台仪表盘。六布局共用 assets/glass.css 设计系统；admin 由 /api/v1/system/layers 驱动，主题不持有业务数据。与 GlassFront 前端元主题同属 family=glass、glass.css 逐字同源"
+  "layouts": ["site", "post", "archive", "admin", "tool", "install", "deny"],
+  "_note": "出厂元主题（初始化主题）· 后端面：半透明磨砂玻璃质感，重点为后台仪表盘。七布局共用 assets/glass.css 设计系统，archive 布局叠加 archive.css；admin 由 /api/v1/system/layers 驱动，主题不持有业务数据。与 GlassFront 前端元主题同属 family=glass、glass.css 与 archive.css 逐字同源"
 }

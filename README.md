@@ -1,6 +1,6 @@
 # Mini Blog
 
-![version](https://img.shields.io/badge/version-0.29.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.30.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
 ![tests](https://img.shields.io/badge/tests-all%20passing-2ea44f)
@@ -152,6 +152,7 @@ php tools/export-openapi.php         # 导出 OpenAPI 3.1
 | [`docs/CONTENT.md`](docs/CONTENT.md) | 评论树、附件、表情的边界与取舍 |
 | [`docs/CONTENT-LIFECYCLE.md`](docs/CONTENT-LIFECYCLE.md) | 文章状态机、回收站、定时发布与分类标签的取舍 |
 | [`docs/COMMENT-INTERACTIONS.md`](docs/COMMENT-INTERACTIONS.md) | 互动主体、幂等点赞 / 举报、编辑窗口与审核队列的取舍 |
+| [`docs/ARCHIVE-PAGES.md`](docs/ARCHIVE-PAGES.md) | 归档 / 标签云 / 分类页的呈现链路、显式状态与主题契约 |
 | [`docs/DATA.md`](docs/DATA.md) | 数据层四个维度与巡检 |
 | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | 性能治理判断、部署清单与对比数据 |
 | [`docs/METRICS.md`](docs/METRICS.md) | 统计系统：三类指标、采集链路、基数治理与失败模式 |

@@ -89,13 +89,13 @@ if ($front !== null && $back !== null) {
     $note($a !== '' && $a === $b, '两款元主题 glass.css 逐字同源');
 }
 
-// 4. 覆盖面：初始化基线要能独立承载全站，六槽位齐全
-$required = ['site', 'post', 'admin', 'tool', 'install', 'deny'];
+// 4. 覆盖面：初始化基线要能独立承载全站，七槽位齐全
+$required = ['site', 'post', 'archive', 'admin', 'tool', 'install', 'deny'];
 foreach ([$front, $back] as $slug) {
     if ($slug === null) continue;
     $layouts = (array) ($themes[$slug]['meta']['layouts'] ?? []);
     $missing = array_diff($required, $layouts);
-    $note($missing === [], "{$slug} 六布局槽位齐全" . ($missing ? '（缺 ' . implode(',', $missing) . '）' : ''));
+    $note($missing === [], "{$slug} 七布局槽位齐全" . ($missing ? '（缺 ' . implode(',', $missing) . '）' : ''));
 }
 
 // 5. 零外部依赖：元主题 CSS/JS 不得引用外链 / @import / url(http)

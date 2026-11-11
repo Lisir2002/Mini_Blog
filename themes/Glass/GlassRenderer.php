@@ -37,6 +37,17 @@ final class GlassRenderer implements RendererInterface
             ? $payload['comments'] : ['total' => 0, 'items' => [], 'tree' => []];
         $csrf      = (string) ($payload['csrf'] ?? '');
         $apiPrefix = (string) ($payload['api_prefix'] ?? '/api/v1');
+        // archive 布局的数据契约：与 GlassFront 逐字同源，两款元主题口径一致。
+        $view       = (string) ($payload['view'] ?? 'archive');
+        $sections   = (array)  ($payload['sections'] ?? []);
+        $terms      = (array)  ($payload['terms'] ?? []);
+        $term       = is_array($payload['term'] ?? null) ? $payload['term'] : null;
+        $total      = (int)    ($payload['total'] ?? 0);
+        $shown      = (int)    ($payload['shown'] ?? 0);
+        $truncated  = !empty($payload['truncated']);
+        $empty      = !empty($payload['empty']);
+        $termsState = is_array($payload['terms_state'] ?? null) ? $payload['terms_state'] : null;
+        $links      = (array)  ($payload['links'] ?? []);
 
         ob_start();
         include $this->dir . '/templates/' . $resolved['file'];

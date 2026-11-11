@@ -713,7 +713,7 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.42.0",
+                    "core_version": "0.43.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
@@ -4927,12 +4927,12 @@
                 {
                     "name": "total",
                     "type": "int",
-                    "desc": "可见附件数"
+                    "desc": "当前身份可见的附件数（不是库内总数）"
                 },
                 {
                     "name": "items",
                     "type": "array",
-                    "desc": "附件数组：id/name/mime/ext/bytes/sha256/visibility/url"
+                    "desc": "附件数组：id/name/mime/ext/bytes/sha256/visibility/uploader_id/created_at/post_slug/url"
                 }
             ],
             "errors": [
@@ -4967,9 +4967,10 @@
                     "system": "attachment"
                 }
             },
-            "notes": "只返回元数据，不返回字节；url 指向二进制通道，下载时仍会二次鉴权。",
+            "notes": "只返回元数据，不返回字节；url 指向二进制通道，下载时仍会二次鉴权。total 是「当前身份可见的附件数」而不是库内总数：私有附件对无权限身份不可见，后台视图必须带 _identity 取数才能看到它们。0.43.0 起 items 补 uploader_id，后台才能解释「这条为什么能改」。",
             "changelog": [
-                "0.13.0 初次发布"
+                "0.13.0 初次发布",
+                "0.43.0 由 /console/attachments 按当前身份取数；items 补 uploader_id，total 语义写明为可见数"
             ],
             "doc": "docs/api/API-ATTACH-001.md"
         },
@@ -5051,9 +5052,10 @@
                     "system": "attachment"
                 }
             },
-            "notes": "只改元数据，不动字节与存储路径；因此改可见性不会产生副本，也不会让旧链接失效。",
+            "notes": "只改元数据，不动字节与存储路径；因此改可见性不会产生副本，也不会让旧链接失效。三个边界接口层刻意不拦：post_slug 不校验目标文章是否存在（而系统没有 list-all 接口）、name 超过 120 字符会被 displayName 静默截断、visibility 任何非 private 的字符串都会落成 public。0.43.0 起 /console/attachments 在页面层逐条挡住。",
             "changelog": [
-                "0.13.0 初次发布"
+                "0.13.0 初次发布",
+                "0.43.0 由 /console/attachments 消费；页面层补目标文章存在性、名字长度与可见性枚举校验"
             ],
             "doc": "docs/api/API-ATTACH-002.md"
         },
@@ -5118,9 +5120,10 @@
                     "system": "attachment"
                 }
             },
-            "notes": "授权顺序：attachment.manage，或「上传者本人 + attachment.delete.own」。字节回收由 referenced(sha256)=0 的独立流程决定，不在请求内做文件系统删除。",
+            "notes": "授权顺序：attachment.manage，或「上传者本人 + attachment.delete.own」。软删除：listForPost 按 deleted_at 过滤，下载也按 deleted_at 返回 404 —— 正文若仍引用 url 就会变成坏链接，而接口层不检查正文。字节回收由 referenced(sha256)=0 的独立流程决定，不在请求内做文件系统删除。0.43.0 起页面删前查正文引用，读不到正文时 fail-closed。",
             "changelog": [
-                "0.13.0 初次发布"
+                "0.13.0 初次发布",
+                "0.43.0 由 /console/attachments 消费；页面层补正文引用硬挡与读不到正文的 fail-closed"
             ],
             "doc": "docs/api/API-ATTACH-003.md"
         },
@@ -5288,9 +5291,10 @@
                     "system": "attachment"
                 }
             },
-            "notes": "每次下载都过授权：不可猜的 id 不是访问控制。Content-Type 只从白名单取，绝不回显客户端声明；Content-Security-Policy: default-src 'none'; sandbox 保证即使内容被调包也无法在本域执行。",
+            "notes": "每次下载都过授权：不可猜的 id 不是访问控制。Content-Type 只从白名单取，绝不回显客户端声明；Content-Security-Policy: default-src 'none'; sandbox 保证即使内容被调包也无法在本域执行。这是二进制通道，页面只应渲染链接而不应 execute() 调它（否则文件字节会进页面层）；0.43.0 起消费矩阵把页面产出的链接算作消费方。",
             "changelog": [
-                "0.13.0 初次发布"
+                "0.13.0 初次发布",
+                "0.43.0 由文章页与 /console/attachments 的下载链接消费；消费矩阵新增链接识别"
             ],
             "doc": "docs/api/API-ATTACH-005.md",
             "binary": true

@@ -1,0 +1,19 @@
+{
+  "slug": "attachments",
+  "class": "Wx\\Pages\\Attachments\\AttachmentsPage",
+  "version": "0.1.0",
+  "priority": 47,
+  "enabled": true,
+  "layout": "admin",
+  "routes": [
+    "/console/attachments"
+  ],
+  "_note": "附件库：attachments.list 必填 post_slug，所以先按 content.posts 选文章，再列出该文章的附件。写操作接 attachments.update / attachments.delete；下载只渲染 /attach/download?id= 链接，页面不 execute 二进制通道。删除 / 改名前查 content.post 正文引用，读不到正文就 fail-closed 拒绝删除。",
+  "access": {
+    "auth": "admin",
+    "permission": "attachment.read",
+    "form_ticket": "attachment.read",
+    "deny_layout": "deny",
+    "_note": "列表接口本身是 public（按可见性过滤），本页按当前身份取数以看到私有附件；页面级访问点用 attachment.read（与 member.read / content.read 同构：能看不等于能改）；写操作要 attachment.manage，在 AttachmentsAction 里现场再问一次，执行者内部还会再判一次（含上传者 own 权限）。票据只绑页面级权限点，不替代写裁决。"
+  }
+}

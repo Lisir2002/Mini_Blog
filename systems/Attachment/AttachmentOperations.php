@@ -109,6 +109,7 @@ final class AttachmentOperations
             'bytes' => (int) $row['bytes'], 'sha256' => (string) $row['sha256'],
             'visibility' => (string) ($row['visibility'] ?? 'public'),
             'post_slug' => (string) ($row['post_slug'] ?? ''),
+            'uploader_id' => (int) ($row['uploader_id'] ?? 0),
             'created_at' => (string) ($row['created_at'] ?? ''),
             'url' => '/attach/download?id=' . (int) $row['id'],
         ];

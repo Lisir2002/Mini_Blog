@@ -23,8 +23,9 @@ $registry = json_decode((string) file_get_contents($root . '/api/registry.json')
 $endpoints = (array) ($registry['endpoints'] ?? []);
 
 /** @param list<string> $ops 已知 operation，用于识别「作为字符串被引用」的动态调用
+ *  @param list<string> $linkPaths 非 /api/v1 前缀的接口路径（二进制通道），用于识别链接消费
  *  @return array{exec: array<string, list<string>>, refs: array<string, list<string>>, seam: array<string, list<string>>} */
-function consumers(string $root, array $ops): array
+function consumers(string $root, array $ops, array $linkPaths): array
 {
     $map = [];
     $refs = [];
@@ -59,6 +60,17 @@ function consumers(string $root, array $ops): array
                 $refSrc = (string) preg_replace('/(?:->|::)\s*allows\s*\([^)]*\)/i', '', $src);
                 preg_match_all('/[\'"]([a-z0-9_.]+)[\'"]/i', $refSrc, $r);
                 foreach ($r[1] as $op) if (isset($known[$op])) $refs[$op][] = $rel;
+
+                // 有些接口**不该**被页面 execute()：二进制通道一旦直调，文件字节
+                // 就进了页面层。它们只通过 <a href> / url 字段被消费。矩阵若只认
+                // 「服务端调用」，会把这类接口永远列成零消费，等于逼着下一个人
+                // 去写一个错误的调用方。因此把「页面里出现了该路径字面量」也算消费，
+                // 与 JS 的 path: 落在同一个 @path 桶里。
+                foreach ($linkPaths as $path) {
+                    if (str_contains($src, "'" . $path) || str_contains($src, '"' . $path)) {
+                        $map['@path:' . $path][] = $rel;
+                    }
+                }
             } else {
                 preg_match_all('/path:\s*[\'"]([^\'"]+)[\'"]/', $src, $m);
                 foreach ($m[1] as $path) $map['@path:' . $path][] = $rel;
@@ -98,7 +110,11 @@ function consumers(string $root, array $ops): array
 $ops = array_values(array_filter(array_map(
     static fn(array $e): string => (string) ($e['operation'] ?? ''), $endpoints
 )));
-$scan = consumers($root, $ops);
+// 只有「不在 /api/v1 下」的接口才可能是二进制通道；把它们交给链接识别。
+$linkPaths = array_values(array_unique(array_filter(array_map(
+    static fn(array $e): string => (string) ($e['path'] ?? ''), $endpoints
+), static fn(string $p): bool => $p !== '' && !str_starts_with($p, '/api/v1/'))));
+$scan = consumers($root, $ops, $linkPaths);
 $used = $scan['exec'];
 $rows = [];
 $zero = [];

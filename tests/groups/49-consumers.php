@@ -105,6 +105,17 @@ check('回归：ACL 权限点字符串不算接口消费', function () use ($run
     }
 });
 
+check('二进制通道：下载接口通过页面链接消费，而不是被页面 execute()', function () use ($run): void {
+    // /attach/download 是唯一不经 JSON 信封的出口。页面若 execute() 它，
+    // 文件字节或磁盘路径就进了页面层。矩阵必须把「页面产出了这个链接」算成消费，
+    // 否则会永远把下载接口列成零消费，逼着下一个人写一个错误的调用方。
+    $data = json_decode($run('--json')['text'], true) ?: [];
+    $row = (array) (($data['all']['attachments.download'] ?? []));
+    truthy(($row['kind'] ?? 'none') !== 'none', '下载接口仍是零消费');
+    truthy(in_array('pages/Attachments/AttachmentsBlocks.php', (array) ($row['consumers'] ?? []), true),
+        '没有把附件库的下载链接算作消费方');
+});
+
 check('零消费清单与确证消费互斥', function () use ($run): void {
     $data = json_decode($run('--json')['text'], true) ?: [];
     $zero = (array) ($data['zero'] ?? []);

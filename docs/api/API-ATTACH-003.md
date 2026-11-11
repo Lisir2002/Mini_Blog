@@ -24,7 +24,7 @@
 
 **适用场景**：文章改版后清理不再使用的附件；需要避免「删了这条记录，别的文章引用的同一文件也没了」。
 
-**实现备注**：授权顺序：attachment.manage，或「上传者本人 + attachment.delete.own」。字节回收由 referenced(sha256)=0 的独立流程决定，不在请求内做文件系统删除。
+**实现备注**：授权顺序：attachment.manage，或「上传者本人 + attachment.delete.own」。软删除：listForPost 按 deleted_at 过滤，下载也按 deleted_at 返回 404 —— 正文若仍引用 url 就会变成坏链接，而接口层不检查正文。字节回收由 referenced(sha256)=0 的独立流程决定，不在请求内做文件系统删除。0.43.0 起页面删前查正文引用，读不到正文时 fail-closed。
 
 ## 3. 请求规范
 
@@ -120,6 +120,7 @@ POST /api/v1/attachments/delete  {id:3}
 ## 8. 变更记录
 
 - 0.13.0 初次发布
+- 0.43.0 由 /console/attachments 消费；页面层补正文引用硬挡与读不到正文的 fail-closed
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；
 > 追加可选字段、新增接口、新增可选过滤值属于兼容性变更，沿用当前版本。

@@ -24,7 +24,7 @@
 
 **适用场景**：文章编辑页展示已上传的附件列表，读者页展示可下载的资料；需要过滤掉别人上传的私有文件。
 
-**实现备注**：只返回元数据，不返回字节；url 指向二进制通道，下载时仍会二次鉴权。
+**实现备注**：只返回元数据，不返回字节；url 指向二进制通道，下载时仍会二次鉴权。total 是「当前身份可见的附件数」而不是库内总数：私有附件对无权限身份不可见，后台视图必须带 _identity 取数才能看到它们。0.43.0 起 items 补 uploader_id，后台才能解释「这条为什么能改」。
 
 ## 3. 请求规范
 
@@ -65,8 +65,8 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `post_slug` | `string` | 文章 slug |
-| `total` | `int` | 可见附件数 |
-| `items` | `array` | 附件数组：id/name/mime/ext/bytes/sha256/visibility/url |
+| `total` | `int` | 当前身份可见的附件数（不是库内总数） |
+| `items` | `array` | 附件数组：id/name/mime/ext/bytes/sha256/visibility/uploader_id/created_at/post_slug/url |
 
 ## 5. 错误码
 
@@ -130,6 +130,7 @@ GET /api/v1/attachments?post_slug=first-post
 ## 8. 变更记录
 
 - 0.13.0 初次发布
+- 0.43.0 由 /console/attachments 按当前身份取数；items 补 uploader_id，total 语义写明为可见数
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；
 > 追加可选字段、新增接口、新增可选过滤值属于兼容性变更，沿用当前版本。

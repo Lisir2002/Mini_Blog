@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use Wx\Contracts\ApiRegistryInterface;
+use Wx\Core\Http\Request;
 use Wx\Pages\Archive\ArchiveQuery;
 use Wx\Pages\Archive\ArchiveState;
 use Wx\Systems\Api\ApiOperationException;
@@ -165,4 +166,13 @@ check('主题契约：两款元主题成对提供 archive 槽位，Bare 系刻�
         truthy(!in_array('archive', (array) ($m['layouts'] ?? []), true),
             $dir . ' 不该有 archive 槽位：退化必须是显式的、可被守卫断言的');
     }
+});
+
+check('读者能从主导航发现归档与标签入口，不是只有知道 URL 才进得去', function () use ($root): void {
+    $head = (string) file_get_contents($root . '/themes/GlassFront/templates/partials/head.php');
+    truthy(str_contains($head, 'href="/archive"') && str_contains($head, 'href="/terms"'),
+        'GlassFront 主导航缺少归档 / 标签入口');
+    $r = pageKernel('glass-front')->handle(new Request('GET', '/', [], []));
+    truthy(str_contains($r->body(), 'href="/archive"') && str_contains($r->body(), 'href="/terms"'),
+        '首页渲染结果里看不到归档入口');
 });

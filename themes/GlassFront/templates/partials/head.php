@@ -28,6 +28,8 @@ $badge = $meta ? '元主题 · 初始化基线' : '主题';
     <div class="front-nav__links">
       <a href="/"<?= $layout === 'site' ? ' class="is-active"' : '' ?>>首页</a>
       <a href="/post?slug=first-post">文章</a>
+      <a href="/archive"<?= $layout === 'archive' ? ' class="is-active"' : '' ?>>归档</a>
+      <a href="/terms">标签</a>
       <a href="/links">友链</a>
       <a href="/console">控制台</a>
     </div>

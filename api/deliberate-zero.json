@@ -1,0 +1,15 @@
+{
+  "_note": "刻意零消费登记表 —— 有写能力、但按设计不接网页的接口。登记 ≠ 免检：登记项必须真的零消费（已有消费方的 op 登记进来会被守卫拦下），登记表本身由 tools/consumers.php 与守卫组双向核对。每条必须写清「为什么网页不做」，没有理由的登记无效。",
+  "deliberate": {
+    "lifecycle.install": "装配期动作：安装从来源解包并执行包内钩子，网页触发等于把 RCE 面搬进后台；页面直调执行者还会绕过 RequestGuard 的本机来源限制。",
+    "lifecycle.activate": "启用 / 停用是装配期写操作：改的是磁盘上的包状态而不是业务数据，命令行执行并留痕。",
+    "lifecycle.deactivate": "同 lifecycle.activate。",
+    "lifecycle.upgrade": "升级会写文件、跑迁移、执行包内容；命令行的(plan → upgrade → verify)三段流程没有可回填的表单语义。",
+    "lifecycle.uninstall": "卸载不可逆且影响整站单元，不提供网页一键删除。",
+    "lifecycle.rollback": "回退走文件事务 + 迁移回滚，命令行执行；网页只提供快照清单与完整性核对的只读视图。",
+    "release.plan": "升级预检随 release.upgrade 在命令行一并执行，独立网页入口没有额外收益。",
+    "release.upgrade": "核心升级：写 core 目录、跑迁移、健康检查、可能回退 —— 全部命令行执行。",
+    "release.rollback": "同上：整站级回退不进网页。",
+    "permission.override.grant": "契约覆盖授权以更高 priority 覆盖已有契约实现，等价于换掉系统行为；必须经由可审计的装配期流程，网页按钮不足以承载这个风险。"
+  }
+}

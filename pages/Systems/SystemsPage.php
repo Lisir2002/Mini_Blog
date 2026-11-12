@@ -40,7 +40,12 @@ final class SystemsPage implements PackageInterface
                 ]);
                 return;
             }
-            $data = SystemsQuery::fetch($kernel);
+            $q = $request->query();
+            $data = SystemsQuery::fetch($kernel, [
+                'verify' => (string) ($q['verify'] ?? ''),
+                'releases' => (string) ($q['releases'] ?? ''),
+                'task' => (string) ($q['task'] ?? ''),
+            ]);
             $blocks = array_merge(SystemsBlocks::build($data), SystemsCatalog::build($data));
             $response->setStatus(200)->setLayout('admin')->setPayload([
                 'title' => '系统状态', 'page' => 'systems', 'view' => 'systems',

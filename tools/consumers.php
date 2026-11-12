@@ -9,11 +9,17 @@ declare(strict_types=1);
  * 都是靠人肉翻 registry.json 才发现的。这个脚本把这件事变成可重跑的查询：
  *
  *   php tools/consumers.php            # 全量矩阵
- *   php tools/consumers.php --zero     # 只看零消费
+ *   php tools/consumers.php --zero     # 只看「未登记」的零消费
  *   php tools/consumers.php --json     # 机器可读，供守卫断言
  *
  * 扫描范围刻意只包含「会真正调用接口的地方」：pages/、主题的 assets 脚本、tools/。
  * 系统层自己 registerOperation 不算消费方 —— 那是实现，不是使用。
+ *
+ * v0.48 起「刻意零消费」要有登记：api/deliberate-zero.json 列出有写能力、
+ * 但按设计不接网页的接口（每条必须带理由）。登记不是免检 ——
+ * 已有消费方的 op 登记进来、登记了不存在的 op，都会被守卫拦下。
+ * 零消费从此分两段：「刻意保留」（登记过）与「真正没人用」（未登记，
+ * --zero 只报这一段，守卫断言这一段为空）。
  */
 $root = dirname(__DIR__);
 $json = in_array('--json', $args = array_slice($argv, 1), true);
@@ -21,6 +27,13 @@ $onlyZero = in_array('--zero', $args, true);
 
 $registry = json_decode((string) file_get_contents($root . '/api/registry.json'), true);
 $endpoints = (array) ($registry['endpoints'] ?? []);
+$ledgerFile = $root . '/api/deliberate-zero.json';
+$ledgerRaw = json_decode((string) @file_get_contents($ledgerFile), true);
+$deliberate = is_array($ledgerRaw) ? (array) ($ledgerRaw['deliberate'] ?? []) : [];
+if ($deliberate === []) {
+    fwrite(STDERR, "刻意零消费登记缺失或为空：{$ledgerFile}\n");
+    exit(1);
+}
 
 /** @param list<string> $ops 已知 operation，用于识别「作为字符串被引用」的动态调用
  *  @param list<string> $linkPaths 非 /api/v1 前缀的接口路径（二进制通道），用于识别链接消费
@@ -118,6 +131,7 @@ $scan = consumers($root, $ops, $linkPaths);
 $used = $scan['exec'];
 $rows = [];
 $zero = [];
+$deliberateZero = [];
 foreach ($endpoints as $endpoint) {
     $op = (string) ($endpoint['operation'] ?? '');
     if ($op === '') continue;
@@ -135,20 +149,32 @@ foreach ($endpoints as $endpoint) {
     }
     $rows[$op] = ['id' => (string) ($endpoint['id'] ?? ''), 'method' => (string) ($endpoint['method'] ?? ''),
         'path' => (string) ($endpoint['path'] ?? ''), 'consumers' => $files, 'kind' => $kind];
-    if ($kind === 'none') $zero[$op] = $rows[$op];
+    if ($kind === 'none') {
+        if (isset($deliberate[$op])) $deliberateZero[$op] = $rows[$op];
+        else $zero[$op] = $rows[$op];
+    }
+}
+
+// 登记表与真实矩阵双向核对：登记了已消费的 op、或登记了不存在的 op，都是坏账。
+$badLedger = array_diff_key($deliberate, $rows, $deliberateZero);
+if ($badLedger !== []) {
+    fwrite(STDERR, '登记表坏账（已消费或不存在）：' . implode(', ', array_keys($badLedger)) . "\n");
+    exit(1);
 }
 
 if ($json) {
     echo json_encode([
-        'total' => count($rows), 'consumed' => count($rows) - count($zero), 'zero' => $zero,
-        'all' => $rows,
+        'total' => count($rows), 'consumed' => count($rows) - count($zero) - count($deliberateZero),
+        'zero' => $zero, 'deliberate_zero' => $deliberateZero,
+        'deliberate' => $deliberate, 'all' => $rows,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT), "\n";
     exit(0);
 }
 
 echo "=== 接口消费方矩阵 ===\n";
-echo '共 ' . count($rows) . ' 个 operation；有消费方 ' . (count($rows) - count($zero))
-    . '，零消费 ' . count($zero) . "\n\n";
+echo '共 ' . count($rows) . ' 个 operation；有消费方 ' . (count($rows) - count($zero) - count($deliberateZero))
+    . '，零消费 ' . (count($zero) + count($deliberateZero))
+    . '（刻意保留 ' . count($deliberateZero) . ' / 未登记 ' . count($zero) . "）\n\n";
 
 if (!$onlyZero) {
     echo "--- 已消费 ---\n";
@@ -161,10 +187,17 @@ if (!$onlyZero) {
 }
 
 echo "--- 零消费（能力存在，但没有任何页面 / 脚本调用）---\n";
-if ($zero === []) {
+if ($zero === [] && $deliberateZero === []) {
     echo "  无\n";
 } else {
     foreach ($zero as $op => $row) {
         echo '  ' . str_pad($op, 30) . $row['id'] . '  ' . $row['method'] . ' ' . $row['path'] . "\n";
+    }
+    if ($zero !== [] && $deliberateZero !== []) echo "\n";
+    if ($deliberateZero !== []) {
+        echo "  —— 以下为刻意保留（api/deliberate-zero.json 登记）——\n";
+        foreach ($deliberateZero as $op => $row) {
+            echo '  ' . str_pad($op, 30) . $row['id'] . '  ' . $row['method'] . ' ' . $row['path'] . "\n";
+        }
     }
 }

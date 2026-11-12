@@ -19,7 +19,8 @@ final class SystemsCatalog
         $blocks = [self::contracts($data['contracts'] ?? null), self::units((array) ($data['units'] ?? []))];
         $pending = self::pending($data['release'] ?? null);
         if ($pending !== null) $blocks[] = $pending;
-        $blocks[] = self::history($data['release'] ?? null);
+        $blocks[] = self::history($data['history'] ?? null);
+        $blocks[] = self::unitProbe((array) ($data['units'] ?? []));
         return $blocks;
     }
 
@@ -78,24 +79,56 @@ final class SystemsCatalog
             'title' => '未应用的迁移（' . count($rows) . '）', 'rows' => $rows];
     }
 
-    /** @param array<string, mixed>|null $release @return array<string, mixed> */
-    private static function history(?array $release): array
+    /**
+     * 发布历史 —— release.history 是唯一来源：append-only，每次升级 / 回退一条。
+     * 空清单说明站点还没升级过（正常），取不到才是故障，两者必须分开。
+     * @param array<string, mixed>|null $history
+     * @return array<string, mixed>
+     */
+    private static function history(?array $history): array
     {
-        if ($release === null) {
+        if ($history === null) {
             return ['type' => 'notice', 'id' => 'sys-history', 'tone' => 'warn',
                 'state' => 'unavailable', 'title' => '发布历史不可用',
-                'value' => 'release.status 调用失败。'];
+                'value' => 'release.history 调用失败。'];
         }
-        // release.status 不带 history，历史要单独查一次；这里只说明有没有。
-        $last = $release['last'] ?? null;
-        if (!is_array($last) || $last === []) {
+        $rows = [];
+        foreach ((array) ($history['history'] ?? []) as $h) {
+            if (!is_array($h)) continue;
+            $result = (string) ($h['result'] ?? '?');
+            $migs = count((array) ($h['migrations'] ?? []));
+            $rows[] = ['k' => (string) ($h['version'] ?? '?') . ' · ' . (string) ($h['action'] ?? '?'),
+                'v' => $result === 'ok' ? '成功' : '失败',
+                'ok' => $result === 'ok',
+                'note' => (string) ($h['at'] ?? '') . ' · ' . $migs . ' 个迁移'];
+        }
+        if ($rows === []) {
             return ['type' => 'notice', 'id' => 'sys-history', 'tone' => 'info',
                 'state' => 'empty', 'title' => '没有发布历史',
                 'value' => '这个站点还没有走过 release.upgrade / rollback，历史为空是正常的。'];
         }
-        return ['type' => 'notice', 'id' => 'sys-history', 'tone' => 'ok', 'state' => 'ok',
-            'title' => '最近一次发布',
-            'value' => (string) ($last['version'] ?? '?') . ' · '
-                . (string) ($last['at'] ?? '') . ' · ' . (string) ($last['action'] ?? '')];
+        return ['type' => 'table', 'id' => 'sys-history',
+            'title' => '发布历史（' . count($rows) . ' 条，按时间倒序）', 'rows' => $rows];
+    }
+
+    /**
+     * 单元探查入口：核对摘要与快照列表都是只读 GET，经查询参数触发。
+     * 链接在这里集中给出，页面上不存在任何写按钮。
+     * @param list<array<string, mixed>> $units
+     * @return array<string, mixed>
+     */
+    private static function unitProbe(array $units): array
+    {
+        $items = [];
+        foreach ($units as $unit) {
+            $type = (string) ($unit['type'] ?? '');
+            $slug = (string) ($unit['slug'] ?? '');
+            if ($type === '' || $slug === '') continue;
+            $key = $type . ':' . $slug;
+            $items[] = ['label' => '核对 ' . $key, 'href' => '?verify=' . $key];
+            $items[] = ['label' => '快照 ' . $key, 'href' => '?releases=' . $key];
+        }
+        return ['type' => 'links', 'id' => 'sys-probe', 'title' => '单元探查（只读）',
+            'items' => $items];
     }
 }

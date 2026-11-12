@@ -24,7 +24,7 @@
 
 **适用场景**：升级前后做完整性核对；排查文件被篡改或传输损坏。
 
-**实现备注**：未提供清单时返回 mode=no-manifest 并仍视为通过；可把 config.lifecycle.require_checksum 设为 true 强制要求清单。
+**实现备注**：未提供清单时返回 mode=no-manifest 并仍视为通过；可把 config.lifecycle.require_checksum 设为 true 强制要求清单。 按包内 manifest.sha256 清单比对单元目录文件的 SHA-256 摘要。 v0.48 起被 /console/system 以 GET 查询消费：只读核对，不修复不回退；单元目录没有 manifest 时返回 mode=no-manifest，页面必须明说「未比对」而不是伪装成绿灯。
 
 ## 3. 请求规范
 
@@ -124,6 +124,7 @@ GET /api/v1/lifecycle/verify?type=plugin&slug=demo
 ## 8. 变更记录
 
 - 0.2.0 初次发布
+- 0.48.0 被 /console/system 只读探查消费；no-manifest 语义要求页面明说未比对。
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；
 > 追加可选字段、新增接口、新增可选过滤值属于兼容性变更，沿用当前版本。

@@ -727,7 +727,7 @@
         "message": "ok",
         "data": {
           "framework": "Mini Blog",
-          "core_version": "0.47.0",
+          "core_version": "0.48.0",
           "php": "8.3.6",
           "requires_php": ">=8.1",
           "api_version": "v1",
@@ -1556,9 +1556,10 @@
           "system": "lifecycle"
         }
       },
-      "notes": "未提供清单时返回 mode=no-manifest 并仍视为通过；可把 config.lifecycle.require_checksum 设为 true 强制要求清单。",
+      "notes": "未提供清单时返回 mode=no-manifest 并仍视为通过；可把 config.lifecycle.require_checksum 设为 true 强制要求清单。 按包内 manifest.sha256 清单比对单元目录文件的 SHA-256 摘要。 v0.48 起被 /console/system 以 GET 查询消费：只读核对，不修复不回退；单元目录没有 manifest 时返回 mode=no-manifest，页面必须明说「未比对」而不是伪装成绿灯。",
       "changelog": [
-        "0.2.0 初次发布"
+        "0.2.0 初次发布",
+        "0.48.0 被 /console/system 只读探查消费；no-manifest 语义要求页面明说未比对。"
       ],
       "doc": "docs/api/API-LC-008.md",
       "permission": "lifecycle.read"
@@ -4197,9 +4198,10 @@
           "system": "release"
         }
       },
-      "notes": "历史文件是 append-only 的 storage/releases/history.json；回退时用它确定要撤销哪些迁移。",
+      "notes": "历史文件是 append-only 的 storage/releases/history.json；回退时用它确定要撤销哪些迁移。 返回最近的升级与回退记录，含每次应用的迁移、批次号与健康检查结果。 v0.48 起被 /console/system 消费：发布历史表按时间倒序，空历史（站点从未升级过）与取不到分开表达。",
       "changelog": [
-        "0.11.0 初次发布"
+        "0.11.0 初次发布",
+        "0.48.0 被 /console/system 消费，发布历史完整上页。"
       ],
       "doc": "docs/api/API-REL-002.md",
       "permission": "release.read"
@@ -4529,9 +4531,10 @@
           "system": "lifecycle"
         }
       },
-      "notes": "快照保留份数由 lifecycle.keep_releases 控制（默认 5）；只读接口，不触发任何文件操作。",
+      "notes": "快照保留份数由 lifecycle.keep_releases 控制（默认 5）；只读接口，不触发任何文件操作。 列出一个单元在版本仓库里的全部快照，供回退时选择目标版本。 v0.48 起被 /console/system 以只读 GET 查询消费：页面只展示版本与字节，不提供回退按钮 —— 回退仍是刻意零消费的命令行动作。",
       "changelog": [
-        "0.11.0 初次发布"
+        "0.11.0 初次发布",
+        "0.48.0 被 /console/system 只读探查消费（快照列表，不提供回退入口）。"
       ],
       "doc": "docs/api/API-LC-009.md",
       "permission": "lifecycle.read"
@@ -4668,9 +4671,10 @@
           "system": "state"
         }
       },
-      "notes": "只读接口。任务不存在返回 40403；鉴权与权限仍由 api / permission 层裁决，本接口不自行判断身份。状态存储无数据库时退化为内存，跨进程不可见。",
+      "notes": "只读接口。任务不存在返回 40403；鉴权与权限仍由 api / permission 层裁决，本接口不自行判断身份。状态存储无数据库时退化为内存，跨进程不可见。 按任务 id 读取跨请求的长任务状态：五态相位、持有者、进度、可执行动作与追踪编号。 v0.48 起被 /console/system 消费：运维可按任务 id 查相位，不存在的任务与格式非法的 id 在页面上分别说明。",
       "changelog": [
-        "0.12.0 初次发布"
+        "0.12.0 初次发布",
+        "0.48.0 被 /console/system 消费（按任务 id 查相位）。"
       ],
       "doc": "docs/api/API-STATE-001.md"
     },
@@ -7813,5 +7817,5 @@
       "doc": "docs/api/API-COMMENT-009.md"
     }
   ],
-  "core_version": "0.47.0"
+  "core_version": "0.48.0"
 }

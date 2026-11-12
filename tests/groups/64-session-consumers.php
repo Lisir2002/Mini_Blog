@@ -63,8 +63,10 @@ check('消费矩阵：漏报修正 —— 五个接口离开零消费，零消�
         $json = (array) json_decode((string) shell_exec(
             'php ' . escapeshellarg($root . '/tools/consumers.php') . ' --json'), true);
         $rows = (array) ($json['all'] ?? []);
-        $zero = array_keys(array_filter($rows,
-            static fn(array $r): bool => ($r['kind'] ?? 'none') === 'none'));
+        // v0.48 起 zero 是「未登记零消费」桶；刻意保留在 deliberate_zero 单列。
+        $zero = array_values(array_filter(array_keys(array_filter($rows,
+            static fn(array $r): bool => ($r['kind'] ?? 'none') === 'none')),
+            static fn(string $op): bool => !isset($json['deliberate'][$op])));
         foreach (['system.health', 'system.layers', 'system.contracts', 'content.stats',
             'auth.session.revoke', 'auth.logout'] as $op) {
             $row = (array) ($rows[$op] ?? []);
@@ -72,7 +74,9 @@ check('消费矩阵：漏报修正 —— 五个接口离开零消费，零消�
                 $op . ' 仍是零消费：漏报没修干净');
             truthy(!in_array($op, $zero, true), $op . ' 已消费却还在零消费清单里');
         }
-        truthy(count($zero) === 14, '零消费数应是 14，实际 ' . count($zero));
+        truthy(count($zero) === 0, '未登记零消费应只剩 0，实际 ' . count($zero));
+        truthy(count((array) ($json['deliberate_zero'] ?? [])) === 10,
+            '刻意零消费登记应覆盖 10 个接口');
         foreach ($zero as $op) {
             truthy((bool) preg_match('/^(lifecycle\.|release\.|permission\.override\.grant|state\.task\.status)/',
                 (string) $op), '零消费清单里出现了业务接口：' . $op);

@@ -31,8 +31,10 @@ check('工具可重跑：--json 输出合法结构，operation 数与清单一�
         (array) ($registry['endpoints'] ?? [])));
     truthy((int) $data['total'] === count($ops), '矩阵 operation 数与清单不一致：'
         . $data['total'] . ' vs ' . count($ops));
-    truthy((int) $data['consumed'] + count((array) $data['zero']) === (int) $data['total'],
-        '已消费 + 零消费 ≠ 总数');
+    // v0.48 起零消费分两桶：未登记（zero）与刻意保留（deliberate_zero）。
+    truthy((int) $data['consumed'] + count((array) $data['zero'])
+        + count((array) ($data['deliberate_zero'] ?? [])) === (int) $data['total'],
+        '已消费 + 未登记零消费 + 刻意保留 ≠ 总数');
 });
 
 check('本轮接入的页面确实被算作消费方', function () use ($run): void {
@@ -119,11 +121,14 @@ check('二进制通道：下载接口通过页面链接消费，而不是被页�
 check('零消费清单与确证消费互斥', function () use ($run): void {
     $data = json_decode($run('--json')['text'], true) ?: [];
     $zero = (array) ($data['zero'] ?? []);
+    $dz = (array) ($data['deliberate_zero'] ?? []);
     foreach ((array) ($data['all'] ?? []) as $op => $row) {
         if (($row['kind'] ?? '') === 'none') {
-            truthy(isset($zero[$op]), $op . ' 是零消费却没有出现在清单里');
+            truthy(isset($zero[$op]) || isset($dz[$op]),
+                $op . ' 是零消费却没有出现在（未登记或刻意）清单里');
         } else {
-            truthy(!isset($zero[$op]), $op . ' 有消费方却仍被列为零消费');
+            truthy(!isset($zero[$op]) && !isset($dz[$op]),
+                $op . ' 有消费方却仍被列为零消费');
         }
     }
 });
@@ -141,8 +146,8 @@ check('v0.44：资源 ACL / 用户组 / 角色树 / 覆盖台账离开零消费�
             truthy($own !== [], $op . ' 的消费方里没有 pages/Acl/ 下的文件');
         }
         // 装配期动作不进网页：页面直调执行者会绕过 RequestGuard 的本机来源限制。
-        truthy(isset($data['zero']['permission.override.grant']),
-            'permission.override.grant 不该被页面消费');
+        truthy(isset($data['deliberate_zero']['permission.override.grant']),
+            'permission.override.grant 应在刻意零消费登记表里');
     });
 
 check('v0.45：分类与标签两个写接口离开零消费，且消费方落在 pages/Terms/ 下',
@@ -160,7 +165,7 @@ check('v0.45：分类与标签两个写接口离开零消费，且消费方落�
         $terms = (array) ($all['content.terms'] ?? []);
         truthy(in_array('pages/Terms/TermsQuery.php', (array) ($terms['consumers'] ?? []), true),
             'content.terms 没有把后台取数算作消费方');
-        truthy(count((array) ($data['zero'] ?? [])) === 14, '零消费数不是 14');
+        truthy(count((array) ($data['zero'] ?? [])) === 0, '未登记零消费应为 0');
     });
 
 check('v0.46：评论删除 / 表情登记 / 表情删除都落在各自后台页，零消费降到 20',
@@ -182,7 +187,7 @@ check('v0.46：评论删除 / 表情登记 / 表情删除都落在各自后台�
         truthy(in_array('pages/Emojis/EmojisQuery.php',
             (array) (($all['emojis.list'] ?? [])['consumers'] ?? []), true),
             'emojis.list 没把后台目录算作消费方');
-        truthy(count((array) ($data['zero'] ?? [])) === 14, '零消费数不是 14');
+        truthy(count((array) ($data['zero'] ?? [])) === 0, '未登记零消费应为 0');
     });
 
 check('v0.47：漏报修正 —— /console/system 显式字面量化，system.* 与 content.stats 如实记账',
@@ -208,7 +213,38 @@ check('v0.47：会话收口 —— 登出与残留登出都经安全层走会话
             truthy(in_array('systems/Security/PageSession.php', (array) ($row['consumers'] ?? []), true),
                 $op . ' 的消费方不是安全层 PageSession');
         }
-        truthy(count((array) ($data['zero'] ?? [])) === 14, '零消费数不是 14');
+    });
+
+check('v0.48：升级可观测 —— history / verify / releases / task 由 /console/system 只读消费',
+    function () use ($run): void {
+        $data = json_decode($run('--json')['text'], true) ?: [];
+        $all = (array) ($data['all'] ?? []);
+        foreach (['release.history', 'lifecycle.verify', 'lifecycle.releases',
+            'state.task.status'] as $op) {
+            $row = (array) ($all[$op] ?? []);
+            truthy(($row['kind'] ?? 'none') !== 'none', $op . ' 仍是零消费');
+            truthy(in_array('pages/Systems/SystemsQuery.php', (array) ($row['consumers'] ?? []), true),
+                $op . ' 没把 /console/system 的探查算作消费方');
+        }
+    });
+
+check('v0.48：刻意零消费制度化 —— 登记表双向核对，未登记零消费必须为空',
+    function () use ($run): void {
+        $data = json_decode($run('--json')['text'], true) ?: [];
+        $all = (array) ($data['all'] ?? []);
+        $ledger = (array) ($data['deliberate'] ?? []);
+        $dz = (array) ($data['deliberate_zero'] ?? []);
+        truthy(count($ledger) === 10, '登记表应有 10 条，实际 ' . count($ledger));
+        foreach ($ledger as $op => $reason) {
+            truthy(is_string($reason) && strlen($reason) >= 24,
+                $op . ' 的登记理由缺失或太短：没有理由的登记无效');
+            $row = (array) ($all[$op] ?? []);
+            truthy(($row['kind'] ?? 'none') === 'none',
+                $op . ' 有消费方却被登记为刻意零消费');
+            truthy(isset($dz[$op]), $op . ' 在矩阵里不是零消费，登记成了死条目');
+        }
+        truthy(count((array) ($data['zero'] ?? [])) === 0,
+            '存在未登记的零消费接口：' . implode(',', array_keys((array) ($data['zero'] ?? []))));
         foreach (array_keys((array) ($data['zero'] ?? [])) as $op) {
             truthy((bool) preg_match('/^(lifecycle\.|release\.|permission\.override\.grant|state\.task\.)/',
                 (string) $op), '零消费清单里出现了业务接口：' . $op);

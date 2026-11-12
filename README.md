@@ -1,6 +1,6 @@
 # Mini Blog
 
-![version](https://img.shields.io/badge/version-0.47.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.48.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
 ![tests](https://img.shields.io/badge/tests-all%20passing-2ea44f)

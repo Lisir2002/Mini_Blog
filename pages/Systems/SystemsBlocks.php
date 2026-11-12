@@ -23,6 +23,7 @@ final class SystemsBlocks
         $blocks[] = self::layers($data['layers'] ?? null);
         $blocks[] = self::release($data['release'] ?? null);
         $blocks[] = self::content($data['content'] ?? null, $data['errors'] ?? []);
+        $blocks = array_merge($blocks, SystemsProbe::build($data));
         $blocks[] = self::boundary();
         return $blocks;
     }

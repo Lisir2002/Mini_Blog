@@ -77,7 +77,9 @@ check('带票据提交：303 回队列，状态真的改了', function () use ($
     [$ps, , $ph] = $hit('/console/queue', [], 'POST',
         ['id' => (string) $cid, 'to' => 'hidden', '_form_ticket' => $ticket], $browser);
     truthy($ps === 303, '处置应 303，实际 ' . $ps);
-    truthy(($ph['Location'] ?? '') === '/console/queue', '303 没有指回队列');
+    // v0.46 起 PRG 带回显参数（?saved=1&outcome=…），只要仍指回本页即可，
+    // 不再要求 Location 恰好等于裸路径 —— 断言「回到哪一页」，不绑死查询串形状。
+    truthy(str_starts_with((string) ($ph['Location'] ?? ''), '/console/queue'), '303 没有指回队列');
 
     // 复核：隐藏后的评论不该再出现在队列里（队列口径是 pending 或有举报；
     // 有举报仍然会在，所以这里改为核对状态本身）。

@@ -189,8 +189,9 @@
                     "system": "comment"
                 }
             },
-            "notes": "可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。read_limit 默认 2000：热文被刷到数万条时全量读会占几十 MB，超出只返回最早的 N 条并置 truncated=true，total 不受影响。 v0.29 起 editable 由编辑窗口策略真实判定（不再是恒真的空头支票）；互动计数以三条批量 SQL 补齐，不随条数增长。",
+            "notes": "可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。read_limit 默认 2000：热文被刷到数万条时全量读会占几十 MB，超出只返回最早的 N 条并置 truncated=true，total 不受影响。 v0.29 起 editable 由编辑窗口策略真实判定（不再是恒真的空头支票）；互动计数以三条批量 SQL 补齐，不随条数增长。 0.46.0 起 /console/queue 的「按文章浏览」消费：页面显式传 _identity 才能看到 hidden / spam / deleted 占位；先用 content.post 复核文章存在，读不到时 fail-closed，不把「不知道」渲染成「没有评论」。已删除占位仍带 deletable=true，页面按 status=deleted 判断而非只信该字段。",
             "changelog": [
+                "0.46.0 由 /console/queue 按文章浏览消费；_identity 传参与 deleted 占位语义写明",
                 "0.4.0 初次发布"
             ],
             "doc": "docs/api/API-COMMENT-001.md"
@@ -725,7 +726,7 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.45.0",
+                    "core_version": "0.46.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
@@ -4832,8 +4833,9 @@
                     "system": "comment"
                 }
             },
-            "notes": "授权顺序：先看 comment.delete.any，再看「本人 + comment.delete.own」。匿名评论没有主人，只能由前者删除。软删保留 path / parent_id / root_id，因此子回复仍能正常展示为「该评论已删除」下的对话。",
+            "notes": "授权顺序：先看 comment.delete.any，再看「本人 + comment.delete.own」。匿名评论没有主人，只能由前者删除。软删保留 path / parent_id / root_id，因此子回复仍能正常展示为「该评论已删除」下的对话。 0.46.0 起 /console/queue 消费：页面层要求手写评论 id 确认，并现场问 comment.delete.any（能审核不等于能删任意评论）；回报区分「已软删」与「本来就已删除」（already=true 幂等），写明正文 / 署名清空但 path / parent_id 保留、deleted 是终态不能恢复也不能再审核。因队列口径只收 pending 与被举报条目，页面另开 content.posts → content.post → comments.list 的「按文章浏览」路径，才能删任意一篇正常文章下的评论。",
             "changelog": [
+                "0.46.0 由 /console/queue 消费；手写 id 确认、现场问 comment.delete.any、软删终态与 already 幂等分开回报",
                 "0.13.0 初次发布"
             ],
             "doc": "docs/api/API-COMMENT-004.md"
@@ -5379,8 +5381,9 @@
                     "system": "emoji"
                 }
             },
-            "notes": "内置条目 custom=false 且不可删除；图片表情的 url 指向本站附件通道，不返回任何外链。",
+            "notes": "内置条目 custom=false 且不可删除；图片表情的 url 指向本站附件通道，不返回任何外链。 0.46.0 起 /console/emojis 消费：页面一次取全量（不传 kind），因为短码占用预查必须基于完整目录，按 kind 过滤后再判「是否被占用」会漏掉内置表情；类型筛选只作用于展示。目录无分页参数，仍与「读取失败」分开表达。",
             "changelog": [
+                "0.46.0 由 /console/emojis 消费；全量取数用于短码占用预查，筛选只作用于展示",
                 "0.13.0 初次发布"
             ],
             "doc": "docs/api/API-EMOJI-001.md"
@@ -5461,8 +5464,9 @@
                     "system": "emoji"
                 }
             },
-            "notes": "只接受附件 id，不接受 URL：外链表情会让每次浏览都向第三方发请求，也能被随时替换。短码被内置或已登记时返回 40901；引用的附件必须是 image/*。",
+            "notes": "只接受附件 id，不接受 URL：外链表情会让每次浏览都向第三方发请求，也能被随时替换。短码被内置或已登记时返回 40901；引用的附件必须是 image/*。 0.46.0 起 /console/emojis 在页面层补接口不校验的边界：短码语法（2–32 位小写字母 / 数字 / _ + -）、内置或已登记占用（40901 不复用）、attachment_id 必须正整数且只能是本站附件；接口再复核附件存在且 mime 为 image/*。40403 按「登记」语境翻译为「引用的附件不存在」，不与删除时的「表情不存在」混用。",
             "changelog": [
+                "0.46.0 由 /console/emojis 消费；页面层补格式 / 占用 / 附件 id 校验并分别翻译 40403",
                 "0.13.0 初次发布"
             ],
             "doc": "docs/api/API-EMOJI-002.md",
@@ -5525,8 +5529,9 @@
                     "system": "emoji"
                 }
             },
-            "notes": "解析发生在渲染时、内容存的是原文，所以删除表情不会重写历史：读者看到 :shipit: 字面量。这是「存原文、渲染时解析」相对「入库即替换」的关键收益。",
+            "notes": "解析发生在渲染时、内容存的是原文，所以删除表情不会重写历史：读者看到 :shipit: 字面量。这是「存原文、渲染时解析」相对「入库即替换」的关键收益。 0.46.0 起 /console/emojis 消费：内置表情不给删除按钮并在页面层挡住（40901），不存在的短码预查挡住（40403），自定义表情要求手写短码确认；回显明说删除不重写历史。同一个 40403 在登记与删除两个动作里含义不同，页面分别翻译。",
             "changelog": [
+                "0.46.0 由 /console/emojis 消费；内置与不存在预查、手写短码确认、不重写历史",
                 "0.13.0 初次发布"
             ],
             "doc": "docs/api/API-EMOJI-003.md",
@@ -7794,12 +7799,13 @@
                     "system": "comment"
                 }
             },
-            "notes": "队列口径 = pending 待审 + 有任何举报，排除已删除；两种存储实现（MySQL / 内存降级）逐字一致，降级后不会少掉纯待审那一批。排序按 reports 降序、id 升序。台账里指向不存在评论的孤儿行不会被渲染成幽灵条目。total 与 items 同口径。",
+            "notes": "队列口径 = pending 待审 + 有任何举报，排除已删除；两种存储实现（MySQL / 内存降级）逐字一致，降级后不会少掉纯待审那一批。排序按 reports 降序、id 升序。台账里指向不存在评论的孤儿行不会被渲染成幽灵条目。total 与 items 同口径。 0.46.0 起 /console/queue 明确口径边界：本接口不含已发布的普通评论，删除任意一条评论需要另走 comments.list 的按文章浏览路径；队列视图与文章视图共用同一份文章窗口。",
             "changelog": [
+                "0.46.0 明确队列口径不含已发布普通评论，需配合 comments.list 的按文章浏览",
                 "0.29.0 初次发布"
             ],
             "doc": "docs/api/API-COMMENT-009.md"
         }
     ],
-    "core_version": "0.45.0"
+    "core_version": "0.46.0"
 }

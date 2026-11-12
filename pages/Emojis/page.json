@@ -1,0 +1,19 @@
+{
+    "slug": "emojis",
+    "class": "Wx\\Pages\\Emojis\\EmojisPage",
+    "version": "0.1.0",
+    "priority": 32,
+    "enabled": true,
+    "layout": "admin",
+    "routes": [
+        "/console/emojis"
+    ],
+    "_note": "表情目录：消费既有 emojis.list / emojis.register / emojis.delete，零新增接口、零新增系统层。内置表情 custom=false 不给删除按钮；自定义表情只接受本站图片附件 id，不接受外链。删除不重写历史 —— 正文存的是 :code: 原文，渲染时才解析。页面层预查短码格式与占用（40901 不复用）、附件 id 正整数；附件存在性与 image/* 由接口裁决，40403 按不同动作分别翻译。写动作由无脚本 <form> 提交，身份来自 GET 时签发的表单票据；票据只证明身份，写权限仍由 Action 现场问 emoji.manage",
+    "access": {
+        "auth": "admin",
+        "permission": "content.read",
+        "form_ticket": "content.read",
+        "deny_layout": "deny",
+        "_note": "页面声明 content.read（读目录）；登记与删除在 Action 层现场再问 emoji.manage —— 能看表情目录不等于能改表情表。form_ticket 让非 GET 也能证明身份，同时不打开 Cookie 写入口"
+    }
+}

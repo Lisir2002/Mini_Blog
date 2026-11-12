@@ -1,19 +1,19 @@
 {
     "slug": "queue",
     "class": "Wx\\Pages\\Queue\\QueuePage",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "priority": 30,
     "enabled": true,
     "layout": "admin",
     "routes": [
         "/console/queue"
     ],
-    "_note": "评论审核队列：消费既有 comments.queue / comments.moderate，零新增接口、零新增系统层。写操作由无脚本 <form> 提交，身份来自 GET 时签发的表单票据（access.form_ticket），守卫验票后才进入本页；票据只证明身份，权限仍由 ACL 现场判定",
+    "_note": "评论审核队列：消费既有 comments.queue / comments.moderate / comments.delete 与 content.posts / content.post / comments.list，零新增接口、零新增系统层。两个视图：队列（pending + 被举报）与按文章浏览（补队列之外的评论）。删除是软删且 deleted 为终态，要求手写 id 确认；评论 id 存在性、软删幂等 already、终态不可再审核都在回报里说清。写操作由无脚本 <form> 提交，身份来自 GET 时签发的表单票据（access.form_ticket），守卫验票后才进入本页；票据只证明身份，删除权限仍由 Action 现场问 comment.delete.any",
     "access": {
         "auth": "admin",
         "permission": "comment.moderate",
         "form_ticket": "comment.moderate",
         "deny_layout": "deny",
-        "_note": "与 comments.moderate 接口的权限点完全一致；form_ticket 让非 GET 也能证明身份，同时不打开 Cookie 写入口"
+        "_note": "页面声明 comment.moderate（读队列 / 状态迁移）；删除动作在 Action 层现场再问 comment.delete.any —— 页面直调 execute() 绕过分发器，不在页面层裁决就等于把删除权交给任何能进此页的人。form_ticket 让非 GET 也能证明身份，同时不打开 Cookie 写入口"
     }
 }

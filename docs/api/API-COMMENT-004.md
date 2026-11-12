@@ -24,7 +24,7 @@
 
 **适用场景**：作者撤回自己的评论，或版主清理攻击性内容；不能让「删了父评论导致整串回复消失」。
 
-**实现备注**：授权顺序：先看 comment.delete.any，再看「本人 + comment.delete.own」。匿名评论没有主人，只能由前者删除。软删保留 path / parent_id / root_id，因此子回复仍能正常展示为「该评论已删除」下的对话。
+**实现备注**：授权顺序：先看 comment.delete.any，再看「本人 + comment.delete.own」。匿名评论没有主人，只能由前者删除。软删保留 path / parent_id / root_id，因此子回复仍能正常展示为「该评论已删除」下的对话。 0.46.0 起 /console/queue 消费：页面层要求手写评论 id 确认，并现场问 comment.delete.any（能审核不等于能删任意评论）；回报区分「已软删」与「本来就已删除」（already=true 幂等），写明正文 / 署名清空但 path / parent_id 保留、deleted 是终态不能恢复也不能再审核。因队列口径只收 pending 与被举报条目，页面另开 content.posts → content.post → comments.list 的「按文章浏览」路径，才能删任意一篇正常文章下的评论。
 
 ## 3. 请求规范
 
@@ -119,6 +119,7 @@ POST /api/v1/comments/delete  {id:12}
 
 ## 8. 变更记录
 
+- 0.46.0 由 /console/queue 消费；手写 id 确认、现场问 comment.delete.any、软删终态与 already 幂等分开回报
 - 0.13.0 初次发布
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；

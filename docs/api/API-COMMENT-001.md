@@ -24,7 +24,7 @@
 
 **适用场景**：文章详情页渲染评论区；Headless 客户端拉取评论。
 
-**实现备注**：可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。read_limit 默认 2000：热文被刷到数万条时全量读会占几十 MB，超出只返回最早的 N 条并置 truncated=true，total 不受影响。 v0.29 起 editable 由编辑窗口策略真实判定（不再是恒真的空头支票）；互动计数以三条批量 SQL 补齐，不随条数增长。
+**实现备注**：可见性：published 对所有人；pending / hidden 仅作者与有 comment.moderate 者；spam 仅管理员；deleted 保留占位供回复链展示。每条附带 tokens（表情 token，非 HTML）。read_limit 默认 2000：热文被刷到数万条时全量读会占几十 MB，超出只返回最早的 N 条并置 truncated=true，total 不受影响。 v0.29 起 editable 由编辑窗口策略真实判定（不再是恒真的空头支票）；互动计数以三条批量 SQL 补齐，不随条数增长。 0.46.0 起 /console/queue 的「按文章浏览」消费：页面显式传 _identity 才能看到 hidden / spam / deleted 占位；先用 content.post 复核文章存在，读不到时 fail-closed，不把「不知道」渲染成「没有评论」。已删除占位仍带 deletable=true，页面按 status=deleted 判断而非只信该字段。
 
 ## 3. 请求规范
 
@@ -126,6 +126,7 @@ GET /api/v1/comments?post_slug=first-post
 
 ## 8. 变更记录
 
+- 0.46.0 由 /console/queue 按文章浏览消费；_identity 传参与 deleted 占位语义写明
 - 0.4.0 初次发布
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；

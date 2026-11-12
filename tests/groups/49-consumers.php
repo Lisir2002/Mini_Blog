@@ -160,7 +160,29 @@ check('v0.45：分类与标签两个写接口离开零消费，且消费方落�
         $terms = (array) ($all['content.terms'] ?? []);
         truthy(in_array('pages/Terms/TermsQuery.php', (array) ($terms['consumers'] ?? []), true),
             'content.terms 没有把后台取数算作消费方');
-        truthy(count((array) ($data['zero'] ?? [])) === 22, '零消费数不是 22');
+        truthy(count((array) ($data['zero'] ?? [])) === 20, '零消费数不是 20');
+    });
+
+check('v0.46：评论删除 / 表情登记 / 表情删除都落在各自后台页，零消费降到 20',
+    function () use ($run): void {
+        $data = json_decode($run('--json')['text'], true) ?: [];
+        $all = (array) ($data['all'] ?? []);
+        foreach (['comments.delete' => 'pages/Queue/',
+            'emojis.register' => 'pages/Emojis/', 'emojis.delete' => 'pages/Emojis/'] as $op => $prefix) {
+            $row = (array) ($all[$op] ?? []);
+            truthy(($row['kind'] ?? 'none') !== 'none', $op . ' 仍是零消费');
+            $own = array_filter((array) ($row['consumers'] ?? []),
+                static fn(string $f): bool => str_starts_with($f, $prefix));
+            truthy($own !== [], $op . ' 的消费方里没有 ' . $prefix . ' 下的文件');
+        }
+        // comments.list 原本只在前台文章页被读；后台「按文章浏览」后应多一个消费方。
+        $list = (array) ($all['comments.list'] ?? []);
+        truthy(in_array('pages/Queue/QueueQuery.php', (array) ($list['consumers'] ?? []), true),
+            'comments.list 没把后台取数算作消费方');
+        truthy(in_array('pages/Emojis/EmojisQuery.php',
+            (array) (($all['emojis.list'] ?? [])['consumers'] ?? []), true),
+            'emojis.list 没把后台目录算作消费方');
+        truthy(count((array) ($data['zero'] ?? [])) === 20, '零消费数不是 20');
     });
 
 check('--zero 只打印零消费，不混入已消费段', function () use ($run): void {

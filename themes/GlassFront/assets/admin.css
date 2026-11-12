@@ -1,0 +1,15 @@
+/* ==========================================================================
+   admin 布局 —— GlassFront 门户元主题下的后台薄壳。
+   玻璃基元来自 glass.css，这里只补统一后台导航条（与 Glass 后台逐字同源）。
+   ========================================================================== */
+
+.admin-nav { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .7rem 1rem; margin-bottom: .4rem; }
+.admin-nav__group { font-size: .72rem; color: var(--g-faint); margin: 0 .15rem 0 .5rem; }
+.admin-nav__item {
+  padding: .35rem .7rem; border-radius: 10px; font-size: .82rem;
+  color: var(--g-muted); text-decoration: none; border: 1px solid transparent;
+}
+.admin-nav__item:hover { background: rgba(255, 255, 255, .06); color: var(--g-fg); text-decoration: none; }
+.admin-nav__item.is-active {
+  background: rgba(125, 211, 252, .14); border-color: rgba(125, 211, 252, .3); color: var(--g-fg);
+}

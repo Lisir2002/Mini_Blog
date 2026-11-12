@@ -75,10 +75,16 @@ check('合法窗口原样生效：7d 不会悄悄变成 24h', function () use ($
     truthy(str_contains($b, '7d'), '页面没有反映请求的窗口');
 
     // 窗口切换真的可点：链接、active 迁移、aria-current 三件事同时成立。
+    // active 唯一性限定在窗口链接组内：后台统一导航条（admin-nav）是另一组
+    // 真实导航，同样有资格标 aria-current，两组并存不是渲染错误。
     truthy(str_contains($b, 'class="glass-links"'), '页面没有渲染窗口链接组');
     truthy(str_contains($b, 'href="/console/stats?window=24h"'), '缺少切回 24h 的链接');
     truthy(str_contains($b, 'href="/console/stats?window=30d"'), '缺少切到 30d 的链接');
-    truthy(substr_count($b, 'aria-current="page"') === 1, 'active 项不唯一');
+    $winStart = strpos($b, 'id="stats-windows"');
+    truthy($winStart !== false, '窗口链接组没有 id 锚点');
+    $winEnd = strpos($b, '</nav>', $winStart);
+    $win = substr($b, $winStart, $winEnd === false ? null : $winEnd - $winStart);
+    truthy(substr_count($win, 'aria-current="page"') === 1, '窗口组内 active 项不唯一');
     $pos = strpos($b, 'href="/console/stats?window=7d"');
     truthy($pos !== false && str_contains(substr($b, max(0, $pos - 200), 200), 'is-active'),
         '当前窗口 7d 没有被标成 active');

@@ -10,6 +10,7 @@
 <?php include __DIR__ . '/partials/head.php'; ?>
 <main class="glass-admin" data-theme="<?= $esc($themeName) ?>" data-view="<?= $esc($view ?? '') ?>">
 <?php if ($serverView): ?>
+<?php include __DIR__ . '/partials/admin-nav.php'; ?>
 <?php include __DIR__ . '/partials/state.php'; ?>
 <?php include __DIR__ . '/partials/blocks.php'; ?>
 <?php else: ?>

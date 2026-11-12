@@ -21,10 +21,24 @@
       <a href="#themes" data-nav="themes">主题</a>
       <a href="#probes" data-nav="probes">接口探针</a>
       <a href="#runtime" data-nav="runtime">响应明细</a>
+      <small class="dash__nav-group">内容</small>
       <a href="/console/stats">统计看板</a>
       <a href="/console/content">内容管理</a>
+      <a href="/console/write">正文创作</a>
+      <a href="/console/terms">内容标签</a>
+      <a href="/console/emojis">表情库</a>
+      <a href="/console/attachments">附件库</a>
       <a href="/console/queue">审核队列</a>
+      <small class="dash__nav-group">治理</small>
       <a href="/console/logs">系统日志</a>
+      <a href="/console/users">用户管理</a>
+      <a href="/console/roles">角色授权</a>
+      <a href="/console/acl">资源 ACL</a>
+      <a href="/console/decisions">决策轨迹</a>
+      <a href="/console/member">成员成长</a>
+      <a href="/console/system">系统层</a>
+      <small class="dash__nav-group">账户</small>
+      <a href="/account">我的账号</a>
     </nav>
     <div class="dash__side-foot">
       <span id="glass-version">版本读取中…</span>

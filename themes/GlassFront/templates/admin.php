@@ -14,6 +14,7 @@
     <p class="glass-muted">完整仪表盘见后端元主题 <code>glass</code>；此处为门户一致外观的通用呈现。
       统计聚合见 <a href="/console/stats">统计看板</a>（需管理员权限）。</p>
   </header>
+<?php include __DIR__ . '/partials/admin-nav.php'; ?>
 <?php include __DIR__ . '/partials/state.php'; ?>
 <?php include __DIR__ . '/partials/blocks.php'; ?>
 </main>

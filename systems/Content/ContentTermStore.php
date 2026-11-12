@@ -108,6 +108,15 @@ final class ContentTermStore
             $args[] = trim((string) $fields['description']);
         }
         if ($sets === []) return false;
+
+        // updated_at 原先无条件刷新：同值提交只要跨秒就被 MySQL 算成「已改变」，
+        // 接口于是误报 updated=true。幂等不该取决于两次请求隔几秒 —— 先比对，未变则不发 UPDATE。
+        $current = $this->find($id);
+        if ($current === null) return false;
+        $nextName = array_key_exists('name', $fields) ? trim((string) $fields['name']) : (string) $current['name'];
+        $nextDesc = array_key_exists('description', $fields) ? trim((string) $fields['description']) : (string) $current['description'];
+        if ($nextName === (string) $current['name'] && $nextDesc === (string) $current['description']) return false;
+
         $sets[] = 'updated_at = ?';
         $args[] = date('Y-m-d H:i:s');
         $args[] = $id;

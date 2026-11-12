@@ -145,6 +145,24 @@ check('v0.44：资源 ACL / 用户组 / 角色树 / 覆盖台账离开零消费�
             'permission.override.grant 不该被页面消费');
     });
 
+check('v0.45：分类与标签两个写接口离开零消费，且消费方落在 pages/Terms/ 下',
+    function () use ($run): void {
+        $data = json_decode($run('--json')['text'], true) ?: [];
+        $all = (array) ($data['all'] ?? []);
+        foreach (['content.terms.manage', 'content.attach'] as $op) {
+            $row = (array) ($all[$op] ?? []);
+            truthy(($row['kind'] ?? 'none') !== 'none', $op . ' 仍是零消费');
+            $own = array_filter((array) ($row['consumers'] ?? []),
+                static fn(string $f): bool => str_starts_with($f, 'pages/Terms/'));
+            truthy($own !== [], $op . ' 的消费方里没有 pages/Terms/ 下的文件');
+        }
+        // content.terms 原本只在前台归档页被消费；后台页接入后应同时出现两处。
+        $terms = (array) ($all['content.terms'] ?? []);
+        truthy(in_array('pages/Terms/TermsQuery.php', (array) ($terms['consumers'] ?? []), true),
+            'content.terms 没有把后台取数算作消费方');
+        truthy(count((array) ($data['zero'] ?? [])) === 22, '零消费数不是 22');
+    });
+
 check('--zero 只打印零消费，不混入已消费段', function () use ($run): void {
     $r = $run('--zero');
     truthy($r['code'] === 0, '--zero 退出码非 0');

@@ -368,6 +368,11 @@
                     "name": "total",
                     "type": "int",
                     "desc": "当前状态过滤下的总数"
+                },
+                {
+                    "name": "items[].terms",
+                    "type": "list<array>",
+                    "desc": "每篇文章绑定的术语，批量一次取全（forPosts），避免列表页每篇一次 SQL；无术语为 []。"
                 }
             ],
             "errors": [
@@ -402,6 +407,7 @@
             },
             "notes": "回收站文章永不出现（用 content.trash 读）；status=published 时还会排除 publish_at 未到点的定时文章 —— 否则「定时」只是一句承诺。置顶不混进时间线：keyset 分页的键是 id，若把 pinned 排进主序，两次翻页之间有人置顶就会出现重复行或漏行，所以置顶单独用 pinned=1 取。total 与 items 同口径，不会出现「共 12 篇但只有 9 篇能翻到」。",
             "changelog": [
+                "0.45.0 契约补上 items[].terms 字段（批量术语随列表返回）",
                 "0.4.0 初次发布"
             ],
             "doc": "docs/api/API-CONTENT-001.md"
@@ -448,6 +454,11 @@
                     "name": "created_at / updated_at",
                     "type": "string",
                     "desc": "时间戳"
+                },
+                {
+                    "name": "terms",
+                    "type": "list<array>",
+                    "desc": "文章绑定的分类与标签（id / kind / slug / name / description / created_at / updated_at），按 kind 优先、name 升序；内存降级模式下为空数组。v0.45 起补入契约 —— 页面此前已在依赖它预填挂载框。"
                 }
             ],
             "errors": [
@@ -476,6 +487,7 @@
             },
             "notes": "资源不存在返回 40403（HTTP 404），与「接口不存在」40401 区分；data 恒为 null 的错误响应不塞业务数据。 v0.28 起：回收站里的文章与「已发布但 publish_at 未到点」的文章都返回 40403 —— 只在列表里藏起来不够，知道 slug 的人照样能提前读到排期内容。",
             "changelog": [
+                "0.45.0 契约补上实际早已返回的 terms 字段（页面此前已在依赖它）",
                 "0.4.0 初次发布",
                 "0.28.0 定时发布与回收站文章一律 40403"
             ],
@@ -713,7 +725,7 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.44.0",
+                    "core_version": "0.45.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
@@ -7167,8 +7179,9 @@
                     "system": "content"
                 }
             },
-            "notes": "post_count 不含回收站文章：读者看到的标签云数字必须与点进去的列表条数一致。需要 MySQL；内存降级模式下返回 50101 而不是空数组 —— 「还没有标签」和「这个功能在当前部署下不可用」不能长得一样。",
+            "notes": "post_count 不含回收站文章：读者看到的标签云数字必须与点进去的列表条数一致。需要 MySQL；内存降级模式下返回 50101 而不是空数组 —— 「还没有标签」和「这个功能在当前部署下不可用」不能长得一样。 0.45.0 起 /console/terms 明确 50101（内存降级）与空清单是两种状态，写入口在清单读不到时关闭；术语最多显示 60 条并声明未列全，post_count 不含回收站文章。",
             "changelog": [
+                "0.45.0 由 /console/terms 消费；50101 / 空清单 / 截断三种状态分离，post_count 口径写明",
                 "0.28.0 初次发布"
             ],
             "doc": "docs/api/API-CONTENT-011.md"
@@ -7283,8 +7296,10 @@
                     "system": "content"
                 }
             },
-            "notes": "同 kind 下 slug 重复返回 40911，而不是静默复用已有术语 —— 复用会让「新建分类」变成「把文章挂到别人的分类上」。kind 与 slug 不可修改：改 slug 会让所有旧链接 404，需要改就新建再迁移。删除在事务里同时清关系，不留孤儿行。",
+            "notes": "同 kind 下 slug 重复返回 40911，而不是静默复用已有术语 —— 复用会让「新建分类」变成「把文章挂到别人的分类上」。kind 与 slug 不可修改：改 slug 会让所有旧链接 404，需要改就新建再迁移。删除在事务里同时清关系，不留孤儿行。 0.45.0 起 /console/terms 在页面层补接口不校验的边界：slug 格式与长度、名称按字符计 60 字上限、说明 200 字上限、update / delete 的 ID 存在性预查（接口返回 40404）、同 kind 下重复 slug 预查（40911 不复用）；改 slug / kind 的入口刻意不提供；删除要求手写 slug 确认并回报 relations_removed；updated=false 单独说「本来就是这个值」。 0.45.0 另修正存储层幂等：update 原先无条件刷新 updated_at，同值提交只要跨秒就被 MySQL 判为已改变、误报 updated=true；现在先比对当前值，未变则不发 UPDATE。",
             "changelog": [
+                "0.45.0 修正 update 幂等：updated_at 不再让同值提交跨秒误报已改变",
+                "0.45.0 由 /console/terms 消费；页面层补格式、长度、存在性与确认边界",
                 "0.28.0 初次发布"
             ],
             "doc": "docs/api/API-CONTENT-012.md"
@@ -7373,8 +7388,9 @@
                     "system": "content"
                 }
             },
-            "notes": "只接受已存在的术语：拼错的标签会返回 40404，而不是悄悄创建一个「只有一篇」的新词条。一次请求里只要有一个引用不存在，整个操作失败 —— 部分成功会让调用方无法判断到底绑上了哪些。整体替换而不是追加：幂等键就是最终的术语集合。",
+            "notes": "只接受已存在的术语：拼错的标签会返回 40404，而不是悄悄创建一个「只有一篇」的新词条。一次请求里只要有一个引用不存在，整个操作失败 —— 部分成功会让调用方无法判断到底绑上了哪些。整体替换而不是追加：幂等键就是最终的术语集合。 0.45.0 起 /console/terms 把 terms 文本框预填成这篇文章当前的集合，明说提交的是完整集合而不是增量、留空是清空（需手写文章 slug 确认）；页面先按 content.terms 核对每一个引用，避免把 40404 甩给接口；content.post 读不到时 fail-closed 拒绝挂载；added / removed 分别回报，0/0 说明整体替换幂等。",
             "changelog": [
+                "0.45.0 由 /console/terms 消费；整体替换语义、引用预查与读不到时 fail-closed",
                 "0.28.0 初次发布"
             ],
             "doc": "docs/api/API-CONTENT-013.md"
@@ -7784,5 +7800,6 @@
             ],
             "doc": "docs/api/API-COMMENT-009.md"
         }
-    ]
+    ],
+    "core_version": "0.45.0"
 }

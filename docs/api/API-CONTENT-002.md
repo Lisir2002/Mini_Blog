@@ -68,6 +68,7 @@
 | `slug / title / body / excerpt` | `string` | 文章正文与摘要 |
 | `status / author` | `string` | 状态与作者 |
 | `created_at / updated_at` | `string` | 时间戳 |
+| `terms` | `list<array>` | 文章绑定的分类与标签（id / kind / slug / name / description / created_at / updated_at），按 kind 优先、name 升序；内存降级模式下为空数组。v0.45 起补入契约 —— 页面此前已在依赖它预填挂载框。 |
 
 ## 5. 错误码
 
@@ -122,6 +123,7 @@ GET /api/v1/content/post?slug=first-post
 
 ## 8. 变更记录
 
+- 0.45.0 契约补上实际早已返回的 terms 字段（页面此前已在依赖它）
 - 0.4.0 初次发布
 - 0.28.0 定时发布与回收站文章一律 40403
 

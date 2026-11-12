@@ -73,6 +73,7 @@
 | `items` | `object[]` | 文章对象：id / slug / title / excerpt / body / status / author / created_at |
 | `next_cursor` | `string|null` | 下一页游标；null 表示已到末尾 |
 | `total` | `int` | 当前状态过滤下的总数 |
+| `items[].terms` | `list<array>` | 每篇文章绑定的术语，批量一次取全（forPosts），避免列表页每篇一次 SQL；无术语为 []。 |
 
 ## 5. 错误码
 
@@ -133,6 +134,7 @@ GET /api/v1/content/posts?limit=1
 
 ## 8. 变更记录
 
+- 0.45.0 契约补上 items[].terms 字段（批量术语随列表返回）
 - 0.4.0 初次发布
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；

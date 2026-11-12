@@ -1,0 +1,19 @@
+{
+  "slug": "terms",
+  "class": "Wx\\Pages\\Terms\\TermsPage",
+  "version": "0.1.0",
+  "priority": 49,
+  "enabled": true,
+  "layout": "admin",
+  "routes": [
+    "/console/terms"
+  ],
+  "_note": "分类与标签台：content.terms 读路径只在前台归档页用过，后台没有管理入口，content.terms.manage 与 content.attach 两个写接口因此长期零消费。本页先按 content.posts 选文章、content.post 复核并取出它的 terms 字段，再把术语新建 / 改名 / 删除与文章挂载接成一条闭环。页面层挡住接口会「静默写错」的输入：slug 重复（40911）、引用不存在的术语（40404）、文章读不到时的孤儿绑定；整体替换不是追加，清空需手写确认；删除术语回报清理了几条关系。零新增接口、零新增系统层。",
+  "access": {
+    "auth": "admin",
+    "permission": "content.read",
+    "form_ticket": "content.read",
+    "deny_layout": "deny",
+    "_note": "读写分离：页面声明 content.read（能看），术语增删改在 TermsAction 现场问 content.manage_terms，文章挂载现场问 content.edit —— 两个写权限点不同，不能合并成一次裁决。票据只证明「谁从哪一页提交」，不替代写裁决；执行者内部还会再判一次。"
+  }
+}

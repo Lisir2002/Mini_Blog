@@ -727,7 +727,7 @@
         "message": "ok",
         "data": {
           "framework": "Mini Blog",
-          "core_version": "0.50.0",
+          "core_version": "0.51.0",
           "php": "8.3.6",
           "requires_php": ">=8.1",
           "api_version": "v1",
@@ -7197,6 +7197,7 @@
       },
       "notes": "post_count 不含回收站文章：读者看到的标签云数字必须与点进去的列表条数一致。需要 MySQL；内存降级模式下返回 50101 而不是空数组 —— 「还没有标签」和「这个功能在当前部署下不可用」不能长得一样。 0.45.0 起 /console/terms 明确 50101（内存降级）与空清单是两种状态，写入口在清单读不到时关闭；术语最多显示 60 条并声明未列全，post_count 不含回收站文章。",
       "changelog": [
+        "0.51.0 站点地图开始收录有文章挂载的标签（/term?kind=..&slug=..）：FeedQuery::terms() 是本接口的第二个消费方，post_count>0 的过滤在取数层完成，接口不可用（内存降级）时 sitemap 显式注释留痕而不是整份下线。",
         "0.45.0 由 /console/terms 消费；50101 / 空清单 / 截断三种状态分离，post_count 口径写明",
         "0.28.0 初次发布"
       ],
@@ -7818,5 +7819,5 @@
       "doc": "docs/api/API-COMMENT-009.md"
     }
   ],
-  "core_version": "0.50.0"
+  "core_version": "0.51.0"
 }

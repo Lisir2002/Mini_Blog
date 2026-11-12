@@ -55,7 +55,7 @@ final class FeedPage implements PackageInterface
                         FeedSerialize::rss($query->latest(), $base, $this->siteName($kernel)));
                 } else {
                     $this->plain($response, 'application/xml; charset=utf-8',
-                        FeedSerialize::sitemap($query->slugs(), $base));
+                        FeedSerialize::sitemap($query->entries(), $query->terms(), $base));
                 }
             } catch (\Throwable $e) {
                 $this->plain($response, 'text/plain; charset=utf-8',

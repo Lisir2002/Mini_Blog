@@ -43,29 +43,65 @@ final class FeedSerialize
         return $xml . '</channel></rss>' . "\n";
     }
 
-    /** @param list<string> $slugs */
-    public static function sitemap(array $slugs, string $base): string
+    /**
+     * 站点地图：静态页 + 文章（带 lastmod）+ 有文章挂载的标签页。
+     *
+     * URL 总数上限 $limit：超出时用 XML 注释显式声明截断 —— 站点地图协议没有
+     * 「未列全」字段，沉默截断会让爬虫把 500 条当成全部收录目标。
+     *
+     * @param list<array{slug: string, lastmod: string}> $posts
+     * @param array{state: string, items: list<array{kind: string, slug: string}>} $terms
+     */
+    public static function sitemap(array $posts, array $terms, string $base, int $limit = FeedQuery::SITEMAP_LIMIT): string
     {
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
             . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-        foreach (['/' => '1.0', '/archive' => '0.6', '/terms' => '0.5'] as $path => $priority) {
+        $budget = $limit;
+        foreach (['/' => '1.0', '/archive' => '0.6', '/terms' => '0.5', '/links' => '0.4'] as $path => $priority) {
             $xml .= self::url($base . $path, $priority);
+            $budget--;
         }
-        foreach ($slugs as $slug) {
-            $xml .= self::url($base . '/post?slug=' . rawurlencode($slug), '0.8');
+        $truncatedPosts = false;
+        foreach ($posts as $post) {
+            if ($budget <= 0) { $truncatedPosts = true; break; }
+            $xml .= self::url($base . '/post?slug=' . rawurlencode((string) $post['slug']), '0.8', self::w3c((string) ($post['lastmod'] ?? '')));
+            $budget--;
+        }
+        $truncatedTerms = false;
+        foreach ((array) ($terms['items'] ?? []) as $term) {
+            if ($budget <= 0) { $truncatedTerms = true; break; }
+            $href = '/term?kind=' . rawurlencode((string) $term['kind'])
+                . '&slug=' . rawurlencode((string) $term['slug']);
+            $xml .= self::url($base . $href, '0.4');
+            $budget--;
+        }
+        if (($terms['state'] ?? '') === 'unavailable') {
+            $xml .= "<!-- terms segment unavailable: term listing API not reachable; posts are still listed -->\n";
+        }
+        if ($truncatedPosts || $truncatedTerms) {
+            $xml .= "<!-- truncated at {$limit} URLs: not every eligible URL is listed -->\n";
         }
         return $xml . '</urlset>' . "\n";
     }
 
     public static function robots(string $base): string
     {
-        return "User-agent: *\nAllow: /\nDisallow: /console\nDisallow: /install\n\n"
+        return "User-agent: *\nAllow: /\nDisallow: /console\nDisallow: /account\nDisallow: /install\n\n"
             . 'Sitemap: ' . $base . "/sitemap.xml\n";
     }
 
-    private static function url(string $location, string $priority): string
+    private static function url(string $location, string $priority, string $lastmod = ''): string
     {
-        return '  <url><loc>' . self::x($location) . '</loc><priority>' . $priority . "</priority></url>\n";
+        $line = '  <url><loc>' . self::x($location) . '</loc><priority>' . $priority . '</priority>';
+        if ($lastmod !== '') $line .= '<lastmod>' . self::x($lastmod) . '</lastmod>';
+        return $line . "</url>\n";
+    }
+
+    /** W3C Datetime（sitemap 协议只认完整日期或更细）；脏日期返回空串即省略字段。 */
+    private static function w3c(string $value): string
+    {
+        $ts = strtotime($value);
+        return $ts === false ? '' : gmdate('Y-m-d', $ts);
     }
 
     private static function date(string $value): string

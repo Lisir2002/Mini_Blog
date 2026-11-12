@@ -24,7 +24,7 @@
 
 **适用场景**：后台权限配置页展示角色继承关系；排查「某角色为什么有这个权限」。
 
-**实现备注**：只读接口。继承是许可并集，显式 deny 与策略收紧的优先级不变；拔库回退时返回空图并带 fallback 告警。
+**实现备注**：只读接口。继承是许可并集，显式 deny 与策略收紧的优先级不变；拔库回退时返回空图并带 fallback 告警。 0.44.0 起 /console/acl 的角色树面板展示 parents / ancestors / effective_permissions，并写明继承是并集、显式 deny 优先级不变。
 
 ## 3. 请求规范
 
@@ -117,6 +117,7 @@ GET /api/v1/permission/role/tree  Authorization: Bearer <admin-token>
 
 ## 8. 变更记录
 
+- 0.44.0 由 /console/acl 角色树面板消费
 - 0.7.0 初次发布
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；

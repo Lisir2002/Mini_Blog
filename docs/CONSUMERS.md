@@ -22,6 +22,7 @@
 | v0.41 | `member.levels` / `titles` / `xp.rules` / `leaderboard` / `profile` | 等级表、头衔、排行、档案在站点上一个都看不见 |
 | v0.42 | `member.xp.award` / `xp.rule` / `title` / `title.grant` / `level` | 发经验、定规则、定头衔、授头衔、改等级只能 curl |
 | v0.43 | `attachments.update` / `attachments.delete` / `attachments.download` | 改名 / 改可见性 / 删除 / 受控下载没有后台入口 |
+| v0.44 | `permission.acl.set` / `acl.list` / `role.tree` / `overrides` / `groups` / `group`、`users.view` | 资源 ACL 与用户组缺「选中某篇文章」的浏览路径，授权只能 curl |
 
 每一次都是「能力完备、闭环缺失」。人工检查不可持续，所以把它变成一个可重跑的查询。
 
@@ -78,3 +79,5 @@ v0.41 再减少 5 个：`member.levels`、`member.titles`、`member.xp.rules`、
 v0.42 再减少 5 个：五个写接口由 `/console/member` 的操作台消费（经 `MemberAction` 的动作表动态拼接，矩阵记为字符串引用）。同一版修掉了扫描器的一处误报：member 的权限点与 operation 同名，v0.41 的 `MemberQuery::capabilities()` 里 `allows($identity, 'member.xp.award')` 曾被当成「已经有人调过这个接口」，把两个写接口伪装成已消费；现在扫字符串前先抹掉 `allows(...)` 调用整段，并在 `49` 组加回归断言。零消费 37 → 34。
 
 v0.43 再减少 3 个：`attachments.update` / `attachments.delete` 由 `/console/attachments` 消费（动作名动态拼接，记为字符串引用），`attachments.download` 通过页面产出的 `/attach/download?id=` 链接消费。为此矩阵新增「链接消费」识别：只认 `execute()` 会把二进制通道永远列成零消费，而页面**不该**直调它（文件字节会进页面层）。`49` 组加断言。零消费 34 → 31。
+
+v0.44 再减少 7 个：`permission.acl.set` / `permission.acl.list` / `permission.role.tree` / `permission.overrides` / `permission.groups` / `permission.group` 与 `users.view` 均由 `/console/acl` 消费。页面先按 `content.posts` 选文章，再按 `type+id` 从 `acl.list` 的最近 100 条里筛出这一篇，并显式声明「不是完整快照」；`users.view` 同时是读路径（`?user=` 查账号）与写前校验。`permission.override.grant` 刻意仍是零消费：装配期动作只应经本机来源（RequestGuard `40302`），页面直调执行者会绕过它；`49` 组加断言把「刻意不接」与「忘了接」区分开。零消费 31 → 24。

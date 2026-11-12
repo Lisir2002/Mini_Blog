@@ -713,7 +713,7 @@
                 "message": "ok",
                 "data": {
                     "framework": "Mini Blog",
-                    "core_version": "0.43.0",
+                    "core_version": "0.44.0",
                     "php": "8.3.6",
                     "requires_php": ">=8.1",
                     "api_version": "v1",
@@ -2141,8 +2141,9 @@
                     "system": "permission"
                 }
             },
-            "notes": "显式 deny 优先级最高，压过角色通配符与继承链；多条 ACL 按插入顺序判定，deny 先扫描。field 非空时只对同名字段的请求生效，不会把整篇文章从列表剔除。",
+            "notes": "显式 deny 优先级最高，压过角色通配符与继承链；多条 ACL 按插入顺序判定，deny 先扫描。field 非空时只对同名字段的请求生效，不会把整篇文章从列表剔除。 0.44.0 起 /console/acl 在页面层补三类接口不校验的边界：主体前缀（parseSubject() 把未知前缀静默解释成角色）、能力名（写错永不命中）、资源 id 存在性（content.post 预查）；整资源级「全部主体 + 全部能力」显式 deny 要求手写确认。页面明说这是追加 INSERT，不是编辑或撤销，新加的 allow 不会抵消已有 deny。",
             "changelog": [
+                "0.44.0 由 /console/acl 消费；页面层补主体 / 能力 / 资源存在性与高危 deny 确认",
                 "0.6.0 初次发布"
             ],
             "doc": "docs/api/API-PERM-006.md",
@@ -2191,8 +2192,9 @@
                     "system": "permission"
                 }
             },
-            "notes": "与 API-PERM-006 同路径不同方法，OpenAPI 3.1 导出时按 operation 合并。",
+            "notes": "与 API-PERM-006 同路径不同方法，OpenAPI 3.1 导出时按 operation 合并。 0.44.0 起 /console/acl 明确：接口没有按资源过滤的参数，只返回最近 100 条；「这篇文章的 ACL」是页面层按 type+id 筛出来的，必须声明可能被 100 条上限截断，而不是完整快照。",
             "changelog": [
+                "0.44.0 由 /console/acl 消费；页面层按 type+id 筛选并声明 100 条上限",
                 "0.6.0 初次发布"
             ],
             "doc": "docs/api/API-PERM-007.md",
@@ -2306,8 +2308,9 @@
                     "system": "permission"
                 }
             },
-            "notes": "只读接口。继承是许可并集，显式 deny 与策略收紧的优先级不变；拔库回退时返回空图并带 fallback 告警。",
+            "notes": "只读接口。继承是许可并集，显式 deny 与策略收紧的优先级不变；拔库回退时返回空图并带 fallback 告警。 0.44.0 起 /console/acl 的角色树面板展示 parents / ancestors / effective_permissions，并写明继承是并集、显式 deny 优先级不变。",
             "changelog": [
+                "0.44.0 由 /console/acl 角色树面板消费",
                 "0.7.0 初次发布"
             ],
             "doc": "docs/api/API-PERM-009.md",
@@ -2455,8 +2458,9 @@
                     "system": "permission"
                 }
             },
-            "notes": "只读接口。require_grant=false 时所有覆盖都标记 authorized=true（保持「只留痕」语义）；拔库回退时 grants 为空数组且不伪造授权。",
+            "notes": "只读接口。require_grant=false 时所有覆盖都标记 authorized=true（保持「只留痕」语义）；拔库回退时 grants 为空数组且不伪造授权。 0.44.0 起 /console/acl 的覆盖台账面板只读展示 require_grant / unauthorized / grants，不提供授权按钮。",
             "changelog": [
+                "0.44.0 由 /console/acl 覆盖台账面板消费（只读）",
                 "0.8.0 初次发布"
             ],
             "doc": "docs/api/API-PERM-011.md",
@@ -2550,8 +2554,9 @@
                     "system": "permission"
                 }
             },
-            "notes": "写接口，默认仅本机来源可调用（40302）；建议携带 Idempotency-Key。授权本身需要 system.contract.override 权限（40303），且执行者会再次用同一个决策器复核，绕过 RequestGuard 直调执行者也不会变成无主授权。upsert 语义：重复登记只更新，不产生脏数据。",
+            "notes": "写接口，默认仅本机来源可调用（40302）；建议携带 Idempotency-Key。授权本身需要 system.contract.override 权限（40303），且执行者会再次用同一个决策器复核，绕过 RequestGuard 直调执行者也不会变成无主授权。upsert 语义：重复登记只更新，不产生脏数据。 0.44.0 起覆盖台账面板刻意不接写入口：装配期动作只应经本机来源（RequestGuard 40302），页面直调执行者会绕过来源限制；它保留在零消费清单里是设计，不是遗漏。",
             "changelog": [
+                "0.44.0 明确不接网页写入口，保留命令行 / 本机来源通道",
                 "0.8.0 初次发布"
             ],
             "doc": "docs/api/API-PERM-012.md",
@@ -2813,8 +2818,9 @@
                     "system": "permission"
                 }
             },
-            "notes": "只读接口。组只是角色来源：成员通过组获得的角色与自身角色取并集，不复制授权表。拔库回退时返回空图并带 fallback 告警。",
+            "notes": "只读接口。组只是角色来源：成员通过组获得的角色与自身角色取并集，不复制授权表。拔库回退时返回空图并带 fallback 告警。 0.44.0 起 /console/acl 的用户组面板列出组 / 角色 / 成员，并用 users.view 查账号辅助填写成员主体。",
             "changelog": [
+                "0.44.0 由 /console/acl 用户组面板消费",
                 "0.9.0 初次发布"
             ],
             "doc": "docs/api/API-PERM-013.md",
@@ -2934,8 +2940,9 @@
                     "system": "permission"
                 }
             },
-            "notes": "写接口，默认仅本机来源可调用（40302）；建议携带 Idempotency-Key。组不新增权限层：只扩大主体的角色集合，显式 deny 与策略收紧仍优先。删除组会一并清理成员与角色绑定，不会留下悬空关系。 v0.10 起组支持颜色与排序，两者都只是展示属性，不参与权限决策。",
+            "notes": "写接口，默认仅本机来源可调用（40302）；建议携带 Idempotency-Key。组不新增权限层：只扩大主体的角色集合，显式 deny 与策略收紧仍优先。删除组会一并清理成员与角色绑定，不会留下悬空关系。 v0.10 起组支持颜色与排序，两者都只是展示属性，不参与权限决策。 0.44.0 起 /console/acl 在页面层补：角色名与成员账号存在性校验（接口不校验，写进去是悬空绑定）、删除组手写标识确认、文本长度与 sort 类型；changed=false 分场景回报（重复绑定 / 移除本来就没有的绑定），不一律说成功。",
             "changelog": [
+                "0.44.0 由 /console/acl 消费；页面层补存在性、确认与 changed=false 语义",
                 "0.9.0 初次发布"
             ],
             "doc": "docs/api/API-PERM-014.md",
@@ -6563,8 +6570,9 @@
                     "system": "user"
                 }
             },
-            "notes": "数字按 ID 解释，其余按用户名解释 —— 与 user.lookup 钩子同一口径，避免同名账号与 ID 撞车。",
+            "notes": "数字按 ID 解释，其余按用户名解释 —— 与 user.lookup 钩子同一口径，避免同名账号与 ID 撞车。 0.44.0 起 /console/acl 同时把它用作读路径（?user= 查账号）与写前校验（ACL 主体 / 组成员 user:<id> 是否存在），两处都消费。",
             "changelog": [
+                "0.44.0 由 /console/acl 消费：查账号读路径 + 写前存在性校验",
                 "0.27.0 初次发布"
             ],
             "doc": "docs/api/API-USER-004.md"

@@ -128,6 +128,23 @@ check('零消费清单与确证消费互斥', function () use ($run): void {
     }
 });
 
+check('v0.44：资源 ACL / 用户组 / 角色树 / 覆盖台账离开零消费，覆盖授权刻意仍是零消费',
+    function () use ($run): void {
+        $data = json_decode($run('--json')['text'], true) ?: [];
+        $all = (array) ($data['all'] ?? []);
+        foreach (['permission.acl.set', 'permission.acl.list', 'permission.role.tree',
+            'permission.overrides', 'permission.groups', 'permission.group', 'users.view'] as $op) {
+            $row = (array) ($all[$op] ?? []);
+            truthy(($row['kind'] ?? 'none') !== 'none', $op . ' 仍是零消费');
+            $own = array_filter((array) ($row['consumers'] ?? []),
+                static fn(string $f): bool => str_starts_with($f, 'pages/Acl/'));
+            truthy($own !== [], $op . ' 的消费方里没有 pages/Acl/ 下的文件');
+        }
+        // 装配期动作不进网页：页面直调执行者会绕过 RequestGuard 的本机来源限制。
+        truthy(isset($data['zero']['permission.override.grant']),
+            'permission.override.grant 不该被页面消费');
+    });
+
 check('--zero 只打印零消费，不混入已消费段', function () use ($run): void {
     $r = $run('--zero');
     truthy($r['code'] === 0, '--zero 退出码非 0');

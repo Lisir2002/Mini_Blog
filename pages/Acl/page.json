@@ -1,0 +1,19 @@
+{
+  "slug": "acl",
+  "class": "Wx\\Pages\\Acl\\AclPage",
+  "version": "0.1.0",
+  "priority": 48,
+  "enabled": true,
+  "layout": "admin",
+  "routes": [
+    "/console/acl"
+  ],
+  "_note": "资源 ACL 与用户组：permission.acl.list 无按资源过滤参数、返回最近 100 条，所以先按 content.posts 选文章，再在页面层筛出该文章的条目。四个面板（?panel=）：acl 资源 ACL、groups 用户组、tree 角色继承树、overrides 契约覆盖台账（只读）。permission.override.grant 刻意不接：装配期动作不进网页，本机来源限制在 RequestGuard 层，页面直调执行者会绕过它。",
+  "access": {
+    "auth": "admin",
+    "permission": "permission.read",
+    "form_ticket": "permission.read",
+    "deny_layout": "deny",
+    "_note": "页面声明 permission.read（能看授权不等于能改授权）；写动作 permission.acl.set / permission.group 在 AclAction 里现场问 permission.manage，与 /console/roles 同一套边界。票据只绑页面级权限点。契约覆盖授权要求 system.contract.override 且默认仅本机来源，本页只读展示、不提供写入口。"
+  }
+}

@@ -24,7 +24,7 @@
 
 **适用场景**：排查「某个契约为什么被替换了」；开启 require_grant 前先确认现有覆盖是否已登记授权。
 
-**实现备注**：只读接口。require_grant=false 时所有覆盖都标记 authorized=true（保持「只留痕」语义）；拔库回退时 grants 为空数组且不伪造授权。
+**实现备注**：只读接口。require_grant=false 时所有覆盖都标记 authorized=true（保持「只留痕」语义）；拔库回退时 grants 为空数组且不伪造授权。 0.44.0 起 /console/acl 的覆盖台账面板只读展示 require_grant / unauthorized / grants，不提供授权按钮。
 
 ## 3. 请求规范
 
@@ -118,6 +118,7 @@ GET /api/v1/permission/overrides  Authorization: Bearer <admin-token>
 
 ## 8. 变更记录
 
+- 0.44.0 由 /console/acl 覆盖台账面板消费（只读）
 - 0.8.0 初次发布
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；

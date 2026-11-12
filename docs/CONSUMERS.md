@@ -27,6 +27,7 @@
 | v0.46 | `comments.delete` / `emojis.delete` | 评论删除与表情删除没有后台入口：队列口径只覆盖被举报条目，表情目录只在 journey 脚本里出现 |
 | v0.47 | `system.health` / `layers` / `contracts`、`content.stats`、`auth.session.revoke` / `auth.logout` | /console/system 早已逐项调用 system.*，但「'system.' . $key」拼接让扫描器看不见 —— 这不是漏接，是漏报；内容规模与两个会话撤销接口则真的没有消费方 |
 | v0.48 | `release.history` / `lifecycle.verify` / `lifecycle.releases` / `state.task.status`；其余 10 个写接口转入刻意零消费登记表 | 「决定要不要回退」需要看得到事实，但升级面的四个只读接口没有页面；写接口的「刻意不接网页」从口头约定变成登记表 |
+| v0.49 | `attachments.upload` | 唯一接收原始字节的写接口只有工具消费方：矩阵看到 faults / journey 用它就不算零消费，刻意零消费登记表也拦不住 —— 「能力在、入口缺」的存量缺口只能靠逐个接口过一遍 |
 
 每一次都是「能力完备、闭环缺失」。人工检查不可持续，所以把它变成一个可重跑的查询。
 
@@ -93,3 +94,5 @@ v0.46 再减少 2 个：`comments.delete` 由 `/console/queue` 消费，并补�
 v0.47 再减少 6 个，其中一半是**修漏报而不是补消费**：`/console/system` 从 v0.39 起就真的在调用 `system.health` / `system.layers` / `system.contracts`，但取数走 `'system.' . $key` 动态拼接，扫描器只认 `execute('operation', ...)` 字面量 —— 已消费被误报成零消费。改为显式字面量映射后矩阵如实记账，这一条写进 `64` 组守卫：拼接调用从此是反模式。同批真的补上的：`content.stats` 进 `/console/system` 的「内容规模」区块（published/total 与文章列表同口径）；`auth.session.revoke` 由安全层 `PageSession::logout` 消费（登出走与 API 客户端同一执行器，只撤 `kind=session`，接口不可用降级直撤并留痕）；`auth.logout` 由 `PageSession::revokeResidual` 消费（换号登录前把残留 Cookie 指向的旧凭据撤掉，`revoked=false` 幂等）。两者都经 `@consumes` 标注记为安全层引用。零消费 20 → 14。
 
 v0.48 分两步走。先真补上 4 个只读探查接口（`release.history` 发布历史完整上表、`lifecycle.verify` 单元摘要核对、`lifecycle.releases` 快照清单、`state.task.status` 按任务 id 查相位），全部由 `/console/system` 以 GET 查询消费 —— 14 → 10，剩下的 10 个全部是「有写能力、按设计不接网页」。再把这句话制度化：`api/deliberate-zero.json` 登记这 10 个接口（安装 / 启用 / 升级 / 卸载 / 回滚 / 契约覆盖授权），每条带理由；`tools/consumers.php` 把零消费分成「刻意保留」（登记过）与「未登记」（真正没人用）两桶，`49` / `64` 组守卫做双向核对 —— 登记了已消费的 op、存在未登记的零消费、理由缺失，都会被拦下。**未登记零消费从此必须为空**：新接口要么有入口、要么先写清为什么不做入口。
+
+v0.49 补上 `attachments.upload`：从 v0.13 起它就是唯一接收原始字节的写接口，但消费方只有 faults / journey 这类测试工具 —— 矩阵看到工具消费就不算零消费，v0.48 的登记表也只拦「零消费」，两头都拦不住「能力在、入口缺」的存量缺口。`/console/attachments` 新增独立 multipart 上传表单（`core/Http/Request` 加 `files` 通道，`file()` 访问器只接受 `UPLOAD_ERR_OK` 且 tmp 存在的上传，其余返回 null），页面 Action 现场问 `attachment.upload`（与改动的 `attachment.manage` 互相独立），把字节原样交给执行器 —— 展示名不做输入（接口的 `name` 参数同时决定扩展名，另起名会破坏类型判定）。`66` 组守卫同时锁两件事：上传链路的运行时行为（303 / 422 / 白名单 / 魔数 / 权限），以及 `attachments.upload` 必须保留页面消费方 —— 防止未来清理工具时页面入口被误伤回退。

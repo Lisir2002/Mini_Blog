@@ -44,6 +44,7 @@ final class AttachmentsNotice
             'move'    => '挂载文章已修改',
             'delete'  => '附件已软删除',
             'already' => '此前已删除，本次没有变化',
+            'upload'  => '附件已上传',
             default   => '改动已保存',
         };
     }

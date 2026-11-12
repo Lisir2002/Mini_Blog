@@ -24,7 +24,7 @@
 
 **适用场景**：文章编辑器直接拖拽上传图片或 PDF；自动化脚本用 curl --data-binary 推送构建产物。
 
-**实现备注**：这是唯一接收原始字节的写接口，不经 JSON 信封。客户端 Content-Type 只作提示，类型由扩展名白名单与文件头共同推导；SVG / HTML / JS / PHP 一律拒绝。同名不同内容不会覆盖：路径由哈希决定。
+**实现备注**：这是唯一接收原始字节的写接口，不经 JSON 信封。客户端 Content-Type 只作提示，类型由扩展名白名单与文件头共同推导；SVG / HTML / JS / PHP 一律拒绝。同名不同内容不会覆盖：路径由哈希决定。 v0.49 起被 /console/attachments 消费：浏览器原生 multipart 表单（file 输入 + 两个可见性提交按钮）经页面 Action 把字节原样交给执行器 —— 展示名不做输入（接口的 name 参数同时决定扩展名，另起名会破坏类型判定）；权限现场问 attachment.upload，与改动的 attachment.manage 互相独立；失败 422 不跳转且明确说文件不可回填。
 
 ## 3. 请求规范
 
@@ -129,6 +129,7 @@ curl -X POST -H 'Authorization: Bearer <token>' --data-binary @cover.png 'http:/
 ## 8. 变更记录
 
 - 0.13.0 初次发布
+- 0.49.0 被 /console/attachments 消费，附件库补上上传入口（multipart 表单，页面现场问 attachment.upload）。
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；
 > 追加可选字段、新增接口、新增可选过滤值属于兼容性变更，沿用当前版本。

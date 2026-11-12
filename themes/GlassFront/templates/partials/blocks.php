@@ -46,7 +46,7 @@
 <?php   $action = (string) ($b['action'] ?? ''); ?>
 <?php   $method = strtolower((string) ($b['method'] ?? 'post')) === 'get' ? 'get' : 'post'; ?>
 <?php   if ($action !== ''): ?>
-  <form class="glass-form" method="<?= $esc($method) ?>" action="<?= $esc($action) ?>">
+  <form class="glass-form" method="<?= $esc($method) ?>" action="<?= $esc($action) ?>"<?= (string) ($b['enctype'] ?? '') !== '' ? ' enctype="' . $esc((string) $b['enctype']) . '"' : '' ?>>
 <?php     if ((string) ($b['body'] ?? '') !== ''): ?>
     <p class="glass-form__body"><?= $esc((string) $b['body']) ?></p>
 <?php     endif; ?>

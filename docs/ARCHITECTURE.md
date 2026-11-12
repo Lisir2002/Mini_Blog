@@ -563,7 +563,8 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | v0.22 | **启动期边界**：把「构造」纳入异常边界——`Kernel::serve()` 包住构造与 `run()`，`public/index.php` 只留一行调用。此前 `config/local.php`（主题启用唯一会写的文件）损坏会在构造期抛出、落在 `run()` 之外：`display_errors=0` 时 HTTP/1.0 500 空 body（白屏），`display_errors=1` 时 **HTTP 200** + 绝对路径与 `Parse error`（监控看到成功，缓存与爬虫把错误页当正常页收下）。新增 `tools/journey/Server.php`（内置服务器：端口探测 / 就绪等待 / 原始响应读出 / 强制回收）与 `tools/faults/StartupFaults.php`（装配期、构造期各含自愈，全程 `display_errors=1`），`faults` 从九类扩到十一类；`30` 组守卫做入口唯一性、兜底正文唯一性、子进程构造期断言。故障只进 SAPI 日志、不进响应体；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.23 | **稳定性的代价**：v0.20 的原子写与流式下载此前只有正确性守卫、没有数字。新增 `tools/bench/StabilityProbe.php` 与 `php tools/bench.php stability`：幂等 `claim`+`complete` 45 µs/次、限流 `check` 11 µs/次（约占一次请求 3.7 ms 的 1%）、6 进程 × 200 键并发落盘 **1200/1200** 一条不丢；附件 64 MB 全量 **66.0 MB** 峰值 / 分块 **2.0 MB**（−97%），本地落盘耗时约 1.8 倍。文档只锁「可重跑命令」，数值标注为机器快照；顺带修掉 PERFORMANCE §8 里写死的「250 passed / 50 分组文件」（早已静默过期），并把性能文档纳入事实对账。`31` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.24 | **反向锚点**：正向锚点只能核对「已经想到要核对的句子」——v0.20 起查出的四处漂移（README 徽章 `282 passing`、SPEC 漏登 5 个错误码、architecture.html 页眉「14 系统层 · 55 接口」、结构树「40 个分组 200 项守卫」）都不是写错，而是**没有锚点**，坏掉时对账仍报零漂移。新增 `tools/facts/Coverage.php`：扫「有单一真源的名词」前的数字，未被任一锚点覆盖且非史实句即为候选；候选不与绝对值比对（那会立刻产生 611 条噪音），而与 `coverage-baseline.php` 快照比增量，只报**新出现的组合**（611 → 32 条，当前零假红）。`php tools/facts.php verify` 输出 `NEW` 行并以非 0 退出；`accept` 是唯一写文件的模式，且只覆盖该快照。顺带把 26b 里「源码不含 `file_put_contents`」这条字符串近似断言改为行为验证（跑 verify 前后比对 docs / tools/facts 的 md5 与 mtime）。`32` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
-| **v0.48（当前）** | **升级可观测与刻意零消费制度化**：零消费清单里剩下的 10 个全部是「有写能力、按设计不接网页」的接口 —— 这句话连续说了几版，v0.48 把它变成登记表 `api/deliberate-zero.json`（每条必须带理由；已有消费方的 op 登记进来会被守卫拦下），`tools/consumers.php` 从此把零消费分成「刻意保留」与「未登记」两桶，未登记必须为空。同时把四个只读探查接口接进 `/console/system`：`release.history` 发布历史完整上表、`lifecycle.verify` 单元摘要核对（`no-manifest` 必须明说「未比对」，不许伪装成绿灯）、`lifecycle.releases` 快照清单（空态说明「从未快照、回退无目标」）、`state.task.status` 按任务 id 查相位；探查入口是 GET 链接，页面上依旧没有写按钮。零新增接口、零新增系统层、`core/` 零改动；新增 `65` 组共 7 项守卫。 |
+| **v0.49（当前）** | **附件上传闭环**：`attachments.upload` 从 v0.13 起是唯一接收原始字节的写接口，但它的消费方只有测试工具 —— 管理员要给文章配图必须手写 API 脚本。本轮补上最后这个入口：`core/Http/Request` 增加 multipart 文件通道（`files` 参数 + `file()` 访问器；`fromGlobals` 按 Content-Type 识别 multipart 并跳过 `php://input` —— PHP 明确禁止读已被解析器消费的流），`/console/attachments` 新增独立的上传表单（一张表单一种 enctype，与改动表单分开；展示名不做输入 —— 接口的 `name` 参数同时决定扩展名，另起名会破坏「扩展名 → 白名单 → 魔数」的类型判定）；可见性用两个提交按钮枚举，绝不自由输入 —— 接口把任何非 private 的字符串都当成 public。权限现场问 `attachment.upload`，与改动的 `attachment.manage` 互相独立：能传不等于能改。类型 / 魔数 / 8MB 上限 / 单篇 20 个的校验全部留在 AttachmentGuard，页面只把字节原样交给执行器；失败 422 不跳转并明确说「文件不可回填，需重新选择」。本轮是 `core/` 在 v0.20 流式出口之后的第二次最小扩展（+1 参数 +1 方法 +1 跳过条件）；新增 `66` 组共 8 项守卫。 |
+| **v0.48** | **升级可观测与刻意零消费制度化**：零消费清单里剩下的 10 个全部是「有写能力、按设计不接网页」的接口 —— 这句话连续说了几版，v0.48 把它变成登记表 `api/deliberate-zero.json`（每条必须带理由；已有消费方的 op 登记进来会被守卫拦下），`tools/consumers.php` 从此把零消费分成「刻意保留」与「未登记」两桶，未登记必须为空。同时把四个只读探查接口接进 `/console/system`：`release.history` 发布历史完整上表、`lifecycle.verify` 单元摘要核对（`no-manifest` 必须明说「未比对」，不许伪装成绿灯）、`lifecycle.releases` 快照清单（空态说明「从未快照、回退无目标」）、`state.task.status` 按任务 id 查相位；探查入口是 GET 链接，页面上依旧没有写按钮。零新增接口、零新增系统层、`core/` 零改动；新增 `65` 组共 7 项守卫。 |
 | **v0.47** | **消费矩阵漏报修正与会话收口**：`/console/system` 早已逐项调用 `system.health` / `layers` / `contracts`，但 `'system.' . $key` 拼接让扫描器看不见 —— 已消费被误报成零消费挂了八个版本。改为显式字面量映射并把「拼接接口名」写进守卫当反模式；`content.stats` 进运维视图「内容规模」区块（published/total 与列表同口径）；`auth.session.revoke` 由 `PageSession::logout` 消费（登出走与 API 客户端同一执行器，只撤 `kind=session`，降级直撤并留痕、Cookie 清除无条件），`auth.logout` 由 `PageSession::revokeResidual` 消费（换号登录先撤残留旧凭据，`revoked=false` 幂等、失败不阻断登录）。零消费 20 → 14，剩余全是 lifecycle / release 元层与刻意保留，守卫从此拦截「零消费清单出现业务接口」。零新增接口、零新增系统层、`core/` 零改动；新增 `64` 组共 8 项守卫。 |
 | **v0.46** | **两个删除闭环**：`comments.delete` / `emojis.delete` 两个写接口零消费，缺的是能看清现状、能确认影响面、能解释结果的后台入口。本轮把 `/console/queue` 扩成双视图（审核队列 + 按文章浏览），补上 `content.posts → content.post → comments.list` 这条浏览路径 —— 队列口径只收 pending 与被举报条目，删正常文章下的评论必须另有入口；删除要求手写 id 确认、现场问 `comment.delete.any`，把软删终态、回复链保留、`already` 幂等、终态再审核 `40901` 分开回报。同时新建 `/console/emojis` 接 `emojis.list` / `register` / `delete`：内置不给删除按钮、短码语法与占用预查、`attachment_id` 只认本站图片附件，删除不重写历史；同一个 `40403` 按「登记 = 附件不存在 / 删除 = 表情不存在」分别翻译。页面分别声明 `comment.moderate` / `content.read`，写动作现场问 `comment.delete.any` / `emoji.manage`。零新增接口、零新增系统层、`core/` 零改动；新增 `62` / `63` 两组共 20 项守卫，并把 `44b` 组旧有的裸 Location 断言改为「仍指回本页」。详见 [`docs/DELETIONS.md`](DELETIONS.md)。 |
 | **v0.45** | **分类与标签**：`content.terms.manage` / `content.attach` 两个写接口零消费，而读路径 `content.terms` 只在前台归档页用过 —— 后台缺的是「选中某篇文章、看清它已挂了什么」的浏览路径。本轮补 `/console/terms`：按 `content.posts` 选文章、`content.post` 复核并取出 `terms` 字段预填挂载框，再把术语新建 / 改名 / 删除与文章整体替换接成闭环。页面层挡住接口不校验的输入（重复 slug 40911、不存在的引用与 ID 40404、名称按字符 60 字 / 说明 200 字），删除手写 slug 确认并回报 `relations_removed`；明确 `content.attach` 是**整体替换**（留空即清空，需手写文章 slug 确认），`added=removed=0` 单独说幂等。顺手补上 `content.post` / `content.posts` 实际早已返回、但契约 `response_fields` 未声明的 `terms` / `items[].terms`。50101 降级、空清单、文章读不到、`terms` 字段缺失四种状态分离，都关闭对应写入口。页面声明 `content.read`；术语增删改现场问 `content.manage_terms`、挂载现场问 `content.edit`，两个写权限点分别裁决。顺带修掉 `ContentTermStore::update()` 的幂等缺陷：`updated_at` 无条件刷新曾让同值提交跨秒误报 `updated=true`，现在先比对当前值、未变则不发 UPDATE（`61b` 组用秒翻转锁住）。零新增接口、零新增系统层、`core/` 零改动；新增 `61` / `61b` 两组共 15 项守卫。详见 [`docs/TERMS.md`](TERMS.md)。 |
@@ -593,10 +594,10 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **540 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
-- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`，v0.28 新增 `36`，v0.29 新增 `37` / `37b`，v0.30 新增 `38` / `38b`，v0.31 新增 `39` / `39b` / `40` / `40b` / `41` / `41b`，v0.32 新增 `42` / `43`，v0.33 新增 `44` / `44b` / `45` / `45b` / `46` / `47` / `48` / `49`，v0.34 新增 `50` / `50b`，v0.35 新增 `51`，v0.36 新增 `52`，v0.37 新增 `53`，v0.38 新增 `54`，v0.39 新增 `55`，v0.40 新增 `56`，v0.41 新增 `57`，v0.42 新增 `58`，v0.43 新增 `59`，v0.44 新增 `60`，v0.45 新增 `61` / `61b`，v0.46 新增 `62` / `63`，v0.47 新增 `64`，v0.48 新增 `65`）。
+- `php -l` 全量 **541 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
+- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`，v0.28 新增 `36`，v0.29 新增 `37` / `37b`，v0.30 新增 `38` / `38b`，v0.31 新增 `39` / `39b` / `40` / `40b` / `41` / `41b`，v0.32 新增 `42` / `43`，v0.33 新增 `44` / `44b` / `45` / `45b` / `46` / `47` / `48` / `49`，v0.34 新增 `50` / `50b`，v0.35 新增 `51`，v0.36 新增 `52`，v0.37 新增 `53`，v0.38 新增 `54`，v0.39 新增 `55`，v0.40 新增 `56`，v0.41 新增 `57`，v0.42 新增 `58`，v0.43 新增 `59`，v0.44 新增 `60`，v0.45 新增 `61` / `61b`，v0.46 新增 `62` / `63`，v0.47 新增 `64`，v0.48 新增 `65`，v0.49 新增 `66`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；540 个文件共 39,533 有效代码行，最大单文件 202 行，92 个 operation 全部绑定执行者。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；541 个文件共 39,776 有效代码行，最大单文件 202 行，92 个 operation 全部绑定执行者。
 - **18 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → metric → page`；**13 个契约接口文件**（容器运行时绑定 28 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个、页面守卫 1 个等内部注册项）、**92 个接口 / 92 份文档**、OpenAPI 3.1（84 路径 / 92 操作）、**49 个承载单元**（18 系统层 + 4 主题 + 25 独立页 + 2 插件）、**49 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
 - HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.25.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
@@ -2360,6 +2361,56 @@ v0.41 交付时 `member.*` 还有五个写接口没人调。它们的难点不�
 
 **边界**：不做任何升级/回滚的网页入口（保持刻意零消费）；`verify` 只读不修复；
 任务创建/推进仍由各系统层完成，本页只查询。
+
+---
+
+## 59. 附件上传闭环（v0.49）
+
+`attachments.upload` 从 v0.13 起就是接口清单里唯一接收原始字节的写接口，
+但它的消费方只有测试工具（journey / faults）：管理员要给文章配图，
+得手写 `curl --data-binary`。这是零消费制度建立后第一个「能力在、入口缺」的
+存量缺口 —— 它不在刻意零消费登记表里（矩阵看到工具消费就不算零），
+所以守卫拦不住，只能靠逐个接口过一遍。
+
+### 消费矩阵的盲区
+
+v0.48 的双向核对只覆盖「零消费」，而 `attachments.upload` 早就不零 ——
+faults 工具要用它造数据。这条盲区 v0.49 没有用工具修，而是用守卫补了一句：
+`66` 组断言 `attachments.upload` 必须有页面消费方
+（`pages/Attachments/AttachmentsAction.php`），防止未来哪轮清理工具时
+页面入口被误伤回退成「只有工具消费」。
+
+### 一张表单一种 enctype
+
+上传表单与改动表单分开：混在一起会让「没选文件的改动提交」也被浏览器按
+multipart 打包，而 attachments 页面的既有改动走 JSON 风格的表单编码。
+`core/Http/Request` 的扩展刻意最小：
+
+- `files` 构造参数（带默认值，既有调用零破坏）+ `files()` / `file(string $key)`；
+- `file()` 只接受 `UPLOAD_ERR_OK` 且 tmp 文件存在的上传，其余一律 null ——
+  PHP 的报错（INI_SIZE / NO_FILE）不能被当成「空字节」递给执行器；
+- `fromGlobals()` 按 `CONTENT_TYPE` 识别 multipart 并跳过 `php://input`：
+  PHP 明确禁止读已被 multipart 解析器消费的流，读到空串会让下游误判
+  「请求体为空」。
+
+### 校验留在系统层，页面不替它做决定
+
+扩展名白名单（12 种）、魔数 / UTF-8 判定、8MB 上限、单篇 20 个的上限、
+同名不同内容不覆盖（内容寻址）—— 全部在 `AttachmentGuard` 与执行器里，
+页面只把表单字节原样交给 `attachments.upload`。页面层做的只有三件
+「接口不管」的事：
+
+1. **展示名不做输入**。接口的 `name` 参数同时决定扩展名与展示名，
+   另起名会破坏「扩展名 → 白名单 → 魔数」的类型判定链；
+2. **可见性用按钮枚举**。接口把任何非 `private` 的字符串都当成 `public`，
+   自由输入一个拼错的词会静默把私有附件公开 —— 与改动表单同一条规矩；
+3. **失败说明文件不可回填**。422 不跳转、表单值回填，但文件内容
+   浏览器不会保留，提示必须明说「需要重新选择」，不能让管理员以为
+   提交还在待重试状态。
+
+**边界**：上传权限点 `attachment.upload` 与改动的 `attachment.manage` 互相
+独立（能传不等于能改）；页面不代理字节（下载仍走 `/attach/download` 二次鉴权）；
+`core/` 的扩展是 v0.20 流式出口之后的第二次最小扩展。
 
 ---
 

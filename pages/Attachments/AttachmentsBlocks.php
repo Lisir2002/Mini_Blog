@@ -27,7 +27,8 @@ final class AttachmentsBlocks
             return array_merge($blocks, self::posts($data), [self::boundary()]);
         }
         return array_merge($blocks, self::article($data), self::attachments($data),
-            AttachmentsForms::build($data), [self::nav($data), self::boundary()]);
+            AttachmentsForms::uploadForm($data), AttachmentsForms::build($data),
+            [self::nav($data), self::boundary()]);
     }
 
     /** @return array<string, mixed> */
@@ -36,6 +37,7 @@ final class AttachmentsBlocks
         return ['type' => 'notice', 'id' => 'attach-scope', 'tone' => 'info', 'state' => 'scope',
             'title' => '附件库：先选文章，再选附件',
             'value' => '附件元数据来自 attachments.list（必填 post_slug），正文引用来自 content.post，'
+                . '上传走 attachments.upload（multipart 表单，字节不经过页面层转存），'
                 . '改动走 attachments.update / attachments.delete。'
                 . '下载走 /attach/download?id= 二进制通道，每次都二次鉴权 —— 本页只给链接，'
                 . '不把文件字节读进页面层。'];
@@ -162,9 +164,9 @@ final class AttachmentsBlocks
         return ['type' => 'notice', 'id' => 'attach-boundary', 'tone' => 'info', 'state' => 'boundary',
             'title' => '这一页的边界',
             'value' => '没有「列出全站附件」的接口，只能按文章浏览；total 是当前身份可见数，'
-                . '不是库内总数。正文引用检查是字面匹配（URL / 展示名），不是结构化引用表 —— '
-                . '所以它只用来拦住明显会坏的操作，读不到正文时一律拒绝删除。'
-                . '删除是软删除，字节要等引用计数为 0 才由独立流程回收；'
+                . '不是库内总数。正文引用检查是字面匹配，只用来拦住明显会坏的操作，'
+                . '读不到正文时一律拒绝删除。删除是软删除，字节要等引用计数为 0 才由独立流程回收；'
+                . '上传与改动的权限点互相独立（upload / manage）：能传不等于能改。'
                 . '下载链接每次都二次鉴权，本页不代理字节。'];
     }
 }

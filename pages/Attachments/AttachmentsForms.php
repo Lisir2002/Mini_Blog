@@ -12,10 +12,48 @@ namespace Wx\Pages\Attachments;
  */
 final class AttachmentsForms
 {
+    /**
+     * 上传表单 —— 独立于改动表单：一张表单一种 enctype，混在一起会让
+     * 「没选文件的改动提交」也被浏览器按 multipart 打包。
+     *
+     * 展示名不做输入：接口的 name 参数同时决定扩展名与展示名，另起名会破坏
+     * 「扩展名 → 白名单 → 魔数」的类型判定。可见性用两个提交按钮给出枚举，
+     * 绝不让自由输入 —— 接口把任何非 private 的字符串都当成 public。
+     *
+     * @param array<string, mixed> $data @return list<array<string, mixed>>
+     */
+    public static function uploadForm(array $data): array
+    {
+        if (($data['can_upload'] ?? false) !== true || (string) ($data['ticket'] ?? '') === '') {
+            return [['type' => 'notice', 'id' => 'attach-upload-no', 'tone' => 'info',
+                'state' => 'permission-denied', 'title' => '上传入口不可用',
+                'value' => '上传要求 attachment.upload 权限点（与改动的 attachment.manage 互相独立）。'
+                    . '清单与下载链接仍然可用。']];
+        }
+        $slug = (string) ($data['slug'] ?? '');
+        return [['type' => 'form', 'id' => 'attach-upload-form',
+            'title' => '上传新附件' . ($slug !== '' ? '（挂载到「' . $slug . '」）' : ''),
+            'action' => '/console/attachments?' . http_build_query(['slug' => $slug]),
+            'method' => 'post', 'enctype' => 'multipart/form-data',
+            'hidden' => [
+                ['name' => '_form_ticket', 'value' => (string) $data['ticket']],
+                ['name' => 'slug', 'value' => $slug],
+            ],
+            'fields' => [
+                ['tag' => 'input', 'id' => 'att-file', 'name' => 'file', 'type' => 'file',
+                    'placeholder' => '选择文件（扩展名决定类型判定）'],
+                ['tag' => 'submit', 'name' => 'op', 'value' => 'upload:public', 'label' => '以公开上传'],
+                ['tag' => 'submit', 'name' => 'op', 'value' => 'upload:private', 'label' => '以私有上传'],
+            ],
+            'note' => '类型由扩展名白名单（png jpg jpeg gif webp pdf zip txt md csv mp3 mp4）'
+                . '加文件头共同推导，SVG / HTML / JS / PHP 一律拒绝；单个文件上限 8 MB；'
+                . '单篇文章最多 20 个附件。同名不同内容不会覆盖：存储路径由内容哈希决定。'
+                . '失败不跳转，但文件内容不会保留 —— 需要重新选择文件。']];
+    }
+
     /** @param array<string, mixed> $data @return list<array<string, mixed>> */
     public static function build(array $data): array
-    {
-        $id = (int) ($data['id'] ?? 0);
+    {        $id = (int) ($data['id'] ?? 0);
         if ($id <= 0) return [];
         $row = null;
         foreach ((array) ($data['items'] ?? []) as $item) {

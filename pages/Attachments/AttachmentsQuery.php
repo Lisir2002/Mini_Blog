@@ -45,7 +45,8 @@ final class AttachmentsQuery
             'posts' => null, 'posts_fail' => '', 'post' => null,
             'post_state' => 'idle', 'post_error' => '',
             'items' => null, 'total' => 0, 'attachments_state' => 'idle', 'attachments_error' => '',
-            'refs' => [], 'can' => self::can($kernel, $identity)];
+            'refs' => [], 'can' => self::can($kernel, $identity),
+            'can_upload' => self::canUpload($kernel, $identity)];
 
         $container = $kernel->container();
         if (!$container->has(ApiRegistryInterface::class)) {
@@ -113,12 +114,27 @@ final class AttachmentsQuery
             && $acl->allows($identity, 'attachment.manage');
     }
 
+    /**
+     * 上传按钮的显示条件与改动分开：上传是 attachment.upload，
+     * 改动是 attachment.manage —— 能传不等于能删，反过来也一样。
+     *
+     * @param array<string, mixed>|null $identity
+     */
+    private static function canUpload(Kernel $kernel, ?array $identity): bool
+    {
+        $container = $kernel->container();
+        if (!$container->has(AccessControlInterface::class)) return false;
+        $acl = $container->resolve(AccessControlInterface::class);
+        return $acl instanceof AccessControlInterface
+            && $acl->allows($identity, 'attachment.upload');
+    }
+
     /** @return array<string, mixed> */
     private static function fail(int $status, string $message): array
     {
         return ['ok' => false, 'status' => $status, 'error' => $message, 'slug' => '', 'id' => 0,
             'posts' => null, 'posts_fail' => '', 'post' => null, 'post_state' => 'idle',
             'post_error' => '', 'items' => null, 'total' => 0, 'attachments_state' => 'idle',
-            'attachments_error' => '', 'refs' => [], 'can' => false];
+            'attachments_error' => '', 'refs' => [], 'can' => false, 'can_upload' => false];
     }
 }

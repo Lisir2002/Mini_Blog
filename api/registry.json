@@ -727,7 +727,7 @@
         "message": "ok",
         "data": {
           "framework": "Mini Blog",
-          "core_version": "0.48.0",
+          "core_version": "0.49.0",
           "php": "8.3.6",
           "requires_php": ">=8.1",
           "api_version": "v1",
@@ -5251,9 +5251,10 @@
           "system": "attachment"
         }
       },
-      "notes": "这是唯一接收原始字节的写接口，不经 JSON 信封。客户端 Content-Type 只作提示，类型由扩展名白名单与文件头共同推导；SVG / HTML / JS / PHP 一律拒绝。同名不同内容不会覆盖：路径由哈希决定。",
+      "notes": "这是唯一接收原始字节的写接口，不经 JSON 信封。客户端 Content-Type 只作提示，类型由扩展名白名单与文件头共同推导；SVG / HTML / JS / PHP 一律拒绝。同名不同内容不会覆盖：路径由哈希决定。 v0.49 起被 /console/attachments 消费：浏览器原生 multipart 表单（file 输入 + 两个可见性提交按钮）经页面 Action 把字节原样交给执行器 —— 展示名不做输入（接口的 name 参数同时决定扩展名，另起名会破坏类型判定）；权限现场问 attachment.upload，与改动的 attachment.manage 互相独立；失败 422 不跳转且明确说文件不可回填。",
       "changelog": [
-        "0.13.0 初次发布"
+        "0.13.0 初次发布",
+        "0.49.0 被 /console/attachments 消费，附件库补上上传入口（multipart 表单，页面现场问 attachment.upload）。"
       ],
       "doc": "docs/api/API-ATTACH-004.md",
       "permission": "attachment.upload",
@@ -7817,5 +7818,5 @@
       "doc": "docs/api/API-COMMENT-009.md"
     }
   ],
-  "core_version": "0.48.0"
+  "core_version": "0.49.0"
 }

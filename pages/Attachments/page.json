@@ -8,7 +8,7 @@
   "routes": [
     "/console/attachments"
   ],
-  "_note": "附件库：attachments.list 必填 post_slug，所以先按 content.posts 选文章，再列出该文章的附件。写操作接 attachments.update / attachments.delete；下载只渲染 /attach/download?id= 链接，页面不 execute 二进制通道。删除 / 改名前查 content.post 正文引用，读不到正文就 fail-closed 拒绝删除。",
+  "_note": "附件库：先选文章，再选附件。上传走 attachments.upload（multipart 表单，现场问 attachment.upload），改动走 attachments.update / attachments.delete（现场问 attachment.manage），下载只给链接不代理字节。写操作接 attachments.update / attachments.delete；下载只渲染 /attach/download?id= 链接，页面不 execute 二进制通道。删除 / 改名前查 content.post 正文引用，读不到正文就 fail-closed 拒绝删除。",
   "access": {
     "auth": "admin",
     "permission": "attachment.read",

@@ -358,7 +358,7 @@
         {
           "name": "items",
           "type": "object[]",
-          "desc": "文章对象：id / slug / title / excerpt / body / status / author / created_at"
+          "desc": "文章对象：id / slug / title / excerpt / body / status / author / created_at；并含 updated_at / publish_at / pinned / sort_weight / deleted_at（出站形状由 PostRow::normalize 统一，列表与详情共用一处转换）"
         },
         {
           "name": "next_cursor",
@@ -727,7 +727,7 @@
         "message": "ok",
         "data": {
           "framework": "Mini Blog",
-          "core_version": "0.52.0",
+          "core_version": "0.53.0",
           "php": "8.3.6",
           "requires_php": ">=8.1",
           "api_version": "v1",
@@ -3068,6 +3068,7 @@
       },
       "notes": "字段白名单只含 title / body / status / pinned / weight，每个字段单独调用一次 decide()，任一字段被拒则整次写入失败，不存在「部分成功」。status 走 ContentStatus 迁移矩阵：拼错的值返回 42201，已知但不可达的迁移返回 40908。定时发布请用 content.transition —— 那里能同时设置 publish_at。",
       "changelog": [
+        "0.53.0 页面开始消费 pinned / weight：/console/content 的推荐位表单是本接口第二个消费方，只带这两个字段、绝不夹带正文，以免字段级 ACL 连累正文保存。同版修正 status 改为非 published 时未清 publish_at 的残留（Pdo / Memory 两处同口径）。",
         "0.9.0 初次发布"
       ],
       "doc": "docs/api/API-CONTENT-005.md",
@@ -6803,6 +6804,7 @@
       },
       "notes": "迁移矩阵是穷举的：draft→review/published/archived，review→draft/published/archived，published→draft/archived，archived→draft/published；同状态重复提交是幂等成功（changed 字段不参与判断）。未知状态值返回 42201（拼写问题），已知但不可达返回 40908（顺序问题）——两者处置不同，不能压成一个码。publish_at 只对 published 有意义，改成其他状态时会被清空，避免留下「改回草稿却还排着未来时间」的残留。迁移是「比较并设置」：两个人同时改同一篇，后到的返回 40908 而不是静默覆盖。",
       "changelog": [
+        "0.53.0 页面开始消费 publish_at：/console/content 选中一篇文章后可设定 / 取消发布排期（ContentAdminPlacement 现场问 content.publish）。此前本接口已被发布 / 转草稿 / 归档按钮消费，那三个动作却从不传 publish_at —— 消费矩阵只看 operation 名，看不见参数级缺口。",
         "0.28.0 初次发布"
       ],
       "doc": "docs/api/API-CONTENT-006.md"
@@ -7819,5 +7821,5 @@
       "doc": "docs/api/API-COMMENT-009.md"
     }
   ],
-  "core_version": "0.52.0"
+  "core_version": "0.53.0"
 }

@@ -116,6 +116,9 @@ final class PdoContentRepository implements ContentRepositoryInterface
                 if (!ContentStatus::canTransition($from, (string) $value)) {
                     throw new InvalidArgumentException('不可达的状态迁移：' . $from . ' → ' . $value);
                 }
+                // 定时只对 published 有意义。改回草稿 / 归档却留着未来的 publish_at，
+                // 下次发布出去就会莫名其妙「还没上线」—— 与 transition 的清理同口径。
+                if ((string) $value !== ContentStatus::PUBLISHED) $sets[] = 'publish_at = NULL';
             }
             if (!in_array($key, ['title', 'body', 'status', 'pinned', 'weight'], true)) continue;
             if (($key === 'title' || $key === 'body') && trim((string) $value) === '') {

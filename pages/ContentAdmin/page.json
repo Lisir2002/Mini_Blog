@@ -1,14 +1,14 @@
 {
   "slug": "content",
   "class": "Wx\\Pages\\ContentAdmin\\ContentAdminPage",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "priority": 40,
   "enabled": true,
   "layout": "admin",
   "routes": [
     "/console/content"
   ],
-  "_note": "内容管理台：列表 + 状态迁移 + 回收站（恢复 / 彻底删除）。不做正文编辑器 —— 那是下一版的事，混进来会让写表单、校验与权限判定同时变复杂。写路径全部走本页 POST + 表单票据（绑定 content.read / 本路径），按钮按 content.publish / content.delete 逐条裁剪，接口层再判一次",
+  "_note": "内容管理：活文章 / 回收站两视图 + 生命周期写操作；v0.53 起选中一篇文章（?focus=slug）可设置发布排期（content.transition 的 publish_at）与推荐位（content.update 的 pinned / weight），两张独立表单各自现场问 content.publish / content.edit，票据只绑页面级 content.read。放在本页而非写作页：content.post 对未到点的定时文章返回 40403，写作页读不到自己刚排期的文章。",
   "access": {
     "auth": "user",
     "permission": "content.read",

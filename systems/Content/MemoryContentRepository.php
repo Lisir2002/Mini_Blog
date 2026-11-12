@@ -120,6 +120,9 @@ final class MemoryContentRepository implements ContentRepositoryInterface
                     if (!ContentStatus::canTransition((string) $row['status'], (string) $fields[$key])) {
                         throw new InvalidArgumentException('不可达的状态迁移：' . $row['status'] . ' → ' . $fields[$key]);
                     }
+                    if ((string) $fields[$key] !== ContentStatus::PUBLISHED) {
+                        self::$rows[$index]['publish_at'] = null;
+                    }
                 }
                 if ($key === 'pinned') {
                     self::$rows[$index]['pinned'] = (bool) $fields[$key];

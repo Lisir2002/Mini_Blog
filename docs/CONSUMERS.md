@@ -122,3 +122,14 @@ v0.52 消费矩阵零变化：UTF-8 文本原语统一是纯取数与序列化�
 响应变空白；更系统的问题是 mbstring 装没装会让同一个输入得到两种业务行为
 （关键词 80 字上限一处按字符一处按字节）。零消费维持 10 刻意 / 0 未登记；
 `68` 组锁住 Utf8Text 行为契约与双路实现回流。
+
+v0.53 把「零消费」的粒度从 operation 下沉到**参数**：`content.transition` 早已被
+本页的发布 / 转草稿 / 归档按钮消费，`content.update` 早已被写作页消费，消费矩阵
+因此一直显示两者「已消费」——但 `publish_at`、`pinned`、`weight` 三个参数从来
+没有任何页面能设置。零消费归零、登记表双向核对都拦不住这类缺口，因为矩阵只看
+operation 名。本版在 `/console/content` 选中一篇文章后补两张独立表单：排期走
+`content.transition` 的 `publish_at`（`content.publish`），推荐位走 `content.update`
+的 `pinned` / `weight`（`content.edit`，只带这两个字段以免字段级 ACL 连累正文）。
+落在内容管理页而非写作页，是因为 `content.post` 对「已发布但 publish_at 未到点」
+的文章无条件 40403 —— 写作页读不到自己刚排期的文章。消费矩阵 operation 数不变，
+零消费维持 10 刻意 / 0 未登记；`69` / `69b` 两组共 10 项守卫锁住参数级入口与定时可见性。

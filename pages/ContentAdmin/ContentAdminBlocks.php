@@ -19,10 +19,11 @@ final class ContentAdminBlocks
 
     /**
      * @param array<string, mixed> $data @param array<string, bool> $allowed
-     * @param array<string, mixed>|null $state
+     * @param array<string, mixed>|null $state @param array<string, bool> $cap
      */
     public static function build(string $view, array $data, string $ticket,
-        array $allowed, ?array $state, bool $degraded): array
+        array $allowed, ?array $state, bool $degraded,
+        string $focus = '', array $cap = []): array
     {
         $blocks = [self::notice($view, $data, $state, $degraded)];
         $blocks[] = ['type' => 'links', 'id' => 'content-nav', 'title' => '视图与管理入口', 'items' => [
@@ -39,11 +40,21 @@ final class ContentAdminBlocks
 
         if ($degraded) return $blocks;
 
+        // 排期与推荐位放在本页而不是写作页：content.post 对「已发布但 publish_at
+        // 未到点」的文章无条件 404，写作页读不到自己刚排期的文章；本页 status=any
+        // 恰好能看见定时文章。面板组装交给独立协作者，避免本文件超出职责预算。
+        if ($view !== 'trash') {
+            foreach (ContentAdminFocusBlocks::build($focus, $data, $ticket, $cap) as $block) {
+                $blocks[] = $block;
+            }
+        }
+
         foreach ((array) ($data['items'] ?? []) as $item) {
             if (is_array($item)) $blocks[] = self::row($view, $item, $ticket, $allowed);
         }
         return $blocks;
     }
+
 
     /** @param array<string, mixed> $data @param array<string, mixed>|null $state */
     private static function notice(string $view, array $data, ?array $state, bool $degraded): array

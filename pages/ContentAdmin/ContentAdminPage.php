@@ -52,6 +52,7 @@ final class ContentAdminPage implements PackageInterface
         Request $request, Response $response): void
     {
         $view = (($request->query()['view'] ?? '') === 'trash') ? 'trash' : 'live';
+        $focus = trim((string) ($request->query()['focus'] ?? ''));
         try {
             $query = new ContentAdminQuery($registry);
             $data = $view === 'trash' ? $query->trash() : $query->live();
@@ -61,23 +62,32 @@ final class ContentAdminPage implements PackageInterface
                 ['title' => '内容列表读取失败', 'message' => $e->getMessage()], true);
             return;
         }
-        $this->emit($kernel, $request, $response, 200, $view, $data, null, false);
+        $this->emit($kernel, $request, $response, 200, $view, $data, null, false, $focus);
     }
 
     private function submit(Kernel $kernel, ApiRegistryInterface $registry,
         Request $request, Response $response): void
     {
-        $result = ContentAdminAction::run($registry, $request->body(),
-            ConsoleTicket::identity($kernel, $request));
+        $body = $request->body();
+        $op   = trim((string) ($body['op'] ?? ''));
+        $identity = ConsoleTicket::identity($kernel, $request);
+        $placement = in_array($op, ContentAdminPlacement::OPS, true);
+        $result = $placement
+            ? ContentAdminPlacement::run($kernel, $registry, $body, $identity)
+            : ContentAdminAction::run($registry, $body, $identity);
         if (($result['ok'] ?? false) === true) {
-            // PRG：成功后回到「操作前的视图」，刷新不会重复执行。
-            $to = (string) ($request->body()['op'] ?? '') === 'restore'
-                ? self::PATH . '?view=trash' : self::PATH;
+            // PRG：成功后回到操作前的视图。排期 / 推荐位必须带回 focus，
+            // 否则刷新后设置面板消失，刚设的值看不到，用户会以为没生效。
+            $to = self::PATH;
+            if ($op === 'restore') $to = self::PATH . '?view=trash';
+            elseif ($placement) $to = self::PATH . '?focus='
+                . rawurlencode(trim((string) ($body['slug'] ?? '')));
             $response->setStatus(303)->setHeader('Location', $to);
             return;
         }
 
-        $view = (string) ($request->body()['op'] ?? '') === 'restore' ? 'trash' : 'live';
+        $view = $op === 'restore' ? 'trash' : 'live';
+        $focus = $placement ? trim((string) ($body['slug'] ?? '')) : '';
         $data = ['items' => [], 'total' => 0, 'shown' => 0, 'truncated' => false];
         try {
             $query = new ContentAdminQuery($registry);
@@ -91,22 +101,25 @@ final class ContentAdminPage implements PackageInterface
             'phase' => 'failed', 'code' => (int) ($result['code'] ?? 42201),
             'title' => '操作未完成', 'message' => (string) ($result['message'] ?? ''),
             'hint' => '列表已重新载入；票据有效期 20 分钟，过期请刷新本页。',
-        ], false);
+        ], false, $focus);
     }
 
     /** @param array<string, mixed> $data @param array<string, mixed>|null $state */
     private function emit(Kernel $kernel, Request $request, Response $response, int $status,
-        string $view, array $data, ?array $state, bool $degraded): void
+        string $view, array $data, ?array $state, bool $degraded, string $focus = ''): void
     {
+        $identity = ConsoleTicket::identity($kernel, $request);
         $ticket = $degraded ? '' : ConsoleTicket::issue($kernel, $request, self::PERMISSION, self::PATH);
-        $allowed = ContentAdminAction::allowed($kernel, ConsoleTicket::identity($kernel, $request));
+        $allowed = ContentAdminAction::allowed($kernel, $identity);
+        $cap = ContentAdminPlacement::capabilities($kernel, $identity);
 
         $response->setStatus($status)->setLayout('admin')->setPayload([
             'title'  => $view === 'trash' ? '回收站' : '内容管理',
             'page'   => 'content',
             'view'   => 'content',
             'state'  => $state,
-            'blocks' => ContentAdminBlocks::build($view, $data, $ticket, $allowed, $state, $degraded),
+            'blocks' => ContentAdminBlocks::build($view, $data, $ticket, $allowed,
+                $state, $degraded, $focus, $cap),
         ]);
     }
 

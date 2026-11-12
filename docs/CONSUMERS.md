@@ -25,6 +25,7 @@
 | v0.44 | `permission.acl.set` / `acl.list` / `role.tree` / `overrides` / `groups` / `group`、`users.view` | 资源 ACL 与用户组缺「选中某篇文章」的浏览路径，授权只能 curl |
 | v0.45 | `content.terms.manage` / `content.attach` | 分类与标签只在前台展示，后台没有新建 / 改名 / 删除与文章挂载入口 |
 | v0.46 | `comments.delete` / `emojis.delete` | 评论删除与表情删除没有后台入口：队列口径只覆盖被举报条目，表情目录只在 journey 脚本里出现 |
+| v0.47 | `system.health` / `layers` / `contracts`、`content.stats`、`auth.session.revoke` / `auth.logout` | /console/system 早已逐项调用 system.*，但「'system.' . $key」拼接让扫描器看不见 —— 这不是漏接，是漏报；内容规模与两个会话撤销接口则真的没有消费方 |
 
 每一次都是「能力完备、闭环缺失」。人工检查不可持续，所以把它变成一个可重跑的查询。
 
@@ -87,3 +88,5 @@ v0.44 再减少 7 个：`permission.acl.set` / `permission.acl.list` / `permissi
 v0.45 再减少 2 个：`content.terms.manage` 与 `content.attach` 由 `/console/terms` 消费（动作名经 `TermsInput` 的字符串字面量，矩阵记为字符串引用）。同一版把 `content.post` / `content.posts` 实际早已返回、但契约未声明的 `terms` / `items[].terms` 补进 `response_fields` —— 页面靠它预填挂载框，属于「消费方在依赖一个没写下来的字段」。零消费 24 → 22；`auth.logout` / `auth.session.revoke` 仍为零，页面登出直接调 `SessionManager::revoke()`，这两个接口按设计保留给 API 客户端。
 
 v0.46 再减少 2 个：`comments.delete` 由 `/console/queue` 消费，并补上 `comments.list` 的「按文章浏览」读路径（队列口径只收 pending 与被举报，删正常文章下的评论必须另有入口）；`emojis.delete` 由新建的 `/console/emojis` 消费，同页还接了 `emojis.list` / `emojis.register`。`emojis.register` / `emojis.delete` 的动作名经 `EmojisAction` 的字符串字面量，矩阵记为字符串引用；`comments.list` 从此有前台文章页与后台队列页两个消费方。零消费 22 → 20；`auth.logout` / `auth.session.revoke` 按设计仍保留给 API 客户端，`permission.override.grant` 继续刻意不接网页。
+
+v0.47 再减少 6 个，其中一半是**修漏报而不是补消费**：`/console/system` 从 v0.39 起就真的在调用 `system.health` / `system.layers` / `system.contracts`，但取数走 `'system.' . $key` 动态拼接，扫描器只认 `execute('operation', ...)` 字面量 —— 已消费被误报成零消费。改为显式字面量映射后矩阵如实记账，这一条写进 `64` 组守卫：拼接调用从此是反模式。同批真的补上的：`content.stats` 进 `/console/system` 的「内容规模」区块（published/total 与文章列表同口径）；`auth.session.revoke` 由安全层 `PageSession::logout` 消费（登出走与 API 客户端同一执行器，只撤 `kind=session`，接口不可用降级直撤并留痕）；`auth.logout` 由 `PageSession::revokeResidual` 消费（换号登录前把残留 Cookie 指向的旧凭据撤掉，`revoked=false` 幂等）。两者都经 `@consumes` 标注记为安全层引用。零消费 20 → 14，剩余 14 个全部是 `lifecycle.*` / `release.*` 元层（安装、升级、回滚仍只在命令行执行）、刻意不接网页的 `permission.override.grant` 与 `state.task.status` —— 任何业务接口出现在清单里都会被守卫拦下。

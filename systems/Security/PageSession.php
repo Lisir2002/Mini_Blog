@@ -21,6 +21,8 @@ use Wx\Systems\Api\Envelope;
  * 密码不出现在返回值、日志与异常消息里。
  *
  * @consumes auth.session.create 浏览器登录必须走同一个会话接口（锁定/禁用判定同源）
+ * @consumes auth.session.revoke 登出走同一执行器：只撤 kind=session，不伤 API 脚本令牌
+ * @consumes auth.logout 换号登录前的残留凭据登出走通用撤销（revoked=false 幂等）
  */
 final class PageSession
 {
@@ -68,16 +70,59 @@ final class PageSession
         return $identity;
     }
 
-    /** 登出：撤销当前会话令牌并清 Cookie；令牌不在库中时仍然清 Cookie。 */
-    public function logout(Request $request, Response $response): bool
+    /**
+     * 登出：撤销当前会话令牌并清 Cookie；令牌不在库中时仍然清 Cookie。
+     *
+     * v0.47 起撤销动作走 auth.session.revoke 执行器：与 API 客户端同一套判定，
+     * 只撤 kind='session' 的行，用户的 API 脚本令牌不受影响。接口清单未装配或
+     * 执行器异常时降级直撤（登出不能因为一条 UPDATE 的路径不可用而失败），
+     * 无论撤销结果如何 Cookie 都会清掉 —— 清凭据是无条件的。
+     *
+     * @return array{revoked: bool} revoked=false 含「本来就没登录」与「令牌已失效」
+     */
+    public function logout(Request $request, Response $response): array
     {
         $token = SessionCookie::read($request);
         $revoked = false;
-        if ($token !== '' && $this->sessions !== null) {
-            $revoked = $this->sessions->revoke(hash('sha256', $token));
+        if ($token !== '') {
+            $hash = hash('sha256', $token);
+            if ($this->registry !== null) {
+                try {
+                    $out = $this->registry->execute('auth.session.revoke',
+                        ['_identity' => ['token_hash' => $hash]]);
+                    $revoked = (bool) ($out['revoked'] ?? false);
+                } catch (\Throwable $e) {
+                    $this->kernel->trace('会话撤销走接口失败，降级直撤', ['error' => $e->getMessage()]);
+                    $revoked = $this->sessions !== null ? $this->sessions->revoke($hash) : false;
+                }
+            } elseif ($this->sessions !== null) {
+                $revoked = $this->sessions->revoke($hash);
+            }
         }
         $response->setHeader('Set-Cookie', SessionCookie::clearHeader());
-        return $revoked;
+        return ['revoked' => $revoked];
+    }
+
+    /**
+     * 换号登录前的残留登出：浏览器还带着上一个账号的会话 Cookie 时，
+     * 先把它指向的令牌撤销再签发新会话，避免旧令牌在库里继续有效。
+     *
+     * 走 auth.logout（通用撤销）：残留 Cookie 指向的令牌无论 kind 是什么，
+     * 都是「这个浏览器不再需要的凭据」。revoked=false 是幂等结果（令牌本来
+     * 就失效了），不是故障。失败不阻断登录 —— 新会话的 Cookie 会覆盖旧值。
+     */
+    public function revokeResidual(Request $request): bool
+    {
+        $token = SessionCookie::read($request);
+        if ($token === '' || $this->registry === null) return false;
+        try {
+            $out = $this->registry->execute('auth.logout',
+                ['_identity' => ['token_hash' => hash('sha256', $token)]]);
+            return (bool) ($out['revoked'] ?? false);
+        } catch (\Throwable $e) {
+            $this->kernel->trace('残留凭据撤销不可用', ['error' => $e->getMessage()]);
+            return false;
+        }
     }
 
     /**

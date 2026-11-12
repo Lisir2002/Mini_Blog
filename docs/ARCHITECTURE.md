@@ -563,7 +563,8 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | v0.22 | **启动期边界**：把「构造」纳入异常边界——`Kernel::serve()` 包住构造与 `run()`，`public/index.php` 只留一行调用。此前 `config/local.php`（主题启用唯一会写的文件）损坏会在构造期抛出、落在 `run()` 之外：`display_errors=0` 时 HTTP/1.0 500 空 body（白屏），`display_errors=1` 时 **HTTP 200** + 绝对路径与 `Parse error`（监控看到成功，缓存与爬虫把错误页当正常页收下）。新增 `tools/journey/Server.php`（内置服务器：端口探测 / 就绪等待 / 原始响应读出 / 强制回收）与 `tools/faults/StartupFaults.php`（装配期、构造期各含自愈，全程 `display_errors=1`），`faults` 从九类扩到十一类；`30` 组守卫做入口唯一性、兜底正文唯一性、子进程构造期断言。故障只进 SAPI 日志、不进响应体；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.23 | **稳定性的代价**：v0.20 的原子写与流式下载此前只有正确性守卫、没有数字。新增 `tools/bench/StabilityProbe.php` 与 `php tools/bench.php stability`：幂等 `claim`+`complete` 45 µs/次、限流 `check` 11 µs/次（约占一次请求 3.7 ms 的 1%）、6 进程 × 200 键并发落盘 **1200/1200** 一条不丢；附件 64 MB 全量 **66.0 MB** 峰值 / 分块 **2.0 MB**（−97%），本地落盘耗时约 1.8 倍。文档只锁「可重跑命令」，数值标注为机器快照；顺带修掉 PERFORMANCE §8 里写死的「250 passed / 50 分组文件」（早已静默过期），并把性能文档纳入事实对账。`31` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.24 | **反向锚点**：正向锚点只能核对「已经想到要核对的句子」——v0.20 起查出的四处漂移（README 徽章 `282 passing`、SPEC 漏登 5 个错误码、architecture.html 页眉「14 系统层 · 55 接口」、结构树「40 个分组 200 项守卫」）都不是写错，而是**没有锚点**，坏掉时对账仍报零漂移。新增 `tools/facts/Coverage.php`：扫「有单一真源的名词」前的数字，未被任一锚点覆盖且非史实句即为候选；候选不与绝对值比对（那会立刻产生 611 条噪音），而与 `coverage-baseline.php` 快照比增量，只报**新出现的组合**（611 → 32 条，当前零假红）。`php tools/facts.php verify` 输出 `NEW` 行并以非 0 退出；`accept` 是唯一写文件的模式，且只覆盖该快照。顺带把 26b 里「源码不含 `file_put_contents`」这条字符串近似断言改为行为验证（跑 verify 前后比对 docs / tools/facts 的 md5 与 mtime）。`32` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
-| **v0.46（当前）** | **两个删除闭环**：`comments.delete` / `emojis.delete` 两个写接口零消费，缺的是能看清现状、能确认影响面、能解释结果的后台入口。本轮把 `/console/queue` 扩成双视图（审核队列 + 按文章浏览），补上 `content.posts → content.post → comments.list` 这条浏览路径 —— 队列口径只收 pending 与被举报条目，删正常文章下的评论必须另有入口；删除要求手写 id 确认、现场问 `comment.delete.any`，把软删终态、回复链保留、`already` 幂等、终态再审核 `40901` 分开回报。同时新建 `/console/emojis` 接 `emojis.list` / `register` / `delete`：内置不给删除按钮、短码语法与占用预查、`attachment_id` 只认本站图片附件，删除不重写历史；同一个 `40403` 按「登记 = 附件不存在 / 删除 = 表情不存在」分别翻译。页面分别声明 `comment.moderate` / `content.read`，写动作现场问 `comment.delete.any` / `emoji.manage`。零新增接口、零新增系统层、`core/` 零改动；新增 `62` / `63` 两组共 20 项守卫，并把 `44b` 组旧有的裸 Location 断言改为「仍指回本页」。详见 [`docs/DELETIONS.md`](DELETIONS.md)。 |
+| **v0.47（当前）** | **消费矩阵漏报修正与会话收口**：`/console/system` 早已逐项调用 `system.health` / `layers` / `contracts`，但 `'system.' . $key` 拼接让扫描器看不见 —— 已消费被误报成零消费挂了八个版本。改为显式字面量映射并把「拼接接口名」写进守卫当反模式；`content.stats` 进运维视图「内容规模」区块（published/total 与列表同口径）；`auth.session.revoke` 由 `PageSession::logout` 消费（登出走与 API 客户端同一执行器，只撤 `kind=session`，降级直撤并留痕、Cookie 清除无条件），`auth.logout` 由 `PageSession::revokeResidual` 消费（换号登录先撤残留旧凭据，`revoked=false` 幂等、失败不阻断登录）。零消费 20 → 14，剩余全是 lifecycle / release 元层与刻意保留，守卫从此拦截「零消费清单出现业务接口」。零新增接口、零新增系统层、`core/` 零改动；新增 `64` 组共 8 项守卫。 |
+| **v0.46** | **两个删除闭环**：`comments.delete` / `emojis.delete` 两个写接口零消费，缺的是能看清现状、能确认影响面、能解释结果的后台入口。本轮把 `/console/queue` 扩成双视图（审核队列 + 按文章浏览），补上 `content.posts → content.post → comments.list` 这条浏览路径 —— 队列口径只收 pending 与被举报条目，删正常文章下的评论必须另有入口；删除要求手写 id 确认、现场问 `comment.delete.any`，把软删终态、回复链保留、`already` 幂等、终态再审核 `40901` 分开回报。同时新建 `/console/emojis` 接 `emojis.list` / `register` / `delete`：内置不给删除按钮、短码语法与占用预查、`attachment_id` 只认本站图片附件，删除不重写历史；同一个 `40403` 按「登记 = 附件不存在 / 删除 = 表情不存在」分别翻译。页面分别声明 `comment.moderate` / `content.read`，写动作现场问 `comment.delete.any` / `emoji.manage`。零新增接口、零新增系统层、`core/` 零改动；新增 `62` / `63` 两组共 20 项守卫，并把 `44b` 组旧有的裸 Location 断言改为「仍指回本页」。详见 [`docs/DELETIONS.md`](DELETIONS.md)。 |
 | **v0.45** | **分类与标签**：`content.terms.manage` / `content.attach` 两个写接口零消费，而读路径 `content.terms` 只在前台归档页用过 —— 后台缺的是「选中某篇文章、看清它已挂了什么」的浏览路径。本轮补 `/console/terms`：按 `content.posts` 选文章、`content.post` 复核并取出 `terms` 字段预填挂载框，再把术语新建 / 改名 / 删除与文章整体替换接成闭环。页面层挡住接口不校验的输入（重复 slug 40911、不存在的引用与 ID 40404、名称按字符 60 字 / 说明 200 字），删除手写 slug 确认并回报 `relations_removed`；明确 `content.attach` 是**整体替换**（留空即清空，需手写文章 slug 确认），`added=removed=0` 单独说幂等。顺手补上 `content.post` / `content.posts` 实际早已返回、但契约 `response_fields` 未声明的 `terms` / `items[].terms`。50101 降级、空清单、文章读不到、`terms` 字段缺失四种状态分离，都关闭对应写入口。页面声明 `content.read`；术语增删改现场问 `content.manage_terms`、挂载现场问 `content.edit`，两个写权限点分别裁决。顺带修掉 `ContentTermStore::update()` 的幂等缺陷：`updated_at` 无条件刷新曾让同值提交跨秒误报 `updated=true`，现在先比对当前值、未变则不发 UPDATE（`61b` 组用秒翻转锁住）。零新增接口、零新增系统层、`core/` 零改动；新增 `61` / `61b` 两组共 15 项守卫。详见 [`docs/TERMS.md`](TERMS.md)。 |
 | **v0.44** | **资源 ACL 与用户组**：`permission.acl.*` / `permission.groups` / `permission.group` / `users.view` 等七个接口零消费，缺的是「选中某篇文章」的浏览路径 —— `acl.list` 无按资源过滤参数且只给最近 100 条。本轮补 `/console/acl` 四面板（资源 ACL / 用户组 / 角色树 / 覆盖台账）：先按 `content.posts` 选文章、`content.post` 复核，再在页面层按 `type+id` 筛出该篇条目并声明「可能被 100 条上限截断」。页面层挡住接口不校验的四类脏数据：未知前缀主体（`parseSubject()` 静默解释成角色）、不存在的角色 / 能力 / 账号；`allow` 只能由两个按钮给出；整资源级全局 deny 要求手写 slug 确认。明确 `acl.set` 是**追加 INSERT**（无编辑 / 删除单条接口），显式 deny 优先级最高，新加 allow 不会抵消已有 deny。用户组只是角色来源，页面预查角色与成员存在性、删除手写确认，`changed=false` 分场景回报。`permission.override.grant` 刻意不接网页：装配期动作只应经本机来源（RequestGuard `40302`），页面直调执行者会绕过它。页面声明 `permission.read`、写动作现场问 `permission.manage`；成功 303、失败不跳转且回填，只有 `saved` 存在才显示结果。零新增接口、零新增系统层、`core/` 零改动；新增 `60` 组 12 项守卫。详见 [`docs/ACL.md`](ACL.md)。 |
 | **v0.43** | **附件库**：`attachments.update` / `delete` / `download` 三个接口零消费，而 `attachments.list` 的 `post_slug` 必填 —— 没有「选中某篇文章」的路径，附件库根本无从谈起。本轮补 `/console/attachments`：先按 `content.posts` 选文章，再按当前身份列出附件（私有项也可见），选中一条后五个按钮接上改名 / 公开 / 私有 / 改挂载 / 删除。页面层挡住三类接口不报错的脏数据：正文仍引用时删除（软删后链接 404 且列表消失）、改挂到不存在的文章（没有 list-all 接口能补救）、展示名超 120 字符被 `displayName` 静默截断；可见性用枚举按钮，因为接口把任何非 `private` 的字符串都落成 `public`。读不到正文时 fail-closed：删除 / 改名直接拒绝，不把「查不到引用」当成「没有引用」。下载**只渲染链接**：`/attach/download` 是二进制通道，页面 `execute()` 它会把字节读进页面层；消费矩阵为此新增「链接消费」识别，否则这个接口会被永远误列为零消费。页面声明 `attachment.read`、写动作现场问 `attachment.manage`，读写分离让页面层二次裁决可被守卫验证。顺带补 `attachments.list` 缺失的 `uploader_id`（权限点仍 49）。零新增接口、零新增系统层、`core/` 零改动；新增 `59` 组 10 项守卫。详见 [`docs/ATTACHMENTS.md`](ATTACHMENTS.md)。 |
@@ -591,10 +592,10 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **537 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
-- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`，v0.28 新增 `36`，v0.29 新增 `37` / `37b`，v0.30 新增 `38` / `38b`，v0.31 新增 `39` / `39b` / `40` / `40b` / `41` / `41b`，v0.32 新增 `42` / `43`，v0.33 新增 `44` / `44b` / `45` / `45b` / `46` / `47` / `48` / `49`，v0.34 新增 `50` / `50b`，v0.35 新增 `51`，v0.36 新增 `52`，v0.37 新增 `53`，v0.38 新增 `54`，v0.39 新增 `55`，v0.40 新增 `56`，v0.41 新增 `57`，v0.42 新增 `58`，v0.43 新增 `59`，v0.44 新增 `60`，v0.45 新增 `61` / `61b`，v0.46 新增 `62` / `63`）。
+- `php -l` 全量 **538 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24。
+- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`，v0.28 新增 `36`，v0.29 新增 `37` / `37b`，v0.30 新增 `38` / `38b`，v0.31 新增 `39` / `39b` / `40` / `40b` / `41` / `41b`，v0.32 新增 `42` / `43`，v0.33 新增 `44` / `44b` / `45` / `45b` / `46` / `47` / `48` / `49`，v0.34 新增 `50` / `50b`，v0.35 新增 `51`，v0.36 新增 `52`，v0.37 新增 `53`，v0.38 新增 `54`，v0.39 新增 `55`，v0.40 新增 `56`，v0.41 新增 `57`，v0.42 新增 `58`，v0.43 新增 `59`，v0.44 新增 `60`，v0.45 新增 `61` / `61b`，v0.46 新增 `62` / `63`，v0.47 新增 `64`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；537 个文件共 39,024 有效代码行，最大单文件 202 行，92 个 operation 全部绑定执行者。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；538 个文件共 39,250 有效代码行，最大单文件 202 行，92 个 operation 全部绑定执行者。
 - **18 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → metric → page`；**13 个契约接口文件**（容器运行时绑定 28 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个、页面守卫 1 个等内部注册项）、**92 个接口 / 92 份文档**、OpenAPI 3.1（84 路径 / 92 操作）、**49 个承载单元**（18 系统层 + 4 主题 + 25 独立页 + 2 插件）、**49 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
 - HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.25.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
@@ -2294,6 +2295,34 @@ v0.41 交付时 `member.*` 还有五个写接口没人调。它们的难点不�
 **边界**：不做批量删除、不改历史正文、不做短码改名；文章窗口 20 篇 / 评论窗口 60 条 /
 表情目录 120 条上限都不是完整快照；`comment.delete.own` 路径刻意不进后台；
 `permission.override.grant` 与运维面接口按设计仍留在零消费清单。
+
+## 57. 消费矩阵漏报修正与会话收口（v0.47）
+
+**这一版一半是修「说谎的报表」，一半是把登出真正交还给会话接口。**
+
+### 漏报：已消费 ≠ 零消费
+
+`/console/system` 从 v0.39 起就在逐项调用 `system.health` / `system.layers` / `system.contracts`，
+但取数写成 `'system.' . $key` 动态拼接 —— 消费矩阵靠扫描 `execute('operation', ...)` 字面量记账，
+拼接出来的名字它看不见。于是三个早已被消费的接口在零消费清单里挂了八个版本。
+修复是把拼接换成显式字面量映射，并写进守卫：**动态拼接接口名从此是反模式**。
+教训不是「扫描器太笨」，而是可审计性要求消费点自证 —— 报表只认它读得懂的事实。
+
+### 会话收口：两个撤销接口各有真实场景
+
+| 接口 | 场景 | 语义 |
+| --- | --- | --- |
+| `auth.session.revoke` | 页面登出（`PageSession::logout`） | 只撤 `kind=session`，不伤 API 脚本令牌；接口不可用时降级直撤并留痕，Cookie 清除无条件 |
+| `auth.logout` | 换号登录前的残留登出（`PageSession::revokeResidual`） | 撤掉残留 Cookie 指向的旧凭据，`revoked=false` 是幂等结果；失败不阻断登录 |
+
+`revoked=false` 单独说：它含「本来就没登录」与「令牌已失效」，不是故障也不是失败。
+`/console/system` 同批补上 `content.stats`（内容规模区块，published/total 与文章列表同口径）。
+零消费 20 → 14，剩余全是 `lifecycle.*` / `release.*` 元层（安装、升级、回滚仍只在命令行）、
+刻意不接网页的 `permission.override.grant` 与 `state.task.status`；守卫从此拦截
+「零消费清单里出现业务接口」。
+
+**边界**：不做「撤销任意会话」（接口只撤当前凭据指向的令牌）；登录页限流、账号锁定
+语义不变；换号撤残留只在登录成功后发生，匿名登录失败不碰 Cookie。
 
 ---
 

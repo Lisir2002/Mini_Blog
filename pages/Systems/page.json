@@ -1,14 +1,14 @@
 {
   "slug": "systems",
   "class": "Wx\\Pages\\Systems\\SystemsPage",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "priority": 44,
   "enabled": true,
   "layout": "admin",
   "routes": [
     "/console/system"
   ],
-  "_note": "系统状态：只读 system.info / health / layers / contracts + lifecycle.units + release.status。安装、升级、回滚、卸载仍在命令行执行；本页不提供写入口，也不声明 form_ticket。",
+  "_note": "系统状态：只读 system.info / health / layers / contracts + lifecycle.units + release.status + content.stats（内容规模，只报已发布与总数）。安装、升级、回滚、卸载仍在命令行执行；本页不提供写入口，也不声明 form_ticket。",
   "access": {
     "auth": "admin",
     "permission": "system.config.read",

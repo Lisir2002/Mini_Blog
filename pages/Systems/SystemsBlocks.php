@@ -22,6 +22,7 @@ final class SystemsBlocks
         if ((array) ($data['errors'] ?? []) !== []) $blocks[] = self::errors((array) $data['errors']);
         $blocks[] = self::layers($data['layers'] ?? null);
         $blocks[] = self::release($data['release'] ?? null);
+        $blocks[] = self::content($data['content'] ?? null, $data['errors'] ?? []);
         $blocks[] = self::boundary();
         return $blocks;
     }
@@ -131,6 +132,29 @@ final class SystemsBlocks
             'tone' => $pending === [] ? 'ok' : 'warn',
             'state' => $pending === [] ? 'ok' : 'degraded',
             'title' => '发布状态', 'value' => $value];
+    }
+
+    /**
+     * 内容规模 —— 取数失败时不再单独渲染一块：错误汇总已经报过一次，
+     * 这里只在 stats 真的成功时出现，避免「两块说同一件失败」。
+     * @param array<string, int>|null $content @param list<string> $errors
+     * @return array<string, mixed>
+     */
+    private static function content(?array $content, array $errors): array
+    {
+        if ($content === null) {
+            foreach ($errors as $e) {
+                if (str_starts_with((string) $e, 'stats：')) return [];
+            }
+            return ['type' => 'notice', 'id' => 'sys-content', 'tone' => 'info', 'state' => 'empty',
+                'title' => '内容规模未知', 'value' => 'content.stats 尚未取到数据。'];
+        }
+        $published = (int) ($content['published'] ?? 0);
+        $total = (int) ($content['total'] ?? 0);
+        return ['type' => 'notice', 'id' => 'sys-content', 'tone' => 'info', 'state' => 'ok',
+            'title' => '内容规模',
+            'value' => '已发布 ' . $published . ' 篇 · 全部 ' . $total . ' 篇（含草稿）· '
+                . ($total - $published) . ' 篇未发布。统计与列表接口共享同一口径。'];
     }
 
     /** @return array<string, mixed> */

@@ -78,6 +78,9 @@ final class AuthPage implements PackageInterface
         if ($path === self::LOGIN) {
             $result = AuthAction::login($session, $request);
             if (($result['ok'] ?? false) === true) {
+                // 换号登录：先撤销旧 Cookie 指向的残留凭据，再签发新会话。
+                // 失败不阻断登录（新 Cookie 会覆盖旧值），静默处理。
+                $session->revokeResidual($request);
                 $session->apply($response, (array) ($result['session'] ?? []));
                 $response->setStatus(303)->setHeader('Location', self::target($request));
                 return;
@@ -97,6 +100,7 @@ final class AuthPage implements PackageInterface
         // 账号已建：紧接着用同一组凭据建立浏览器会话。失败不能让用户以为注册失败。
         $login = AuthAction::login($session, $request);
         if (($login['ok'] ?? false) === true) {
+            $session->revokeResidual($request);
             $session->apply($response, (array) ($login['session'] ?? []));
             $response->setStatus(303)->setHeader('Location', '/account');
             return;

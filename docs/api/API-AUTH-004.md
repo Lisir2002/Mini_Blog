@@ -24,7 +24,7 @@
 
 **适用场景**：后台退出登录；设备丢失时远程吊销浏览器会话。
 
-**实现备注**：只撤销 kind=session 的令牌，不会误伤同用户的 API 脚本令牌。响应总是带一条清除 Cookie 的 Set-Cookie；重复调用返回 revoked=false 而非报错（幂等语义）。 本接口在清单里显式声明 accept_session=true：允许浏览器用 HttpOnly 会话 Cookie 直接调用，其余接口一律不接受会话令牌作为凭据。
+**实现备注**：只撤销 kind=session 的令牌，不会误伤同用户的 API 脚本令牌。响应总是带一条清除 Cookie 的 Set-Cookie；重复调用返回 revoked=false 而非报错（幂等语义）。 本接口在清单里显式声明 accept_session=true：允许浏览器用 HttpOnly 会话 Cookie 直接调用，其余接口一律不接受会话令牌作为凭据。 v0.47 起浏览器登出经 PageSession 走本接口执行器：与 API 客户端同一套判定，接口不可用时安全层降级直撤并留痕。
 
 ## 3. 请求规范
 
@@ -118,6 +118,7 @@ DELETE /api/v1/auth/session  Authorization: Bearer <token>
 ## 8. 变更记录
 
 - 0.9.0 初次发布
+- 0.47.0 页面登出收口：浏览器登出经安全层（PageSession）走本接口执行器，只撤 kind=session。
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；
 > 追加可选字段、新增接口、新增可选过滤值属于兼容性变更，沿用当前版本。

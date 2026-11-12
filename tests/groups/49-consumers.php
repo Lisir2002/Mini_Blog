@@ -160,7 +160,7 @@ check('v0.45：分类与标签两个写接口离开零消费，且消费方落�
         $terms = (array) ($all['content.terms'] ?? []);
         truthy(in_array('pages/Terms/TermsQuery.php', (array) ($terms['consumers'] ?? []), true),
             'content.terms 没有把后台取数算作消费方');
-        truthy(count((array) ($data['zero'] ?? [])) === 20, '零消费数不是 20');
+        truthy(count((array) ($data['zero'] ?? [])) === 14, '零消费数不是 14');
     });
 
 check('v0.46：评论删除 / 表情登记 / 表情删除都落在各自后台页，零消费降到 20',
@@ -182,7 +182,37 @@ check('v0.46：评论删除 / 表情登记 / 表情删除都落在各自后台�
         truthy(in_array('pages/Emojis/EmojisQuery.php',
             (array) (($all['emojis.list'] ?? [])['consumers'] ?? []), true),
             'emojis.list 没把后台目录算作消费方');
-        truthy(count((array) ($data['zero'] ?? [])) === 20, '零消费数不是 20');
+        truthy(count((array) ($data['zero'] ?? [])) === 14, '零消费数不是 14');
+    });
+
+check('v0.47：漏报修正 —— /console/system 显式字面量化，system.* 与 content.stats 如实记账',
+    function () use ($run): void {
+        $data = json_decode($run('--json')['text'], true) ?: [];
+        $all = (array) ($data['all'] ?? []);
+        foreach (['system.info', 'system.health', 'system.layers', 'system.contracts',
+            'content.stats'] as $op) {
+            $row = (array) ($all[$op] ?? []);
+            truthy(($row['kind'] ?? 'none') !== 'none', $op . ' 仍是零消费');
+            truthy(in_array('pages/Systems/SystemsQuery.php', (array) ($row['consumers'] ?? []), true),
+                $op . ' 没把 /console/system 的取数算作消费方');
+        }
+    });
+
+check('v0.47：会话收口 —— 登出与残留登出都经安全层走会话接口，零消费降到 14',
+    function () use ($run): void {
+        $data = json_decode($run('--json')['text'], true) ?: [];
+        $all = (array) ($data['all'] ?? []);
+        foreach (['auth.session.revoke', 'auth.logout'] as $op) {
+            $row = (array) ($all[$op] ?? []);
+            truthy(($row['kind'] ?? 'none') !== 'none', $op . ' 仍是零消费');
+            truthy(in_array('systems/Security/PageSession.php', (array) ($row['consumers'] ?? []), true),
+                $op . ' 的消费方不是安全层 PageSession');
+        }
+        truthy(count((array) ($data['zero'] ?? [])) === 14, '零消费数不是 14');
+        foreach (array_keys((array) ($data['zero'] ?? [])) as $op) {
+            truthy((bool) preg_match('/^(lifecycle\.|release\.|permission\.override\.grant|state\.task\.)/',
+                (string) $op), '零消费清单里出现了业务接口：' . $op);
+        }
     });
 
 check('--zero 只打印零消费，不混入已消费段', function () use ($run): void {

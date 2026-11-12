@@ -2,6 +2,8 @@
 declare(strict_types=1);
 namespace Wx\Pages\Feed;
 
+use Wx\Systems\Data\Utf8Text;
+
 /**
  * 协议文档序列化 —— RSS 2.0 / sitemap / robots 的纯函数。
  *
@@ -113,7 +115,7 @@ final class FeedSerialize
     private static function excerpt(string $text): string
     {
         $text = trim((string) preg_replace('/\s+/u', ' ', strip_tags($text)));
-        return function_exists('mb_substr') ? mb_substr($text, 0, 200) : substr($text, 0, 200);
+        return Utf8Text::clip($text, 200);
     }
 
     private static function x(string $value): string

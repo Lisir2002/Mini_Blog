@@ -49,6 +49,6 @@ final class QueryProfiler implements QueryProfilerInterface
     private static function cut(string $sql): string
     {
         if (strlen($sql) <= self::SQL_MAX) return $sql;
-        return function_exists('mb_substr') ? mb_substr($sql, 0, self::SQL_MAX) : substr($sql, 0, self::SQL_MAX);
+        return Utf8Text::clip($sql, self::SQL_MAX);
     }
 }

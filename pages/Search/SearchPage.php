@@ -4,6 +4,7 @@ namespace Wx\Pages\Search;
 
 use Wx\Contracts\ApiRegistryInterface;
 use Wx\Contracts\PackageInterface;
+use Wx\Systems\Data\Utf8Text;
 use Wx\Core\Http\Request;
 use Wx\Core\Http\Response;
 use Wx\Core\Kernel;
@@ -78,10 +79,10 @@ final class SearchPage implements PackageInterface
         ]);
     }
 
-    /** 部署不一定装了 mbstring；按字节退化的判定仅供上限校验，不用于截断。 */
+    /** 字符数口径单一真源见 Utf8Text：同一输入在任何部署下行为一致。 */
     private static function length(string $value): int
     {
-        return function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
+        return Utf8Text::len($value);
     }
 
     private function registry(Kernel $kernel): ?ApiRegistryInterface

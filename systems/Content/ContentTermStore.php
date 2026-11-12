@@ -7,6 +7,7 @@ use PDOException;
 use Wx\Contracts\DatabaseInterface;
 use Wx\Core\Kernel;
 use Wx\Systems\Data\Db;
+use Wx\Systems\Data\Utf8Text;
 
 /**
  * 分类与标签的统一存储 —— 一张术语表 + 一张关系表，用 kind 区分两种术语。
@@ -226,9 +227,8 @@ final class ContentTermStore
     {
         $name = trim($name);
         if ($name === '') throw new InvalidArgumentException('术语名称不能为空');
-        $length = iconv_strlen($name, 'UTF-8');
-        if ($length === false) throw new InvalidArgumentException('术语名称不是合法的 UTF-8');
-        if ($length > 60) throw new InvalidArgumentException('术语名称不能超过 60 字');
+        if (!Utf8Text::valid($name)) throw new InvalidArgumentException('术语名称不是合法的 UTF-8');
+        if (Utf8Text::len($name) > 60) throw new InvalidArgumentException('术语名称不能超过 60 字');
     }
 
     private function normalize(array $row): array

@@ -175,8 +175,7 @@ final class MemberInput
 
     private static function tooLong(string $value, int $max): bool
     {
-        $length = function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
-        return $length > $max;
+        return \Wx\Systems\Data\Utf8Text::len($value) > $max;
     }
 
     /** @return array{ok: false, message: string} */

@@ -88,11 +88,10 @@ final class AttachmentsInput
             . '字节仍在磁盘，等引用计数为 0 才由独立流程回收。', '');
     }
 
-    /** mbstring 未必装得上：用 preg_split 保持字符数口径，与系统层 displayName 一致。 */
+    /** 字符数口径单一真源见 Utf8Text（与 AttachmentsRefs 一致）。 */
     private static function length(string $value): int
     {
-        if (function_exists('mb_strlen')) return mb_strlen($value, 'UTF-8');
-        return count(preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+        return \Wx\Systems\Data\Utf8Text::len($value);
     }
 
     /** @param array<string, mixed> $in

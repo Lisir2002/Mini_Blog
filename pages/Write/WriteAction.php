@@ -6,6 +6,7 @@ use Wx\Contracts\ApiRegistryInterface;
 use Wx\Core\Http\Request;
 use Wx\Core\Kernel;
 use Wx\Pages\Shared\ApiFailure;
+use Wx\Systems\Data\Utf8Text;
 
 /**
  * 写文章的写入口 —— 新建走 content.create，已有文章走 content.update。
@@ -86,7 +87,7 @@ final class WriteAction
 
     private static function length(string $value): int
     {
-        return function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
+        return Utf8Text::len($value);
     }
 
     /** @return array{ok: false, status: int, code: int, message: string} */

@@ -4,6 +4,7 @@ namespace Wx\Systems\User;
 
 use Wx\Contracts\DatabaseInterface;
 use Throwable;
+use Wx\Systems\Data\Utf8Text;
 
 /**
  * 账号的写侧仓储 —— 注册、改资料、改密、状态与角色变更、管理端列表。
@@ -156,22 +157,18 @@ final class UserAccountStore
     }
 
     /**
-     * 按字符截断，且不假设 mbstring 存在（本项目运行环境未装该扩展）。
-     * 用 substr 兜底会截出半个 UTF-8 字节，后续 json_encode 直接返回 false ——
-     * 一个显示名就能让整个响应变成空白，所以宁可用 iconv 也不用裸 substr。
+     * 按字符截断，单一真源见 Utf8Text —— 行为零环境差异，
+     * 不会因部署机装没装 mbstring 而改变同一个输入的处理结果。
      */
     public static function clip(string $value, int $limit): string
     {
-        if (function_exists('mb_substr')) return mb_substr($value, 0, $limit, 'UTF-8');
-        $clipped = iconv_substr($value, 0, $limit, 'UTF-8');
-        return $clipped === false ? substr($value, 0, $limit) : $clipped;
+        return Utf8Text::clip($value, $limit);
     }
 
     /** 按字符计数；非法 UTF-8 返回 -1，由调用方决定怎么处理。 */
     public static function textLength(string $value): int
     {
-        $length = function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : iconv_strlen($value, 'UTF-8');
-        return $length === false ? -1 : $length;
+        return Utf8Text::len($value);
     }
 
     private function writePassword(int $id, string $password): void

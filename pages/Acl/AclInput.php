@@ -169,8 +169,7 @@ final class AclInput
 
     private static function length(string $value): int
     {
-        if (function_exists('mb_strlen')) return mb_strlen($value, 'UTF-8');
-        return count(preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+        return \Wx\Systems\Data\Utf8Text::len($value);
     }
 
     /** @param array<string, mixed> $in

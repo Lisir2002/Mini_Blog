@@ -14,8 +14,7 @@ final class TermsRefs
     /** 按字符计数，与名称上限的显示口径一致：8 个汉字不该被算成 24 个字。 */
     public static function length(string $value): int
     {
-        if (function_exists('mb_strlen')) return mb_strlen($value, 'UTF-8');
-        return count(preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+        return \Wx\Systems\Data\Utf8Text::len($value);
     }
 
     /** @return list<string> 逗号 / 换行 / 空白分隔，去重后保持输入顺序 */

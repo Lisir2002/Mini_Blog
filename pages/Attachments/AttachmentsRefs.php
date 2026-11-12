@@ -50,11 +50,10 @@ final class AttachmentsRefs
         return $out;
     }
 
-    /** mbstring 未必装得上：用 preg_split 保持「字符数」而非「字节数」的口径。 */
+    /** 字符数口径单一真源见 Utf8Text（与 AttachmentsInput 一致）。 */
     private static function length(string $value): int
     {
-        if (function_exists('mb_strlen')) return mb_strlen($value, 'UTF-8');
-        return count(preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+        return \Wx\Systems\Data\Utf8Text::len($value);
     }
 
     private static function label(bool $byUrl, bool $byName): string

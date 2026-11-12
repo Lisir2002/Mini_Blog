@@ -2,6 +2,8 @@
 declare(strict_types=1);
 namespace Wx\Systems\Content;
 
+use Wx\Systems\Data\Utf8Text;
+
 /**
  * 文章行的出站形状 —— 一个转换点，两处读取共用。
  *
@@ -26,6 +28,6 @@ final class PostRow
     public static function excerpt(string $body): string
     {
         $text = trim((string) preg_replace('/\s+/u', ' ', strip_tags($body)));
-        return function_exists('mb_substr') ? mb_substr($text, 0, 120) : substr($text, 0, 120);
+        return Utf8Text::clip($text, 120);
     }
 }

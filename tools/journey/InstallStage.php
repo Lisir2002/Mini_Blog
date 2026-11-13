@@ -24,9 +24,11 @@ final class InstallStage
             $home = $p->get($k, '/');
             $p->ok(str_contains($home['ct'], 'json'), '无主题时首页应为纯数据');
             $p->ok(!str_contains($home['body'], '<'), '核心不应产出任何标签');
-            $themes = $p->data($p->get($k, '/api/v1/themes'), 'theme.list');
-            $p->ok(($themes['headless'] ?? null) === true && ($themes['total'] ?? 0) >= 4, '出厂主题清单不完整');
-            $p->note('system.info: headless=true · theme_active=null · database=mysql；theme.list total=' . ($themes['total'] ?? 0));
+            // v0.61 theme.list 收紧为 admin + theme.read：未认证应 401，清单不再公开暴露
+            $anon = $p->get($k, '/api/v1/themes');
+            $p->ok($anon['status'] === 401 && (($anon['json']['code'] ?? null) === 40101),
+                '主题清单未认证未返回 401/40101');
+            $p->note('system.info: headless=true · theme_active=null · database=mysql；theme.list 未认证 401（v0.61 收紧）');
         });
 
         $p->step('安装窗口：五步结构、令牌仅本机可见、公网被拒', function () use ($p, $k, $site, $s): void {
@@ -91,7 +93,13 @@ final class InstallStage
             $p->ok(array_key_exists('theme_active', $info) && $info['theme_active'] === null, '装完仍应是 Headless');
             $closed = $p->get($live, '/install');
             $p->ok($closed['status'] === 404, '装完向导应关闭，实际 ' . $closed['status']);
-            $p->note('new Kernel($site) 只读 config/local.php → database=mysql · theme_active=null · /install=404');
+            // 装完后的清单校验：真实管理员签发令牌访问 theme.list（v0.61 起需 admin + theme.read）
+            $tok = $p->data($p->post($live, '/api/v1/auth/token',
+                ['username' => 'webmaster', 'password' => 'Journey-Pass-2026']), 'auth.token');
+            $themes = $p->data($p->get($live, '/api/v1/themes', [],
+                ['Authorization' => 'Bearer ' . $tok['token']]), 'theme.list');
+            $p->ok(($themes['headless'] ?? null) === true && ($themes['total'] ?? 0) >= 4, '出厂主题清单不完整');
+            $p->note('new Kernel($site) 只读 config/local.php → database=mysql · theme_active=null · /install=404 · theme.list total=' . ($themes['total'] ?? 0));
         });
     }
 }

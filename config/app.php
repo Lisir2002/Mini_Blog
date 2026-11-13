@@ -25,8 +25,7 @@ return [
         'active' => null,
     ],
 
-    // 空数组 = 装载目录下全部已启用的包；也可写成白名单 ['hello']
-    'plugin' => ['enabled' => []],
+    // 插件装配唯一真源是 lifecycle 状态机（active 才装载，v0.61 退役配置白名单）
     'page'   => ['enabled' => []],
 
     // 装卸系统（元层）

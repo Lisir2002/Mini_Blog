@@ -99,7 +99,7 @@ php tools/theme.php verify    # 复核成对 / 同源 / 覆盖面 / 零外链 / 
 
 | 接口 | 方法 / 鉴权 | 职责 |
 | --- | --- | --- |
-| `theme.list` | `GET /api/v1/themes` · public | 静态枚举各主题包的 `theme.json`：slug / version / enabled / meta / surface / family / layouts，以及当前 `active` 与 `headless`。不引导主题包、不连库 |
+| `theme.list` | `GET /api/v1/themes` · admin · `theme.read`（v0.61 收紧） | 静态枚举各主题包的 `theme.json`：slug / version / enabled / meta / surface / family / layouts，以及当前 `active` 与 `headless`。不引导主题包、不连库 |
 | `theme.activate` | `POST /api/v1/themes/active` · admin + `theme.manage` | 把启用态原子写入 `config/local.php`；留空 `slug` 停用主题回到 Headless |
 
 **写入只碰本地覆盖层**：`core/Config` 早已支持 `config/local.php`（「安装器 / 运维只写 local.php，删掉即回到默认」），主配置 `theme.active` 恒为 `null`，Headless 根基不动，删除 local.php 天然回退。写入是临时文件 + `rename` 的原子替换，失败时原文件不动；写入前经既有 `package.enabled` 钩子询问装卸系统准入，切到被停用主题返回 `40901`，不硬依赖 `lifecycle` 层。两个能力各有一个契约（`ThemeCatalogInterface` / `ThemeActivationInterface`），注册进容器后可被更高优先级替换；`core/` 仍 24 个 PHP 文件。

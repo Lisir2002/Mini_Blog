@@ -39,8 +39,12 @@ $get = static function (string $path, array $headers = []) use ($themeKernel): a
     return ['status' => $r->status(), 'env' => json_decode($r->body(), true) ?: []];
 };
 
-check('theme.list 公开只读，清单逐字段对应出厂 theme.json', function () use ($root, $get): void {
-    $r = $get('/api/v1/themes');
+check('theme.list 需 admin + theme.read（v0.61 收紧鉴权），清单逐字段对应出厂 theme.json', function () use ($root, $get): void {
+    // 未认证 → 401 / 40101：清单不再公开暴露
+    $anon = $get('/api/v1/themes');
+    truthy($anon['status'] === 401 && ($anon['env']['code'] ?? null) === 40101, '未认证访问 theme.list 未被拒绝');
+
+    $r = $get('/api/v1/themes', adminHeaders());
     $d = (array) ($r['env']['data'] ?? []);
     truthy($r['status'] === 200 && ($r['env']['code'] ?? null) === 0, '清单接口不可用');
     truthy(array_key_exists('active', $d) && $d['active'] === null
@@ -87,7 +91,7 @@ check('切换只写 config/local.php，主配置不变，新请求回读到同�
         $info = (array) ($get('/api/v1/system/info')['env']['data'] ?? []);
         truthy(($info['theme_active'] ?? null) === 'glass-front', 'system.info 未回读新主题');
         truthy(($info['headless'] ?? true) === false, 'headless 标记未同步');
-        $list = (array) ($get('/api/v1/themes')['env']['data'] ?? []);
+        $list = (array) ($get('/api/v1/themes', adminHeaders())['env']['data'] ?? []);
         truthy(($list['active'] ?? null) === 'glass-front', 'theme.list 未回读新主题');
 
         // 幂等：目标与当前一致时不写盘
@@ -108,7 +112,7 @@ check('白名单外 slug 被拒；留空 slug 停用主题回到 Headless', func
             && $off['env']['data']['active'] === null, '停用未回到 Headless');
         $cfg = require $root . '/config/local.php';
         truthy(is_array($cfg) && !isset($cfg['theme']['active']), '本地覆盖层仍残留 theme.active');
-        truthy(($get('/api/v1/themes')['env']['data']['headless'] ?? false) === true, '停用后未回到零呈现');
+        truthy(($get('/api/v1/themes', adminHeaders())['env']['data']['headless'] ?? false) === true, '停用后未回到零呈现');
     });
 });
 
@@ -126,7 +130,7 @@ check('双台账对齐：停用当前启用主题被拒，台账与启用态都�
             if (($u['type'] ?? '') === 'theme' && ($u['slug'] ?? '') === 'glass') $state = $u['state'] ?? null;
         }
         truthy($state === 'active', '装卸台账被错误改写');
-        truthy(($get('/api/v1/themes')['env']['data']['active'] ?? null) === 'glass', '启用源被错误改写');
+        truthy(($get('/api/v1/themes', adminHeaders())['env']['data']['active'] ?? null) === 'glass', '启用源被错误改写');
     });
 });
 

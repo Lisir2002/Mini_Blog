@@ -728,7 +728,7 @@
         "message": "ok",
         "data": {
           "framework": "Mini Blog",
-          "core_version": "0.60.0",
+          "core_version": "0.61.0",
           "php": "8.3.6",
           "requires_php": ">=8.1",
           "api_version": "v1",
@@ -5557,11 +5557,11 @@
       "method": "GET",
       "path": "/api/v1/themes",
       "operation": "theme.list",
-      "auth": "public",
+      "auth": "admin",
       "idempotent": true,
       "side_effects": "none",
       "since": "0.18.0",
-      "summary": "静态枚举 themes/ 下全部主题包及其清单字段，并返回当前启用主题与是否处于零呈现模式。",
+      "summary": "静态枚举 themes/ 下全部主题包及其清单字段，并返回当前启用主题与是否处于零呈现模式。需 admin 令牌与 theme.read 权限（v0.61 对齐其余读接口的鉴权形态，清单不再公开暴露）。",
       "scenario": "后台主题管理卡片、安装向导选择主题、运维核对元主题成对出厂；无主题（Headless）时同样可用。",
       "params": [],
       "response_fields": [
@@ -5587,6 +5587,10 @@
         }
       ],
       "errors": [
+        40101,
+        40102,
+        40301,
+        40303,
         50001
       ],
       "example_request": "GET /api/v1/themes",
@@ -5624,11 +5628,13 @@
           "system": "theme"
         }
       },
-      "notes": "纯静态读取：不引导主题包、不连库、不触发装配副作用；meta / surface / family 是元主题的一等契约字段。接口归 theme 系统层自报，主题包只消费、不注册接口（规矩 J）。",
+      "notes": "纯静态读取：不引导主题包、不连库、不触发装配副作用；meta / surface / family 是元主题的一等契约字段。接口归 theme 系统层自报，主题包只消费、不注册接口（规矩 J）。v0.61 起需 admin 令牌与 theme.read 权限：主题清单（slug / version / 布局面）属部署面信息，不再公开暴露，鉴权形态与其余读接口（如 metric.read）对齐；admin 角色经通配符授予 theme.read。",
       "changelog": [
-        "0.18.0 初次发布"
+        "0.18.0 初次发布",
+        "0.61.0 鉴权对齐：auth 由 public 收紧为 admin 并挂载 theme.read 权限（此前该权限声明后从未被任何端点挂载，属死权限）；错误码表补 40101 / 40102 / 40301 / 40303。安装向导若在未认证上下文读取清单，需改走本机 CLI 工具或先建立 admin 会话。"
       ],
-      "doc": "docs/api/API-THEME-001.md"
+      "doc": "docs/api/API-THEME-001.md",
+      "permission": "theme.read"
     },
     {
       "id": "API-THEME-002",
@@ -7826,5 +7832,5 @@
       "doc": "docs/api/API-COMMENT-009.md"
     }
   ],
-  "core_version": "0.60.0"
+  "core_version": "0.61.0"
 }

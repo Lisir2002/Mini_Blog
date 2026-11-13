@@ -17,8 +17,8 @@ final class ThemeStage
         $k = $site->fresh();
         $H = ['Authorization' => 'Bearer ' . $s->bearer];
 
-        $p->step('主题清单：四款出厂、两款元主题、当前 Headless', function () use ($p, $k): void {
-            $d = $p->data($p->get($k, '/api/v1/themes'), 'theme.list');
+        $p->step('主题清单：四款出厂、两款元主题、当前 Headless', function () use ($p, $k, $H): void {
+            $d = $p->data($p->get($k, '/api/v1/themes', [], $H), 'theme.list');
             $p->ok(($d['headless'] ?? null) === true && $d['active'] === null, '出厂不应启用主题');
             $items = (array) ($d['items'] ?? []);
             $metas = array_values(array_filter($items, static fn(array $i): bool => !empty($i['meta'])));
@@ -80,7 +80,7 @@ final class ThemeStage
             $d = $p->data($p->post($site->fresh(), '/api/v1/themes/active', ['slug' => ''], [], $H), 'theme.activate(off)');
             $p->ok(array_key_exists('active', $d) && $d['active'] === null, '停用未回到 null');
             $next = $site->fresh();
-            $list = $p->data($p->get($next, '/api/v1/themes'), 'theme.list(off)');
+            $list = $p->data($p->get($next, '/api/v1/themes', [], $H), 'theme.list(off)');
             $p->ok(($list['headless'] ?? null) === true, '停用后 headless 不为 true');
             $home = $p->get($next, '/');
             $p->ok(str_contains($home['ct'], 'json') && !str_contains($home['body'], '<'), '停用后仍在渲染 HTML');

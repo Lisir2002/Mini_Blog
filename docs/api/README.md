@@ -72,7 +72,7 @@
 | `API-EMOJI-001` | `GET` | `/api/v1/emojis` | `emoji` | `public` | 是 | [API-EMOJI-001](API-EMOJI-001.md) |
 | `API-EMOJI-002` | `POST` | `/api/v1/emojis` | `emoji` | `admin` | 否 | [API-EMOJI-002](API-EMOJI-002.md) |
 | `API-EMOJI-003` | `POST` | `/api/v1/emojis/delete` | `emoji` | `admin` | 否 | [API-EMOJI-003](API-EMOJI-003.md) |
-| `API-THEME-001` | `GET` | `/api/v1/themes` | `theme` | `public` | 是 | [API-THEME-001](API-THEME-001.md) |
+| `API-THEME-001` | `GET` | `/api/v1/themes` | `theme` | `admin` | 是 | [API-THEME-001](API-THEME-001.md) |
 | `API-THEME-002` | `POST` | `/api/v1/themes/active` | `theme` | `admin` | 是 | [API-THEME-002](API-THEME-002.md) |
 | `API-METRIC-001` | `GET` | `/api/v1/stats/overview` | `metric` | `admin` | 是 | [API-METRIC-001](API-METRIC-001.md) |
 | `API-METRIC-002` | `GET` | `/api/v1/stats/series` | `metric` | `admin` | 是 | [API-METRIC-002](API-METRIC-002.md) |

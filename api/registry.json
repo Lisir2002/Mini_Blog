@@ -728,7 +728,7 @@
         "message": "ok",
         "data": {
           "framework": "Mini Blog",
-          "core_version": "0.59.0",
+          "core_version": "0.60.0",
           "php": "8.3.6",
           "requires_php": ">=8.1",
           "api_version": "v1",
@@ -5703,7 +5703,8 @@
       },
       "notes": "只写 config/local.php（core/Config 既有覆盖层），主配置 theme.active 恒为 null，删掉 local.php 即回到 Headless；临时文件 + rename 原子替换，失败原文件不动。写入前经 package.enabled 询问装卸系统准入，切到被停用主题返回 40901。当前请求 Config 已缓存，新主题在下次请求装配时生效（effective=next_request）。与 lifecycle.activate 分工：后者只恢复装配准入，不改变当前启用主题。",
       "changelog": [
-        "0.18.0 初次发布"
+        "0.18.0 初次发布",
+        "0.59.0 激活期新增 `classOf` 预检：`theme.active` 写盘前先校验主题清单声明的 `class` 真实可加载，缺失（类文件不存在 / 类名不匹配）时返回 `50001` 并拒绝写入 `config/local.php`，将「写盘后下次启动才崩」的可用性风险转为显式失败；错误码表新增该 50001 用例。"
       ],
       "doc": "docs/api/API-THEME-002.md",
       "permission": "theme.manage"
@@ -7825,5 +7826,5 @@
       "doc": "docs/api/API-COMMENT-009.md"
     }
   ],
-  "core_version": "0.59.0"
+  "core_version": "0.60.0"
 }

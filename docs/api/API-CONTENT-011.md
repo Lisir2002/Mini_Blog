@@ -131,6 +131,7 @@ GET /api/v1/content/terms?kind=tag
 
 ## 8. 变更记录
 
+- 0.51.0 站点地图开始收录有文章挂载的标签（/term?kind=..&slug=..）：FeedQuery::terms() 是本接口的第二个消费方，post_count>0 的过滤在取数层完成，接口不可用（内存降级）时 sitemap 显式注释留痕而不是整份下线。
 - 0.45.0 由 /console/terms 消费；50101 / 空清单 / 截断三种状态分离，post_count 口径写明
 - 0.28.0 初次发布
 

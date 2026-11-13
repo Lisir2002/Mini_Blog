@@ -131,6 +131,7 @@ POST /api/v1/content/post/transition  {"slug":"hello","to":"published","publish_
 
 ## 8. 变更记录
 
+- 0.53.0 页面开始消费 publish_at：/console/content 选中一篇文章后可设定 / 取消发布排期（ContentAdminPlacement 现场问 content.publish）。此前本接口已被发布 / 转草稿 / 归档按钮消费，那三个动作却从不传 publish_at —— 消费矩阵只看 operation 名，看不见参数级缺口。
 - 0.28.0 初次发布
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；

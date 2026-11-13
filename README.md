@@ -1,6 +1,6 @@
 # Mini Blog
 
-![version](https://img.shields.io/badge/version-0.53.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.54.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
 ![tests](https://img.shields.io/badge/tests-all%20passing-2ea44f)
@@ -28,7 +28,7 @@ Mini Blog 用原生 PHP 8.1+ 写成，没有 Composer、vendor、模板引擎与
 | 内容与交互 | 文章、评论树、SHA-256 内容寻址附件、表情 token、五态状态反馈 |
 | 呈现接线 | 归档 / 标签 / 分类、统计看板（窗口链接组）、文章页点赞 / 举报 / 编辑入口与附件区块；`pages/*` 只产数据，标签全归主题 |
 | 后台闭环 | 评论审核队列、内容管理台（列表 / 状态迁移 / 回收站）、站内搜索、RSS / sitemap / robots；写路径一律「GET 签票据、POST 验签」 |
-| 能力兑现证据 | `tools/consumers.php` 输出「接口 → 消费方」矩阵，把「零消费」列成可查清单，而不是靠人肉翻接口清单 |
+| 能力兑现证据 | `tools/consumers.php` 输出「接口 → 消费方」矩阵，把「零消费」列成可查清单；`tools/parameters.php` 把粒度下沉到每个契约参数，零证据的逐条登记结论，不让「operation 已消费」掩盖「参数没入口」 |
 | 数据平面 | 事务会话、查询观测、严格 `sql_mode`、显式出站字段白名单、只读孤儿巡检 |
 | 统计与可观测 | 计数器 / 仪表 / 直方图三类指标，按小时聚合；HTTP、接口、SQL、业务事件自动埋点，四个只读接口回答「现在发生了什么」 |
 | 账号体系 | 注册（默认关闭）、改密、登出、改资料；禁用 / 启用 / 改角色 / 重置口令；登录失败锁定、禁用即吊销全部令牌 |
@@ -120,7 +120,7 @@ Mini_Blog/
 ├── config/app.php            装配清单
 ├── docs/                     架构、规矩、专题与 92 份接口文档
 ├── tests/                    守卫分组（见 tests/groups/）
-├── tools/                    文档生成 / OpenAPI / 审计 / 基准 / 旅程 / 故障旅程 / 事实对账 / 签名
+├── tools/                    文档生成 / OpenAPI / 审计 / 基准 / 旅程 / 故障旅程 / 事实对账 / 消费矩阵 / 参数覆盖 / 签名
 └── storage/                  运行时产物
 ```
 
@@ -131,6 +131,8 @@ php tests/run.php                    # 全量守卫（分组见 tests/groups/）
 php tools/theme.php verify           # 出厂元主题契约复核
 php tools/audit-responsibility.php   # 单文件职责审计
 php tools/data.php verify            # 只读孤儿巡检
+php tools/consumers.php              # 接口 → 消费方矩阵（零消费分「刻意保留 / 未登记」）
+php tools/parameters.php             # 参数级覆盖账本（--zero 只列待补入口）
 php tools/journey.php                # 全链路旅程（隔离站点 / 真实请求管线）
 php tools/faults.php                 # 故障旅程（依赖缺失 / 凭据过期 / 并发 / 越界 / 启动期真实 SAPI）
 php tools/facts.php verify           # 计数唯一真源对账（含错误码表）

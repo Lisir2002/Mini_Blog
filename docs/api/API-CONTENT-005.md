@@ -131,6 +131,7 @@ POST /api/v1/content/post/update  {"slug":"first-post","title":"新标题"}
 
 ## 8. 变更记录
 
+- 0.53.0 页面开始消费 pinned / weight：/console/content 的推荐位表单是本接口第二个消费方，只带这两个字段、绝不夹带正文，以免字段级 ACL 连累正文保存。同版修正 status 改为非 published 时未清 publish_at 的残留（Pdo / Memory 两处同口径）。
 - 0.9.0 初次发布
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；

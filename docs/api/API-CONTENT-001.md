@@ -70,7 +70,7 @@
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `items` | `object[]` | 文章对象：id / slug / title / excerpt / body / status / author / created_at |
+| `items` | `object[]` | 文章对象：id / slug / title / excerpt / body / status / author / created_at；并含 updated_at / publish_at / pinned / sort_weight / deleted_at（出站形状由 PostRow::normalize 统一，列表与详情共用一处转换） |
 | `next_cursor` | `string|null` | 下一页游标；null 表示已到末尾 |
 | `total` | `int` | 当前状态过滤下的总数 |
 | `items[].terms` | `list<array>` | 每篇文章绑定的术语，批量一次取全（forPosts），避免列表页每篇一次 SQL；无术语为 []。 |

@@ -133,3 +133,13 @@ operation 名。本版在 `/console/content` 选中一篇文章后补两张独�
 落在内容管理页而非写作页，是因为 `content.post` 对「已发布但 publish_at 未到点」
 的文章无条件 40403 —— 写作页读不到自己刚排期的文章。消费矩阵 operation 数不变，
 零消费维持 10 刻意 / 0 未登记；`69` / `69b` 两组共 10 项守卫锁住参数级入口与定时可见性。
+
+v0.54 把参数级覆盖变成账本：`api/parameter-coverage.json` 逐条登记「在其 operation
+的消费方文件里找不到同名字符串」的参数，`tools/parameters.php`（核对引擎在
+`tools/audit/ParameterLedger.php`）复用本矩阵的消费方列表做双向核对 —— 有证据却
+登记、零证据却不登记都是坏账，未登记必须为零。187 个契约参数里 144 个有页面证据，
+43 个零证据分成三类：page 17 条（成员页职责拆分，入参由协作者组装，须附 `file` +
+`anchor` 证据）、cli 22 条（随 op 列入刻意零消费的装配期动作）、gap 4 条（契约预留
+但页面无入口：`content.posts.pinned` / `attachments.download.disposition` /
+`stats.series.dimension` / `content.trash.cursor`，`--zero` 只列这一段）。
+operation 级矩阵零变化，仍 10 刻意 / 0 未登记；`70` / `70b` 两组共 13 项守卫。

@@ -123,6 +123,7 @@ php tests/run.php                    # 全量守卫（当前数字见 `php tools
 php tools/audit-responsibility.php   # 单文件职责审计，非 0 退出即失败
 php tools/bench.php                  # 性能基准：应用层开关 + 部署层 opcache / CPU 核数对照
 php tools/data.php verify            # 只读孤儿巡检（stats 看表体量）
+php tools/parameters.php             # 参数级覆盖账本核对（--zero 只列待补入口）
 php tools/gen-api-docs.php           # 重新生成 92 份接口文档
 php tools/journey.php                # 全链路旅程（需 MariaDB）
 php tools/facts.php verify           # 计数唯一真源对账（锚点 / 守卫锁 / 错误码 / 反向候选）

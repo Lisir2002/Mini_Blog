@@ -82,21 +82,15 @@ final class PageSystem extends AbstractSystem
             }, 20);
         }
 
-        // 404 兜底：没有任何页面认领这个路径时，返回 404 而不是「200 的空首页」。
-        // 此前拼错一个 URL 会拿到一个 200 的空壳站点：搜索引擎收录、读者以为页面存在、
-        // 监控看不到异常 —— 典型的静默成功。判定条件是「三空 + 非已声明页面」，
-        // API 与附件路由各自会写 body / 信封，因此不会被误伤。
-        $apiPrefix = rtrim((string) $kernel->config()->get('api.prefix', '/api/v1'), '/');
-        $kernel->hooks()->filter('route.response', static function (
+        // 未匹配路径的友好呈现：核心在「无人认领」时（见 Router::resolve 的知识无关门禁）
+        // 发出 route.notFound 钩子，本系统层只负责填充结构化文案与 deny 槽位。核心不持有任何
+        // 路径知识，因此无需再判断 api 前缀 / attach 前缀 / 已声明页清单——那些路径都由各自
+        // 子系统产出过内容（信封 / 字节流 / 数据），在核心眼里已经是「被认领」，根本走不到这里。
+        $kernel->hooks()->filter('route.notFound', static function (
             Response $response, Request $request
-        ) use ($policy, $apiPrefix): Response {
+        ): Response {
             if ($response->status() !== 200) return $response;
-            if ($response->payload() !== null || $response->body() !== '') return $response;
             $path = $request->path();
-            if (in_array($path, $policy->paths(), true)) return $response;
-            if ($apiPrefix !== '' && str_starts_with($path, $apiPrefix)) return $response;
-            if (str_starts_with($path, '/attach/')) return $response;
-
             return $response->setStatus(404)->setLayout('deny')->setPayload([
                 'title'  => '页面不存在',
                 'page'   => 'not_found',
@@ -110,7 +104,7 @@ final class PageSystem extends AbstractSystem
                     ]],
                 ],
             ]);
-        }, 40);
+        }, 10);
 
         foreach ($policy->undeclared() as $slug) {
             $kernel->hooks()->emit('page.access.undeclared', $slug, $kernel);

@@ -29,7 +29,11 @@ final class AttachmentRoute
     public function handle(Request $request, Response $response): bool
     {
         $path = $request->path();
-        if ($path !== self::UPLOAD && $path !== self::DOWNLOAD) return false;
+        // /attach/ 命名空间归附件系统所有：未知子路径也由本系统以 4xx 信封认领，
+        // 不让核心的「未匹配门禁」把它误判成「页面不存在」的 Web 404。
+        $inNamespace = $path === self::UPLOAD || $path === self::DOWNLOAD
+            || str_starts_with($path, '/attach/');
+        if (!$inNamespace) return false;
 
         $container = $this->kernel->container();
         $registry = $container->has(ApiRegistryInterface::class)

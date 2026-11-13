@@ -48,7 +48,13 @@ final class LifecycleSystem extends AbstractSystem
             };
             if ($type === null) return $enabled;
             $state = $manager->stateOf($type, $slug);
-            // 未登记（absent）兼容旧包：默认启用；已登记则仅 active 可装载
+            if ($type === 'plugin') {
+                // 插件必须显式经 lifecycle.activate 进入 active 才装载：缺省 absent 不再默启，
+                // 否则「往 plugins/ 丢一个 plugin.json」即等于落盘即执行（fail-open）。
+                // 主题 / 独立页保留 absent→默启的向后兼容（它们的装载由各自系统层收窄）。
+                return $state === 'active';
+            }
+            // 主题 / 独立页：未登记（absent）兼容旧包默认启用；已登记则仅 active 可装载。
             return $state === 'absent' ? $enabled : $state === 'active';
         }, 10);
     }

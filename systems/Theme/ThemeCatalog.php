@@ -51,4 +51,16 @@ final class ThemeCatalog implements ThemeCatalogInterface
         }
         return false;
     }
+
+    public function classOf(string $slug): ?string
+    {
+        foreach (glob($this->root . '/themes/*/theme.json') ?: [] as $file) {
+            $meta = json_decode((string) file_get_contents($file), true);
+            if (!is_array($meta)) continue;
+            if ((string) ($meta['slug'] ?? basename(dirname($file))) !== $slug) continue;
+            $class = (string) ($meta['class'] ?? '');
+            return $class === '' ? null : $class;
+        }
+        return null;
+    }
 }

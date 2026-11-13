@@ -18,4 +18,7 @@ interface ThemeCatalogInterface
 
     /** 是否存在一个已启用（enabled=true）的主题包 */
     public function has(string $slug): bool;
+
+    /** 主题包声明的实现类名；找不到返回 null（用于激活期预检，避免写盘后才发现类不可加载） */
+    public function classOf(string $slug): ?string;
 }

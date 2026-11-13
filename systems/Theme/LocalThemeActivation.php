@@ -31,6 +31,14 @@ final class LocalThemeActivation implements ThemeActivationInterface
             if (!$this->catalog->has($target)) {
                 throw new ApiOperationException('主题不存在或未启用：' . $target, 40403);
             }
+            // 激活期预检：清单里的类必须真实可加载，否则写盘后下次启动 PackageLoader 会因
+            // class 缺失抛 RuntimeException 整站起不来。先 50001 拦下，把可用性风险转成显式失败。
+            $class = $this->catalog->classOf($target);
+            if ($class === null || !class_exists($class)) {
+                throw new ApiOperationException(
+                    '主题清单声明了类但无法加载：' . $target . ' → ' . ($class ?? 'null'), 50001
+                );
+            }
             // 装配准入归装卸系统裁决；这里只询问既有钩子，不硬依赖 lifecycle 层。
             $allowed = (bool) $this->kernel->hooks()->apply(
                 'package.enabled', true, $target, 'theme.json', $this->kernel

@@ -43,10 +43,17 @@ final class StatsPage implements PackageInterface
                 return;
             }
 
+            $q = $request->query();
             try {
                 $query = new StatsQuery($registry);
-                $raw = $query->collect($window);
+                $raw = $query->collect($window,
+                    (string) ($q['metric'] ?? ''), (string) ($q['dimension'] ?? ''));
                 $board = $query->board($window, $raw);
+            } catch (InvalidArgumentException $e) {
+                // metric / dimension 不合法与 window 非法同属「参数不合法」，
+                // 不能混进 503：那会把用户填错的一个字段说成统计系统挂了。
+                $this->emit($response, StatsState::unavailable($window, $e, true));
+                return;
             } catch (\Throwable $e) {
                 $this->emit($response, StatsState::unavailable($window, $e));
                 return;
@@ -56,6 +63,8 @@ final class StatsPage implements PackageInterface
             $payload['stats_state'] = $board['notice']['state'];
             $payload['collector'] = (array) ($raw['overview']['collector'] ?? []);
             $payload['blocks'] = $board['blocks'];
+            $payload['metric'] = (string) $board['metric'];
+            $payload['dimension'] = (string) $board['dimension'];
             $this->emit($response, ['status' => 200, 'payload' => $payload]);
         }, 10);
     }

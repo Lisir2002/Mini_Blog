@@ -19,7 +19,6 @@ use Wx\Contracts\ApiRegistryInterface;
  */
 final class StatsQuery
 {
-    public const SERIES_NAME = 'http_requests';
     public const SERIES_LIMIT = 48;
     public const OPS_LIMIT = 12;
 
@@ -41,20 +40,31 @@ final class StatsQuery
         return $value;
     }
 
-    /** @return array<string, mixed> 概览、序列、排行、字典各取一次 */
-    public function collect(string $window): array
+    /**
+     * 概览、序列、排行、字典各取一次。字典先取：维度串必须按它声明的标签
+     * 白名单校验后才允许进 stats.series，否则一个缺标签的串会查出空图表，
+     * 页面却显示成「站点没流量」。
+     * @return array<string, mixed>
+     */
+    public function collect(string $window, string $metric = '', string $rawDimension = ''): array
     {
+        $catalog = (array) $this->registry->execute('stats.catalog', []);
+        $metric = StatsDimension::metric($metric, $catalog);
+        $resolved = StatsDimension::normalize($rawDimension, $catalog, $metric);
+
         $overview = (array) $this->registry->execute('stats.overview', ['window' => $window]);
         $series = (array) $this->registry->execute('stats.series', [
-            'name' => self::SERIES_NAME, 'window' => $window, 'limit' => self::SERIES_LIMIT,
+            'name' => $metric, 'dimension' => $resolved['dimension'],
+            'window' => $window, 'limit' => self::SERIES_LIMIT,
         ]);
         $operations = (array) $this->registry->execute('stats.operations', [
             'window' => $window, 'limit' => self::OPS_LIMIT,
         ]);
-        $catalog = (array) $this->registry->execute('stats.catalog', []);
         return [
             'overview' => $overview, 'series' => $series,
             'operations' => $operations, 'catalog' => $catalog,
+            'metric' => $metric, 'dimension' => $resolved['dimension'],
+            'required' => $resolved['required'],
         ];
     }
 
@@ -65,6 +75,11 @@ final class StatsQuery
         $series = (array) ($raw['series'] ?? []);
         $ops = (array) ($raw['operations'] ?? []);
         $catalog = (array) ($raw['catalog'] ?? []);
+
+        $metric = (string) ($raw['metric'] ?? StatsDimension::DEFAULT_METRIC);
+        // 后端会把规范化后的串回显在 series.dimension；以它为准，页面不另造一份事实。
+        $dimension = (string) ($series['dimension'] ?? ($raw['dimension'] ?? ''));
+        $required = (array) ($raw['required'] ?? []);
 
         $points = StatsBlocks::chartPoints((array) ($series['points'] ?? []));
         $hasPoints = $points !== [];
@@ -80,20 +95,41 @@ final class StatsQuery
             'type' => 'links', 'id' => 'stats-windows', 'title' => '时间窗口',
             'items' => StatsBlocks::windowLinks($window),
         ];
+        $blocks[] = [
+            'type' => 'notice', 'id' => 'stats-dimension-note',
+            'tone' => 'info', 'state' => 'info',
+            'title' => $dimension === '' ? '当前：全部分请求（不分维度）' : '当前维度：' . $dimension,
+            'value' => StatsDimension::caveat($metric, $required),
+        ];
+        $blocks[] = [
+            'type' => 'links', 'id' => 'stats-dimensions', 'title' => '按维度下钻',
+            'items' => StatsDimension::links($window, $metric, $dimension, $ops, $catalog),
+        ];
         $blocks[] = ['type' => 'table', 'title' => '流量与耗时（窗口 ' . $window . '）',
             'rows' => StatsBlocks::trafficRows($overview)];
         $blocks[] = [
             'type' => 'chart', 'id' => 'stats-series',
-            'title' => '按小时请求量 · ' . self::SERIES_NAME,
+            'title' => '按小时请求量 · ' . $metric . ($dimension !== '' ? ' · ' . $dimension : ''),
             'unit' => (string) ($series['unit'] ?? '次'),
             'points' => $points, 'empty' => !$hasPoints,
             'truncated' => !empty($series['truncated']),
         ];
+        // 精确匹配下「该维度没有采样」是正常结果，必须与「站点没流量」「采集挂了」分开说。
+        if ($dimension !== '' && !$hasPoints) {
+            $blocks[] = [
+                'type' => 'notice', 'id' => 'stats-dimension-empty',
+                'tone' => 'info', 'state' => 'empty',
+                'title' => '该维度窗口内没有采样',
+                'value' => '当前筛选的维度在这个时间窗口里没有采样点。这不代表站点没有流量，'
+                    . '也不代表采集器故障；可换一个维度或点「全部（不分维度）」回到全量。',
+            ];
+        }
         $blocks[] = ['type' => 'table', 'title' => '接口调用排行',
             'rows' => StatsBlocks::opsRows($ops, self::OPS_LIMIT)];
         $blocks[] = ['type' => 'table', 'title' => '采集器与字典',
             'rows' => StatsBlocks::collectorRows($overview, $catalog)];
 
-        return ['notice' => $notice, 'blocks' => $blocks, 'has_points' => $hasPoints];
+        return ['notice' => $notice, 'blocks' => $blocks, 'has_points' => $hasPoints,
+            'metric' => $metric, 'dimension' => $dimension];
     }
 }

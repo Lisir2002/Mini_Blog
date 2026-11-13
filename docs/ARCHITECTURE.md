@@ -563,7 +563,8 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 | v0.22 | **启动期边界**：把「构造」纳入异常边界——`Kernel::serve()` 包住构造与 `run()`，`public/index.php` 只留一行调用。此前 `config/local.php`（主题启用唯一会写的文件）损坏会在构造期抛出、落在 `run()` 之外：`display_errors=0` 时 HTTP/1.0 500 空 body（白屏），`display_errors=1` 时 **HTTP 200** + 绝对路径与 `Parse error`（监控看到成功，缓存与爬虫把错误页当正常页收下）。新增 `tools/journey/Server.php`（内置服务器：端口探测 / 就绪等待 / 原始响应读出 / 强制回收）与 `tools/faults/StartupFaults.php`（装配期、构造期各含自愈，全程 `display_errors=1`），`faults` 从九类扩到十一类；`30` 组守卫做入口唯一性、兜底正文唯一性、子进程构造期断言。故障只进 SAPI 日志、不进响应体；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.23 | **稳定性的代价**：v0.20 的原子写与流式下载此前只有正确性守卫、没有数字。新增 `tools/bench/StabilityProbe.php` 与 `php tools/bench.php stability`：幂等 `claim`+`complete` 45 µs/次、限流 `check` 11 µs/次（约占一次请求 3.7 ms 的 1%）、6 进程 × 200 键并发落盘 **1200/1200** 一条不丢；附件 64 MB 全量 **66.0 MB** 峰值 / 分块 **2.0 MB**（−97%），本地落盘耗时约 1.8 倍。文档只锁「可重跑命令」，数值标注为机器快照；顺带修掉 PERFORMANCE §8 里写死的「250 passed / 50 分组文件」（早已静默过期），并把性能文档纳入事实对账。`31` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
 | v0.24 | **反向锚点**：正向锚点只能核对「已经想到要核对的句子」——v0.20 起查出的四处漂移（README 徽章 `282 passing`、SPEC 漏登 5 个错误码、architecture.html 页眉「14 系统层 · 55 接口」、结构树「40 个分组 200 项守卫」）都不是写错，而是**没有锚点**，坏掉时对账仍报零漂移。新增 `tools/facts/Coverage.php`：扫「有单一真源的名词」前的数字，未被任一锚点覆盖且非史实句即为候选；候选不与绝对值比对（那会立刻产生 611 条噪音），而与 `coverage-baseline.php` 快照比增量，只报**新出现的组合**（611 → 32 条，当前零假红）。`php tools/facts.php verify` 输出 `NEW` 行并以非 0 退出；`accept` 是唯一写文件的模式，且只覆盖该快照。顺带把 26b 里「源码不含 `file_put_contents`」这条字符串近似断言改为行为验证（跑 verify 前后比对 docs / tools/facts 的 md5 与 mtime）。`32` 组守卫；不新增系统层 / 接口 / 契约，`core/` 仍 24 文件 |
-| **v0.55（当前）** | **回收站深翻页：参数级 gap 首次收口**：v0.54 把「矩阵只看 operation 名」的盲点制度化，`--zero` 首次列出 4 个真缺口，其中 `content.trash.cursor` 是唯一带实际数据缺失的一条 —— 接口 `content.trash` 从 0.28.0 起就支持 `cursor` 入参与 `next_cursor` 出站（Pdo / Memory 两处 keyset 分页），页面却只取第一页 20 条并标「未列全」，第 21 篇往后永远翻不到。本版不新增接口、不碰系统层，只补页面入口：`ContentAdminQuery::trash()` 透传游标并在 `shape()` 保留 `next_cursor` / `cursor`；新建 `ContentAdminPager`（纯函数）产「下一页 / 回到第一页」链接，base64 游标逐字符 `rawurlencode`（`+` / `=` 不能裸拼进 query）；`ContentAdminPage` 只从 query 读 cursor、非法游标由后端 `InvalidArgumentException` 翻成显式 **422**（不是 503，更不静默当第一页）、恢复 / 彻底删除后 PRG 带回原页；行表单把 cursor 作 hidden 回传。三条边界显式化：keyset 只有前进方向故不伪造「上一页」页码、翻到后半段本页被清光时说「这一页空了」而非「回收站是空的」（total 不受游标影响）、顺带修 purge 失败态误落 live 视图。参数账本因此从 43 条收窄为 **42 条**、gap 从 4 条收窄为 **3 条** —— 撤登不是手工删一行，是扫描器找到证据后双向核对强制执行的（把已收口的键放回去会被 `70` 组判成坏账）。新增 `71` / `71b` 两组共 18 项守卫（真实 MariaDB 造 45 篇软删除文章翻三页不重不漏、total 恒定、非法游标 422、PRG 留在原页、空页边界）；operation 级矩阵零变化（92 / 10 刻意 / 0 未登记），零新增接口、零新增系统层、`core/` 零改动。 |
+| **v0.56（当前）** | **参数级 gap 全部收口：`--zero` 首次归零**：v0.54 建账时 `--zero` 列出 4 条待补入口，v0.55 收掉 `content.trash.cursor` 后余 3 条，本版一次补齐，gap 桶归零、账本只剩 39 条 page / cli 结论。三条都只在页面层补入口、不动接口与系统层：`content.posts.pinned` 落成 `/console/content` 的「只看置顶」视图（按 weight 倒序、不混进游标分页，导航 / 空态 / 选中面板 / PRG 全程保留筛选状态）；`attachments.download.disposition` 落成前台图片内联预览（`PostAttachments` 只对 `image/*` 产出带 `disposition=inline` 的 URL，两款元主题模板与 CSS 逐字同源渲染）；`stats.series.dimension` 落成看板维度下钻 —— 关键在于**下钻链接必须构造完整可命中的维度串**：后端 `dimension` 是精确匹配，真实采集的 `api_calls` 带 `operation` + `code` 双标签、`http_requests` 带 `method` + `status`，契约旧示例 `operation=content.posts` 因缺 `code` 永远查不到。页面按 `stats.catalog` 的标签白名单校验「必须带齐全部标签」，从 `stats.operations` 排行反推 `code=0,operation=...`；缺标签 / 非法键 / 未知指标显式 422，合法但无采样的维度明说「该维度窗口内没有采样」而不冒充站点没流量或采集器故障。新增 `StatsDimension`（纯函数）守住形状校验与反推，新增 `72` / `72b` 两组共 12 项守卫（真实 MariaDB 采样验证下钻确实命中、GET 链接可分享、四类非法参数 422、空采样三态区分）；`70` / `70b` 改为 gap 归零后的反向锁（四条已收口的键放回去都必须是坏账）。operation 级矩阵零变化（92 / 10 刻意 / 0 未登记），零新增接口、零新增系统层、`core/` 零改动。 |
+| **v0.55** | **回收站深翻页：参数级 gap 首次收口**：v0.54 把「矩阵只看 operation 名」的盲点制度化，`--zero` 首次列出 4 个真缺口，其中 `content.trash.cursor` 是唯一带实际数据缺失的一条 —— 接口 `content.trash` 从 0.28.0 起就支持 `cursor` 入参与 `next_cursor` 出站（Pdo / Memory 两处 keyset 分页），页面却只取第一页 20 条并标「未列全」，第 21 篇往后永远翻不到。本版不新增接口、不碰系统层，只补页面入口：`ContentAdminQuery::trash()` 透传游标并在 `shape()` 保留 `next_cursor` / `cursor`；新建 `ContentAdminPager`（纯函数）产「下一页 / 回到第一页」链接，base64 游标逐字符 `rawurlencode`（`+` / `=` 不能裸拼进 query）；`ContentAdminPage` 只从 query 读 cursor、非法游标由后端 `InvalidArgumentException` 翻成显式 **422**（不是 503，更不静默当第一页）、恢复 / 彻底删除后 PRG 带回原页；行表单把 cursor 作 hidden 回传。三条边界显式化：keyset 只有前进方向故不伪造「上一页」页码、翻到后半段本页被清光时说「这一页空了」而非「回收站是空的」（total 不受游标影响）、顺带修 purge 失败态误落 live 视图。参数账本因此从 43 条收窄为 **42 条**、gap 从 4 条收窄为 **3 条** —— 撤登不是手工删一行，是扫描器找到证据后双向核对强制执行的（把已收口的键放回去会被 `70` 组判成坏账）。新增 `71` / `71b` 两组共 18 项守卫（真实 MariaDB 造 45 篇软删除文章翻三页不重不漏、total 恒定、非法游标 422、PRG 留在原页、空页边界）；operation 级矩阵零变化（92 / 10 刻意 / 0 未登记），零新增接口、零新增系统层、`core/` 零改动。 |
 | **v0.54** | **参数级覆盖制度化**：v0.53 补上了三个参数的写入口，但暴露的是消费矩阵的结构性盲点 —— 它只看 operation 名，看不见参数，operation 全绿照样可以参数全空。本版新建 `api/parameter-coverage.json` 与 `tools/parameters.php`（核对引擎在 `tools/audit/ParameterLedger.php`），把粒度下沉到 `registry.json` 的每一条 `params[]`：复用 `consumers.php` 给出的消费方文件列表找参数名证据，187 个参数里 144 个有页面证据、43 个零证据必须逐条登记结论。三种 state 刻意区分：`page`（入参由同目录协作者组装、扫描器看不见，须附 `file` + `anchor` 可核对证据，17 条，全是成员页职责预算拆分的产物）、`cli`（随 op 列入刻意零消费的装配期动作，22 条）、`gap`（契约预留但页面至今没有写入口，4 条：`content.posts.pinned`、`attachments.download.disposition`、`stats.series.dimension`、`content.trash.cursor`）。`--zero` 只列 gap，这一栏同时是下一版候选清单。登记不是免检：有证据却登记、零证据却不登记、伪造锚点、理由不足 20 字、state 与刻意零消费口径冲突都会被拦下。新增 `70` / `70b` 两组共 13 项守卫（含用篡改登记表验证双向核对真的会变红）；operation 级矩阵零变化（92 / 10 刻意 / 0 未登记），零新增接口、零新增系统层、`core/` 零改动。 |
 | **v0.53** | **参数级缺口收口：发布排期与推荐位**：零消费清单归零后，消费矩阵的盲点露出来了 —— 它只看 operation 名：`content.transition` 早已被发布 / 转草稿 / 归档按钮消费、`content.update` 早已被写作页消费，但 `publish_at`、`pinned`、`weight` 三个参数从来没有任何页面能设置，列表里却已经渲染着「· 定时」「· 置顶」。本版在 `/console/content` 选中一篇文章（`?focus=slug`）后补两张独立表单：排期走 `content.transition` 的 `publish_at`（现场问 `content.publish`），推荐位走 `content.update` 的 `pinned` / `weight`（现场问 `content.edit`，只带这两个字段以免字段级 ACL 连累正文保存）。**落点刻意选内容管理页而非写作页**：`content.post` 对「已发布但 publish_at 未到点」的文章无条件 40403，写作页读不到自己刚排期的文章，本页走 `status=any` 恰好能看见。置顶状态用两个提交按钮枚举（模板不输出 `checked`，复选框预填会误取消置顶），权限不足 / 票据失败 / focus 未命中都显式说明而不渲染假入口，PRG 成功带回 `focus`。顺带修系统层残留：`content.update` 把 `status` 改为非 published 时没清 `publish_at`，会留下「改回草稿却还排着未来时间」（Pdo / Memory 两处同口径）。新增 `69` / `69b` 两组共 10 项守卫，锁参数级入口、定时可见性（前台 / published 列表 / sitemap 三处不提前泄露）、权限现场问、字段级 ACL 隔离与草稿清理。零新增接口、零新增系统层、`core/` 零改动。 |
 | **v0.52** | **UTF-8 文本原语统一**：审计发现全仓 10 处「mb 探测 + 字节退化」双路实现 —— 同一个输入在装了 mbstring 与没装的部署下会得到**两种业务行为**（关键词 80 字上限一处按字符一处按字节），更糟的是 `substr($text, 0, 200)` 字节兜底把多字节字符从中间切开，产出非法 UTF-8：RSS 摘要末尾出现「�」、显示名截断后 `json_encode` 直接返回 false 让整个响应变空白。新建 `systems/Data/Utf8Text.php` 单一真源（PCRE u 修饰符，PHP 内置，零扩展依赖）：`len()` 按字符计数、`clip()` 按字符截断、`valid()` 显式判定合法性；非法 UTF-8 显式降级 —— 计数回退字节（宁可误拒不可漏放，长度校验是安全边界）、截断回退「字符数 × 4」字节上界、残留序列交给转义层的 ENT_SUBSTITUTE 替换成可见的 U+FFFD，**乱码可见，不许假装没发生**。收口 10 个调用点（RSS 摘要、文章列表摘要、搜索 / 写作 / 成员 / 附件 / ACL / 标签的长度上限校验、显示名截断、SQL 日志截断），术语名称校验补回「非法 UTF-8 显式拒绝」语义（`valid()` 先行）。`68` 组共 5 项守卫：行为契约（含非法输入降级方向）、双路实现回流清零（代码行扫描，注释不算）、端到端锁「超长中文摘要进 RSS 不产生非法 UTF-8」。零新增接口、零新增系统层、消费矩阵零变化、`core/` 零改动。 |
@@ -600,10 +601,10 @@ v0.5 随后新增的「单文件职责预算 / 协作全方位验证」不是待
 
 ## 19. 当前状态与验证
 
-- `php -l` 全量 **557 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24；v0.49 只扩展 `core/Http/Request.php`（+1 参数 +1 方法 +1 跳过条件，不新增文件）；v0.50 – v0.55 未碰核心。
-- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`，v0.28 新增 `36`，v0.29 新增 `37` / `37b`，v0.30 新增 `38` / `38b`，v0.31 新增 `39` / `39b` / `40` / `40b` / `41` / `41b`，v0.32 新增 `42` / `43`，v0.33 新增 `44` / `44b` / `45` / `45b` / `46` / `47` / `48` / `49`，v0.34 新增 `50` / `50b`，v0.35 新增 `51`，v0.36 新增 `52`，v0.37 新增 `53`，v0.38 新增 `54`，v0.39 新增 `55`，v0.40 新增 `56`，v0.41 新增 `57`，v0.42 新增 `58`，v0.43 新增 `59`，v0.44 新增 `60`，v0.45 新增 `61` / `61b`，v0.46 新增 `62` / `63`，v0.47 新增 `64`，v0.48 新增 `65`，v0.49 新增 `66`，v0.50 新增 `67`，v0.51 扩 `48`，v0.52 新增 `68`，v0.53 新增 `69` / `69b`，v0.54 新增 `70` / `70b`，v0.55 新增 `71` / `71b`）。
+- `php -l` 全量 **561 个 PHP 文件**语法通过（PHP 8.3.6 / PDO MySQL / MariaDB 10.11），其中 `core/` 仅 **24 个**（已达上限），且 `core/` 内 0 个 CSS/JS。v0.9 – v0.12 未新增核心文件；v0.13 只在 `core/Kernel.php` 让 3xx 跳过渲染、在 `RequestGuard` 注入来源地址；v0.14 – v0.19 连 `core/` 一个文件都没碰；v0.20 因二进制流式只改了 `core/Http/Response.php`（不新增文件）；v0.21 未碰核心；v0.22 只在 `core/Kernel.php` 增加静态入口 `serve()`（不新增文件），文件数仍 24；v0.49 只扩展 `core/Http/Request.php`（+1 参数 +1 方法 +1 跳过条件，不新增文件）；v0.50 – v0.56 未碰核心。
+- `php tests/run.php` → **全绿**（守卫分组数见 `php tools/facts.php`；v0.13 新增 `20a`–`20c`，v0.14 新增 `21a`–`21d`，v0.15 新增 `22a`–`22c`，v0.16 新增 `23a`–`23b`，v0.17 新增 `24a`–`24b`，v0.18 新增 `25a`–`25b`，v0.19 新增 `26a`–`26b`，v0.20 新增 `27a`–`27b` 与 `28`，v0.21 新增 `29`，v0.22 新增 `30`，v0.23 新增 `31`，v0.24 新增 `32`，v0.25 新增 `33`，v0.26 新增 `34` / `34b`，v0.27 新增 `35`，v0.28 新增 `36`，v0.29 新增 `37` / `37b`，v0.30 新增 `38` / `38b`，v0.31 新增 `39` / `39b` / `40` / `40b` / `41` / `41b`，v0.32 新增 `42` / `43`，v0.33 新增 `44` / `44b` / `45` / `45b` / `46` / `47` / `48` / `49`，v0.34 新增 `50` / `50b`，v0.35 新增 `51`，v0.36 新增 `52`，v0.37 新增 `53`，v0.38 新增 `54`，v0.39 新增 `55`，v0.40 新增 `56`，v0.41 新增 `57`，v0.42 新增 `58`，v0.43 新增 `59`，v0.44 新增 `60`，v0.45 新增 `61` / `61b`，v0.46 新增 `62` / `63`，v0.47 新增 `64`，v0.48 新增 `65`，v0.49 新增 `66`，v0.50 新增 `67`，v0.51 扩 `48`，v0.52 新增 `68`，v0.53 新增 `69` / `69b`，v0.54 新增 `70` / `70b`，v0.55 新增 `71` / `71b`，v0.56 新增 `72` / `72b`）。
 - `php tools/bench.php` → 应用层开关关 / 开与部署层 opcache / CPU 核数的真实对比数据（详见第 31 节）；`php tools/data.php verify` → 4 条关系无孤儿。
-- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；557 个文件共 41,447 有效代码行，最大单文件 217 行，92 个 operation 全部绑定执行者。
+- `php tools/audit-responsibility.php` → **0 违规 / 0 孤儿协作**；561 个文件共 41,998 有效代码行，最大单文件 217 行，92 个 operation 全部绑定执行者。
 - **18 个系统层**自动装配：`log → data → security → lifecycle → user → permission → api → state → plugin → member → content → release → theme → attachment → emoji → comment → metric → page`；**13 个契约接口文件**（容器运行时绑定 28 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个、页面守卫 1 个等内部注册项）、**92 个接口 / 92 份文档**、OpenAPI 3.1（84 路径 / 92 操作）、**49 个承载单元**（18 系统层 + 4 主题 + 25 独立页 + 2 插件）、**49 个权限点**。
 - 真实 MariaDB 上建立 **24 张**系统层自建表（含 `schema_migrations`、`state_tasks`、`attachments`、`emojis`）；另有 1 张运行时结构指纹状态表 `wx_schema_state`，`php tools/data.php stats` 实测 25 张，验证文章 / 评论树写入读回、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进、附件内容寻址与私有下载授权；拔掉 DSN 后自动回退且首页仍有数据。
 - HTTP 端到端冒烟：`GET /` 纯 JSON 零 HTML；`GET /api/v1/system/info` 返回统一信封（`systems=17, contracts=24, api_operations=69, core_version=0.25.0, headless=true`）；未捕获异常经 `kernel.exception` 渲染为失败态页面；无主题时 `payload.state` 仍在、零标签。
@@ -2610,7 +2611,8 @@ state 与刻意零消费口径冲突），`70b` 组跑真实 CLI 并核对两张
 （gap 的 op 必须有消费方、cli 的 op 必须在刻意零消费里）。零新增接口、
 零新增系统层、`core/` 零改动。
 
-v0.55 补记：上列 4 条 gap 里 `content.trash.cursor` 已于下一版收口，`--zero` 现列 3 条。
+v0.55 补记：上列 4 条 gap 里 `content.trash.cursor` 已于下一版收口，`--zero` 当时列 3 条。
+v0.56 再补记：余下 3 条于 v0.56 一次收完，gap 桶归零，`--zero` 现输出「无」。
 gap 桶是可消的队列，不是免检名单 —— 这也正是把它单独列出来的意义。
 
 ## 65. 回收站深翻页（v0.55）
@@ -2644,6 +2646,47 @@ gap 桶是可消的队列，不是免检名单 —— 这也正是把它单独�
 把已收口的键放回去必须变红。`71` 组锁纯函数与四种翻页形状，`71b` 组在真实
 MariaDB 上造 45 篇软删除文章，翻三页 20 / 20 / 5 验证不重不漏、total 恒定、
 末页无下一页、非法游标 422、PRG 留在原页与空页文案。operation 级矩阵仍是
+92 / 10 刻意 / 0 未登记。
+
+## 66. 三条参数级 gap 一次收完（v0.56）
+
+v0.54 建账时 `--zero` 列出 4 条待补入口，v0.55 收掉 `content.trash.cursor`。
+本版把余下三条一次补齐，形成「建账 → 收一条 → 归零」的闭环。三条都是
+「后端能力早已齐备、页面没有写入口」，因此改动全部落在页面层：不新增接口、
+不新增系统层、不碰 `core/`。
+
+**`content.posts.pinned`**：`PostQuery::page()` 从一开始就支持只取置顶推荐位，
+按 weight 倒序且不混进 keyset 游标分页，但 `/console/content` 只是把 pinned 与
+weight 当排序展示字段，从不按置顶过滤。本版新建 `ContentAdminPinned` 集中生成
+「只看置顶 / 全部文章」导航、说明、空态、scope、hidden 与 PRG href；取数层
+`live(..., pinned)` 透传并带出列表级标记，行表单 / 排期表单 / 推荐位表单的
+hidden 都回传筛选状态，PRG 后仍留在原视图。空态区分「筛选结果为零」与
+「站点没有文章」，排序标题在置顶视图改说「按权重倒序」。
+
+**`attachments.download.disposition`**：下载链接默认以 attachment 落地，`inline`
+仅对图片有意义的预览模式一直没有任何页面入口。`PostAttachments` 现在只对
+`image/*` 产出带 `disposition=inline` 的 `preview_url`，两款元主题模板逐字同源
+渲染 `<img loading="lazy">` 并在共享 CSS 里追加预览图样式；非图片附件不产预览、
+Bare 主题不渲染附件，均不伪造入口。
+
+**`stats.series.dimension`**：这一条最容易做成假入口。后端把 `dimension` 解析成
+标签后重新按字母序格式化，再与存储里的维度列做**等值比较**；此前真实采集的 `api_calls` 是 `code=0,operation=xxx`、`http_requests` 是 `method=get,status=200` 这类双标签。契约旧示例 `operation=content.posts` 少了 `code`，永远查不到采样 ——
+照它拼链接，看板会显示一张「没有数据」的图，读者却以为是站点没流量。
+
+因此 `StatsDimension` 把「完整可命中」当硬约束：按 `stats.catalog` 声明的标签
+白名单校验维度串，键不在白名单 / 缺任一标签 / 值不合法 / 重复键一律显式 422；
+v0.56 的下钻链接从 `stats.operations` 排行的真实 operation 反推 `code=0,operation=...`，
+字典没声明 `api_calls` 或标签超出可反推范围就不生成入口。看板显式呈现当前维度、
+精确匹配口径与后端回显的串；合法但无采样时单独说明「该维度窗口内没有采样」，
+既不说成「站点没流量」，也不说成「采集器故障」。非法参数与接口失败仍是
+422 / 503 两态分明。
+
+三条入口落地后，扫描器立刻在 `ContentAdminQuery.php`、`PostAttachments.php`、
+`StatsQuery.php` 找到字面量证据，双向核对把「有证据却仍登记」判成坏账，
+登记表撤掉三条后 gap 桶归零、`--zero` 输出「无」，账本剩 39 条 page / cli 结论。
+`70` 组把四条已收口的键放回去都必须变红；`72` 组锁纯函数与口径，`72b` 组在
+真实 MariaDB 上先发接口请求落下 `api_calls` 采样，再验证下钻确实取到图表点、
+GET 链接可分享、四类非法参数 422 与空采样三态区分。operation 级矩阵仍是
 92 / 10 刻意 / 0 未登记。
 
 ---

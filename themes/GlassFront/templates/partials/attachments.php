@@ -28,6 +28,13 @@ $state = $att['state'] ?? null;
 <?php foreach ($items as $item): ?>
 <?php   if (!is_array($item)) continue; ?>
     <li class="glass-attachments__item">
+<?php   // 图片内联预览走 disposition=inline；非图片由页面层直接不给 preview_url。
+        // 下载响应自带 nosniff + CSP sandbox，只可能被当成图片渲染，模板不做权限判断。 ?>
+<?php   $preview = (string) ($item['preview_url'] ?? ''); ?>
+<?php   if ($preview !== ''): ?>
+      <img class="glass-attachments__preview" src="<?= $esc($preview) ?>"
+           alt="<?= $esc((string) ($item['name'] ?? '附件')) ?>" loading="lazy">
+<?php   endif; ?>
       <a class="glass-attachments__name" href="<?= $esc((string) ($item['url'] ?? '')) ?>" download>
         <?= $esc((string) ($item['name'] ?? '附件')) ?>
       </a>

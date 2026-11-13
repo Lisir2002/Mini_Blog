@@ -226,3 +226,5 @@ label { display: grid; gap: .3rem; font-size: .84rem; color: var(--g-muted); }
 .glass-attachments__item { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; }
 .glass-attachments__name { color: var(--g-text); text-decoration: underline; }
 .glass-attachments__meta { font-size: .78rem; }
+.glass-attachments__preview { flex: 0 0 100%; max-width: 100%; height: auto; max-height: 22rem;
+  object-fit: contain; border-radius: .6rem; background: rgba(255,255,255,.04); }

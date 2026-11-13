@@ -25,9 +25,10 @@ final class ContentAdminBlocks
         array $allowed, ?array $state, bool $degraded,
         string $focus = '', array $cap = []): array
     {
+        $pinned = ContentAdminPinned::active($data);
         $blocks = [self::notice($view, $data, $state, $degraded)];
-        $blocks[] = ['type' => 'links', 'id' => 'content-nav', 'title' => '视图与管理入口', 'items' => [
-            ['label' => '文章', 'href' => '/console/content', 'active' => $view !== 'trash'],
+        $nav = [
+            ['label' => '文章', 'href' => '/console/content', 'active' => $view !== 'trash' && !$pinned],
             ['label' => '写文章', 'href' => '/console/write'],
             ['label' => '角色授权', 'href' => '/console/roles'],
             ['label' => '决策轨迹', 'href' => '/console/decisions'],
@@ -36,7 +37,12 @@ final class ContentAdminBlocks
             ['label' => '回收站', 'href' => '/console/content?view=trash', 'active' => $view === 'trash'],
             ['label' => '审核队列', 'href' => '/console/queue'],
             ['label' => '统计看板', 'href' => '/console/stats'],
-        ]];
+        ];
+        // 置顶切换项用 label/href/note（不是 active）：它是筛选开关，不是第三个视图。
+        foreach (ContentAdminPinned::navItems($view, $pinned) as $item) $nav[] = $item;
+        $blocks[] = ['type' => 'links', 'id' => 'content-nav', 'title' => '视图与管理入口', 'items' => $nav];
+        $intro = ContentAdminPinned::intro($pinned);
+        if ($intro !== null) $blocks[] = $intro;
 
         if ($degraded) {
             // 非法游标是读者输入问题，不能只留一句「列表读取失败」就断掉去路。
@@ -56,7 +62,7 @@ final class ContentAdminBlocks
 
         $cursor = (string) ($data['cursor'] ?? '');
         foreach ((array) ($data['items'] ?? []) as $item) {
-            if (is_array($item)) $blocks[] = self::row($view, $item, $ticket, $allowed, $cursor);
+            if (is_array($item)) $blocks[] = self::row($view, $item, $ticket, $allowed, $cursor, $pinned);
         }
         // 翻页放在列表之后：先看本页内容，再决定要不要继续。
         $pager = ContentAdminPager::build($view, $data);
@@ -79,14 +85,13 @@ final class ContentAdminBlocks
         $shown  = (int) ($data['shown'] ?? 0);
         $cursor = (string) ($data['cursor'] ?? '');
         $next   = (string) ($data['next_cursor'] ?? '');
-        $where  = $view === 'trash' ? '回收站' : '全部文章（含草稿与定时）';
+        $pinned = ContentAdminPinned::active($data);
+        $where  = ContentAdminPinned::scope($view, $pinned);
 
         if ($total === 0) {
+            $empty = ContentAdminPinned::emptyCopy($view, $pinned);
             return ['type' => 'notice', 'id' => 'content-notice', 'tone' => 'info', 'state' => 'empty',
-                'title' => $view === 'trash' ? '回收站是空的' : '还没有文章',
-                'value' => $view === 'trash'
-                    ? '没有软删除的文章。这里空了，不代表列表也空。'
-                    : '站内还没有任何文章。这里读取正常，只是数量为零。'];
+                'title' => $empty['title'], 'value' => $empty['value']];
         }
         // total 不受游标影响，仍是全量；翻到后半段把本页清光时，
         // 「共 N 篇 / 本页 0 篇」必须说清是这一页空了，而不是回收站空了。
@@ -99,12 +104,12 @@ final class ContentAdminBlocks
         if ($next !== '') $value .= '，本页列 ' . $shown . ' 篇，可用下方「下一页」继续';
         elseif (!empty($data['truncated'])) $value .= '，本页只列前 ' . $shown . ' 篇（未列全）';
         return ['type' => 'notice', 'id' => 'content-notice', 'tone' => 'ok', 'state' => 'ok',
-            'title' => '按最近更新排序', 'value' => $value . '。'];
+            'title' => $pinned ? '按权重倒序' : '按最近更新排序', 'value' => $value . '。'];
     }
 
     /** @param array<string, mixed> $item @param array<string, bool> $allowed */
     private static function row(string $view, array $item, string $ticket, array $allowed,
-        string $cursor = ''): array
+        string $cursor = '', bool $pinned = false): array
     {
         $slug   = (string) ($item['slug'] ?? '');
         $status = (string) ($item['status'] ?? '');
@@ -128,7 +133,8 @@ final class ContentAdminBlocks
             'hidden' => array_merge([
                 ['name' => '_form_ticket', 'value' => $ticket],
                 ['name' => 'slug', 'value' => $slug],
-            ], ($view === 'trash' && $cursor !== '')
+            ], ContentAdminPinned::hidden($pinned),
+               ($view === 'trash' && $cursor !== '')
                 ? [['name' => 'cursor', 'value' => $cursor]] : []),
             'href' => $view === 'trash' ? '' : '/post?slug=' . rawurlencode($slug),
             'href_label' => '查看文章',

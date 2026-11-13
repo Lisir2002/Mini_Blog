@@ -18,15 +18,23 @@ use Wx\Contracts\ApiRegistryInterface;
 final class ContentAdminQuery
 {
     public const LIMIT = 20;
+    /** 置顶位是有限的推荐位集合，不混进时间线、也不做 keyset 翻页；一次取够即可。 */
+    public const PINNED_LIMIT = 50;
 
     public function __construct(private ApiRegistryInterface $registry) {}
 
-    /** @return array{items: list<array<string, mixed>>, total: int, shown: int, truncated: bool, next_cursor: string, cursor: string} */
-    public function live(string $keyword = ''): array
+    /**
+     * $pinned 打开契约早就预留的 content.posts.pinned 筛选器：只取置顶推荐位，
+     * 由系统层按 sort_weight 倒序返回。此前页面只会「显示这篇文章置顶了」，
+     * 没有任何地方按置顶过滤 —— 设置了推荐位却看不到推荐位清单。
+     * @return array{items: list<array<string, mixed>>, total: int, shown: int, truncated: bool, next_cursor: string, cursor: string}
+     */
+    public function live(string $keyword = '', bool $pinned = false): array
     {
-        return $this->shape($this->registry->execute('content.posts', [
-            'status' => 'any', 'limit' => self::LIMIT, 'keyword' => $keyword,
-        ]));
+        $input = ['status' => 'any', 'limit' => $pinned ? self::PINNED_LIMIT : self::LIMIT,
+            'keyword' => $keyword];
+        if ($pinned) $input['pinned'] = 1;
+        return $this->shape($this->registry->execute('content.posts', $input), '', $pinned);
     }
 
     /** @return array{items: list<array<string, mixed>>, total: int, shown: int, truncated: bool, next_cursor: string, cursor: string} */
@@ -38,7 +46,7 @@ final class ContentAdminQuery
     }
 
     /** @param array<string, mixed> $raw */
-    private function shape(array $raw, string $cursor = ''): array
+    private function shape(array $raw, string $cursor = '', bool $pinned = false): array
     {
         $items = array_values(array_filter((array) ($raw['items'] ?? []), 'is_array'));
         $total = (int) ($raw['total'] ?? count($items));
@@ -51,6 +59,9 @@ final class ContentAdminQuery
             // 丢掉就退回 v0.54 那个「知道没列全却翻不动」的状态。
             'next_cursor' => (string) ($raw['next_cursor'] ?? ''),
             'cursor'      => $cursor,
+            // 置顶筛选状态随数据一起走：区块组装靠它决定导航 active、空态文案
+            // 与行表单的 hidden，不必给 build() 再塞第九个参数。
+            'pinned'      => $pinned,
         ];
     }
 }

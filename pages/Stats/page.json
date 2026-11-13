@@ -1,14 +1,14 @@
 {
   "slug": "stats",
   "class": "Wx\\Pages\\Stats\\StatsPage",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "priority": 30,
   "enabled": true,
   "layout": "admin",
   "routes": [
     "/console/stats"
   ],
-  "_note": "统计看板：复用既有 stats.overview / series / operations / catalog 四个受保护接口，零新增接口、零新增系统层、复用 admin 布局槽位。采集器 durable / degraded / last_error 显式呈现，把「库挂了指标全丢」与「站点真的没流量」区分开；序列与排行被截断时明确声明；失败态自行固定布局，避免 4xx 被 render.layout 甩回 site 槽位",
+  "_note": "统计看板：复用既有 stats.overview / series / operations / catalog 四个受保护接口，零新增接口、零新增系统层、复用 admin 布局槽位。采集器 durable / degraded / last_error 显式呈现，把「库挂了指标全丢」与「站点真的没流量」区分开；序列与排行被截断时明确声明；失败态自行固定布局，避免 4xx 被 render.layout 甩回 site 槽位。v0.56 起接 stats.series 的 dimension：按 stats.catalog 的标签白名单校验「精确匹配必须带齐标签」，从 stats.operations 排行反推完整可命中的维度串，缺标签 / 非法键 / 未知指标显式 422，合法但无采样的维度单独说明而不是伪装成站点没流量",
   "access": {
     "auth": "admin",
     "permission": "metric.read",

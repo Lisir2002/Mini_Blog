@@ -1,5 +1,5 @@
 {
-  "_note": "参数级覆盖登记表 —— 消费矩阵只看 operation 名，看不见参数。v0.53 暴露的盲点：content.transition / content.update 一直显示已消费，但 publish_at / pinned / weight 没有任何页面能设置。本表只收「在其 operation 的消费方文件里找不到同名字符串」的参数，逐条给出结论；tools/parameters.php 双向核对：登记了有证据的参数是坏账，有零证据却没登记同样是坏账，未登记必须为零。三种 state：page = 入参由同目录协作者组装（职责预算拆分让扫描器看不见），须附 file + anchor 可核对证据；cli = 随 operation 列入 api/deliberate-zero.json 的装配期 / 升级动作，参数由命令行构造；gap = 契约预留但页面至今没有写入口，是待补的存量缺口，--zero 只列这一段。证据口径是启发式的：同名字符串分不清入参与出参、也分不清别的 operation 的同名参数，因此登记表是权威结论，工具只保证账本不撒谎。gap 桶不是永久名单：v0.55 把 content.trash.cursor 补成回收站深翻页后，扫描器立刻在消费方里找到证据，双向核对强制撤登——有证据却留着登记就是坏账。",
+  "_note": "参数级覆盖登记表 —— 消费矩阵只看 operation 名，看不见参数。v0.53 暴露的盲点：content.transition / content.update 一直显示已消费，但 publish_at / pinned / weight 没有任何页面能设置。本表只收「在其 operation 的消费方文件里找不到同名字符串」的参数，逐条给出结论；tools/parameters.php 双向核对：登记了有证据的参数是坏账，有零证据却没登记同样是坏账，未登记必须为零。三种 state：page = 入参由同目录协作者组装（职责预算拆分让扫描器看不见），须附 file + anchor 可核对证据；cli = 随 operation 列入 api/deliberate-zero.json 的装配期 / 升级动作，参数由命令行构造；gap = 契约预留但页面至今没有写入口，是待补的存量缺口，--zero 只列这一段。证据口径是启发式的：同名字符串分不清入参与出参、也分不清别的 operation 的同名参数，因此登记表是权威结论，工具只保证账本不撒谎。gap 桶不是永久名单：v0.55 把 content.trash.cursor 补成回收站深翻页后，扫描器立刻在消费方里找到证据，双向核对强制撤登——有证据却留着登记就是坏账。v0.56 一次收掉最后三条：content.posts.pinned 落成 /console/content 的「只看置顶」视图、attachments.download.disposition 落成前台图片内联预览、stats.series.dimension 落成看板按维度下钻；扫描器随即在这三个消费方文件里找到字面量证据，三条登记全部撤掉，gap 桶首次归零、--zero 输出「无」，账本只剩 39 条 page / cli 结论。",
   "declared": {
     "member.xp.award.event_key": {
       "state": "page",
@@ -190,18 +190,6 @@
     "release.rollback.version": {
       "state": "cli",
       "note": "整站回退的目标版本由命令行三段流程给出并执行，网页只提供发布历史与快照清单的只读视图。"
-    },
-    "content.posts.pinned": {
-      "state": "gap",
-      "note": "契约预留的「只取置顶推荐位」查询筛选器。页面按 pinned / weight 排序展示列表，却从不按置顶过滤；v0.53 的 ContentAdminPlacement 写入的是 content.update 的同名 body 参数，与本 query 参数不是一回事。"
-    },
-    "attachments.download.disposition": {
-      "state": "gap",
-      "note": "下载链接默认以 attachment 落地，inline 仅图片可用的预览模式没有任何页面入口，主题模板也不产出带该参数的链接。"
-    },
-    "stats.series.dimension": {
-      "state": "gap",
-      "note": "统计看板固定取全站按小时的请求序列，不按 operation / method / status 维度下钻；维度过滤是契约预留能力，页面至今未接。"
     }
   }
 }

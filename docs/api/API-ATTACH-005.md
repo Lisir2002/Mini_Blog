@@ -122,6 +122,7 @@ GET /attach/download?id=3
 
 ## 8. 变更记录
 
+- 0.56.0 前台文章页对图片附件产出带 disposition=inline 的预览 URL，由两款元主题模板逐字同源渲染 <img>；此前 inline 只存在于契约参数里，没有任何页面入口。下载链接默认仍以 attachment 落地。
 - 0.13.0 初次发布
 - 0.43.0 由文章页与 /console/attachments 的下载链接消费；消费矩阵新增链接识别
 

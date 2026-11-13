@@ -37,7 +37,8 @@ final class ContentAdminFocusBlocks
                 'title' => '设置排期与推荐位：先选一篇文章', 'items' => $picks];
         }
         if ($focus !== '') {
-            foreach (self::panel($focus, $data, $ticket, $cap) as $block) $out[] = $block;
+            foreach (self::panel($focus, $data, $ticket, $cap,
+                ContentAdminPinned::active($data)) as $block) $out[] = $block;
         }
         return $out;
     }
@@ -49,7 +50,7 @@ final class ContentAdminFocusBlocks
      * @return list<array<string, mixed>>
      */
     private static function panel(string $focus, array $data,
-        string $ticket, array $cap): array
+        string $ticket, array $cap, bool $pinned = false): array
     {
         $item = null;
         foreach ((array) ($data['items'] ?? []) as $row) {
@@ -79,10 +80,12 @@ final class ContentAdminFocusBlocks
             return $out;
         }
 
-        $hidden = [
+        // 三处表单（行按钮 / 排期 / 推荐位）都带筛选状态：PRG 后仍留在原视图，
+        // 否则在「只看置顶」里改一次权重就被弹回全部文章。
+        $hidden = array_merge([
             ['name' => '_form_ticket', 'value' => $ticket],
             ['name' => 'slug', 'value' => $slug],
-        ];
+        ], ContentAdminPinned::hidden($pinned));
         if ($cap['can_schedule'] ?? false) {
             $value = '';
             if ($publishAt !== '' && ($ts = strtotime($publishAt)) !== false) {

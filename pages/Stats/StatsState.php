@@ -23,6 +23,7 @@ final class StatsState
         return [
             'title' => '统计看板', 'page' => 'stats', 'view' => 'stats',
             'window' => $window, 'stats_state' => self::OK,
+            'metric' => StatsDimension::DEFAULT_METRIC, 'dimension' => '',
             'collector' => [], 'blocks' => [], 'state' => null,
         ];
     }
@@ -69,7 +70,8 @@ final class StatsState
         $payload['stats_state'] = self::UNAVAILABLE;
         if ($badWindow) {
             return ['status' => 422, 'payload' => self::withState($payload, '参数不合法', $e->getMessage(),
-                'window 只接受 1h~30d 形式，例如 24h / 7d；请修正地址后重试。')];
+                'window 只接受 1h~30d；metric 必须是 stats.catalog 里的指标；'
+                . 'dimension 必须带齐该指标声明的全部标签。请修正地址后重试。')];
         }
         error_log('wx: stats board failed: ' . $e::class . ': ' . $e->getMessage());
         return ['status' => 503, 'payload' => self::withState($payload, '统计看板不可用',

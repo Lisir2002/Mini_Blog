@@ -13,8 +13,9 @@ require_once dirname(__DIR__, 2) . '/tools/audit/ParameterLedger.php';
  * 不算守卫，把登记表改坏必须变红。v0.53 暴露的盲点是「operation 已消费、
  * 参数没入口」，这里把粒度下沉到 registry 的每一条 params[]。
  *
- * v0.55：gap 桶首次收窄一条（回收站深翻页落地）。本组同时锁住反向：
- * 把已收口的 content.trash.cursor 重新登记，必须被判成坏账。
+ * v0.56：gap 桶首次归零（置顶视图 / 图片预览 / 维度下钻三条存量缺口一次收完）。
+ * 本组同时锁住反向：把任一已收口的键重新登记，必须被判成坏账；账本只剩
+ * 39 条 page / cli 结论，--zero 输出「无」。
  */
 echo "\n=== 70. 参数级覆盖账本 ===\n";
 
@@ -35,7 +36,7 @@ $with = static function (string $key, array $patch) use ($declared): array {
 };
 $chars = static fn(string $s): int => preg_match_all('/./us', $s) ?: 0;
 
-check('参数全集完整且唯一，零证据集合恰好 42 条',
+check('参数全集完整且唯一，零证据集合恰好 39 条',
     function () use ($registry, $scan, $matrix): void {
         truthy(count($scan['params']) === 187, '参数总数不是 187，实际 ' . count($scan['params']));
         truthy(count($scan['by_key']) === count($scan['params']), '出现了重复的 op.param 键');
@@ -45,11 +46,11 @@ check('参数全集完整且唯一，零证据集合恰好 42 条',
             truthy(isset($ops[$row['op']]), "{$key} 的 operation 不在契约里");
             truthy(str_starts_with((string) $key, $row['op'] . '.'), "{$key} 键拼错");
         }
-        truthy(count($scan['zero']) === 42, '零证据参数不是 42，实际 ' . count($scan['zero']));
+        truthy(count($scan['zero']) === 39, '零证据参数不是 39，实际 ' . count($scan['zero']));
         truthy($matrix['total'] === 92, 'operation 级矩阵被改动，实际 ' . (string) $matrix['total']);
     });
 
-check('v0.53 的三个写入口证据仍在，职责拆分盲区如实为零',
+check('v0.53 与 v0.56 的六个写入口证据都在，职责拆分盲区如实为零',
     function () use ($scan): void {
         $hitsOf = static fn(string $key): array => (array) ($scan['by_key'][$key]['hits'] ?? []);
         foreach (['content.update.pinned', 'content.update.weight', 'content.transition.publish_at'] as $key) {
@@ -60,7 +61,15 @@ check('v0.53 的三个写入口证据仍在，职责拆分盲区如实为零',
             '写作页对 content.update.slug 的证据应保留');
         truthy(in_array('pages/ContentAdmin/ContentAdminQuery.php', $hitsOf('content.trash.cursor'), true),
             '回收站深翻页落地后，cursor 必须在查询层留下证据');
-        truthy($hitsOf('content.posts.pinned') === [], '置顶筛选器本该没有页面证据');
+        // v0.56 收掉的三条 gap：证据必须真的落在页面消费方文件里，撤登才站得住。
+        foreach ([
+            'content.posts.pinned' => 'pages/ContentAdmin/ContentAdminQuery.php',
+            'attachments.download.disposition' => 'pages/Post/PostAttachments.php',
+            'stats.series.dimension' => 'pages/Stats/StatsQuery.php',
+        ] as $key => $file) {
+            truthy(in_array($file, $hitsOf($key), true),
+                $key . ' 的页面证据丢了：v0.56 收口的入口被回退');
+        }
         truthy($hitsOf('member.xp.award.event_key') === [],
             '成员页把入参组装委托给协作者，调用方文件里本该扫不到');
     });
@@ -73,7 +82,7 @@ check('真实账本核对干净，登记表恰好覆盖零证据集合',
         truthy($missing === [], '未登记参数：' . implode(', ', $missing));
         $extra = array_values(array_diff(array_keys($declared), $scan['zero']));
         truthy($extra === [], '登记了已有证据的参数：' . implode(', ', $extra));
-        truthy(count($declared) === 42, '登记表不是 42 条，实际 ' . count($declared));
+        truthy(count($declared) === 39, '登记表不是 39 条，实际 ' . count($declared));
     });
 
 check('三类桶计数与 gap 明细逐条可核对',
@@ -83,15 +92,11 @@ check('三类桶计数与 gap 明细逐条可核对',
             $state = (string) (is_array($entry) ? ($entry['state'] ?? '') : '');
             if (isset($count[$state])) $count[$state]++;
         }
-        truthy($count === ['page' => 17, 'cli' => 22, 'gap' => 3],
+        truthy($count === ['page' => 17, 'cli' => 22, 'gap' => 0],
             '三类桶计数不符：' . json_encode($count, JSON_UNESCAPED_UNICODE));
         $gaps = array_values(array_filter(array_keys($declared),
             static fn(string $k): bool => (string) ($declared[$k]['state'] ?? '') === 'gap'));
-        sort($gaps);
-        $expect = ['attachments.download.disposition', 'content.posts.pinned',
-            'stats.series.dimension'];
-        sort($expect);
-        truthy($gaps === $expect, 'gap 明细不符：' . implode(', ', $gaps));
+        truthy($gaps === [], 'gap 桶已归零却还列着待补入口：' . implode(', ', $gaps));
         $deliberate = (array) ($matrix['deliberate_zero'] ?? []);
         foreach ($gaps as $key) {
             truthy($chars((string) ($declared[$key]['note'] ?? '')) >= 20, $key . ' 的理由不足 20 字');
@@ -103,9 +108,9 @@ check('三类桶计数与 gap 明细逐条可核对',
 check('双向核对：漏登记一条参数会被拦下',
     function () use ($declared, $badOf): void {
         $fake = $declared;
-        unset($fake['content.posts.pinned']);
+        unset($fake['member.xp.award.event_key']);
         $bad = $badOf($fake);
-        truthy(str_contains($bad, '未登记：content.posts.pinned'), '删掉登记没被拦下：' . $bad);
+        truthy(str_contains($bad, '未登记：member.xp.award.event_key'), '删掉登记没被拦下：' . $bad);
     });
 
 check('双向核对：登记不存在的参数 / 已有证据的参数会被拦下',
@@ -120,13 +125,16 @@ check('双向核对：登记不存在的参数 / 已有证据的参数会被拦�
         $bad = $badOf($fake);
         truthy(str_contains($bad, '该参数已有页面证据，不该登记：content.update.slug'),
             '有证据的参数被登记没被拦下：' . $bad);
-        // v0.55 的反向锁：回收站深翻页已落地，把撤登的键放回去必须是坏账。
-        $fake = $declared;
-        $fake['content.trash.cursor'] = ['state' => 'gap',
-            'note' => '回收站深翻页已经落地，这条登记本该撤掉却留着，必须被判成坏账。'];
-        $bad = $badOf($fake);
-        truthy(str_contains($bad, '该参数已有页面证据，不该登记：content.trash.cursor'),
-            '已收口的参数又被登记成缺口，没被拦下：' . $bad);
+        // v0.55 / v0.56 的反向锁：四条已收口的键放回去都必须是坏账。
+        foreach (['content.trash.cursor', 'content.posts.pinned',
+            'attachments.download.disposition', 'stats.series.dimension'] as $key) {
+            $fake = $declared;
+            $fake[$key] = ['state' => 'gap',
+                'note' => '入口已经落地，这条登记本该撤掉却留着，必须被判成坏账。'];
+            $bad = $badOf($fake);
+            truthy(str_contains($bad, '该参数已有页面证据，不该登记：' . $key),
+                $key . ' 已收口却又被登记，没被拦下：' . $bad);
+        }
     });
 
 check('state=page 的 file / anchor / 同目录范围必须可核对',
@@ -149,9 +157,9 @@ check('理由长度、state 取值、cli / gap 与刻意零消费口径一致',
         truthy(str_contains($bad, '理由至少 20 字'), '理由过短没被拦下：' . $bad);
         $bad = $badOf($with('member.title.color', ['state' => 'nope']));
         truthy(str_contains($bad, 'state 只能是 page / cli / gap'), '非法 state 没被拦下：' . $bad);
-        $bad = $badOf($with('content.posts.pinned', ['state' => 'cli']));
+        $bad = $badOf($with('member.title.color', ['state' => 'cli']));
         truthy(str_contains($bad, 'state=cli 的 operation 必须列入刻意零消费'),
-            '把待补入口伪装成 cli 没被拦下：' . $bad);
+            '把页面协作者伪装成 cli 没被拦下：' . $bad);
         $bad = $badOf($with('lifecycle.install.type', ['state' => 'gap']));
         truthy(str_contains($bad, '刻意零消费的 operation 不该登记为待补入口'),
             '把刻意零消费伪装成待补入口没被拦下：' . $bad);

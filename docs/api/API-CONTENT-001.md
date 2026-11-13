@@ -134,6 +134,7 @@ GET /api/v1/content/posts?limit=1
 
 ## 8. 变更记录
 
+- 0.56.0 /console/content 补「只看置顶」视图消费 pinned 筛选器：按 weight 倒序、不混进游标分页；导航 / 空态 / 选中面板 / PRG 全程保留筛选状态。此前页面只按 pinned 与 weight 排序展示，却从不按置顶过滤。
 - 0.45.0 契约补上 items[].terms 字段（批量术语随列表返回）
 - 0.4.0 初次发布
 

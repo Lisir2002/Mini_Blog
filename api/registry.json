@@ -408,6 +408,7 @@
       },
       "notes": "回收站文章永不出现（用 content.trash 读）；status=published 时还会排除 publish_at 未到点的定时文章 —— 否则「定时」只是一句承诺。置顶不混进时间线：keyset 分页的键是 id，若把 pinned 排进主序，两次翻页之间有人置顶就会出现重复行或漏行，所以置顶单独用 pinned=1 取。total 与 items 同口径，不会出现「共 12 篇但只有 9 篇能翻到」。",
       "changelog": [
+        "0.56.0 /console/content 补「只看置顶」视图消费 pinned 筛选器：按 weight 倒序、不混进游标分页；导航 / 空态 / 选中面板 / PRG 全程保留筛选状态。此前页面只按 pinned 与 weight 排序展示，却从不按置顶过滤。",
         "0.45.0 契约补上 items[].terms 字段（批量术语随列表返回）",
         "0.4.0 初次发布"
       ],
@@ -727,7 +728,7 @@
         "message": "ok",
         "data": {
           "framework": "Mini Blog",
-          "core_version": "0.55.0",
+          "core_version": "0.56.0",
           "php": "8.3.6",
           "requires_php": ">=8.1",
           "api_version": "v1",
@@ -5325,6 +5326,7 @@
       },
       "notes": "每次下载都过授权：不可猜的 id 不是访问控制。Content-Type 只从白名单取，绝不回显客户端声明；Content-Security-Policy: default-src 'none'; sandbox 保证即使内容被调包也无法在本域执行。这是二进制通道，页面只应渲染链接而不应 execute() 调它（否则文件字节会进页面层）；0.43.0 起消费矩阵把页面产出的链接算作消费方。",
       "changelog": [
+        "0.56.0 前台文章页对图片附件产出带 disposition=inline 的预览 URL，由两款元主题模板逐字同源渲染 <img>；此前 inline 只存在于契约参数里，没有任何页面入口。下载链接默认仍以 attachment 落地。",
         "0.13.0 初次发布",
         "0.43.0 由文章页与 /console/attachments 的下载链接消费；消费矩阵新增链接识别"
       ],
@@ -5861,7 +5863,7 @@
           "in": "query",
           "required": false,
           "type": "string",
-          "desc": "维度过滤，形如 operation=content.posts 或 method=GET,status=200"
+          "desc": "维度过滤，精确匹配：须带齐该指标在 stats.catalog 声明的全部标签（键按字母序），形如 code=0,operation=content.posts 或 method=get,status=200；只写 operation=content.posts 命中不到真实采样"
         },
         {
           "name": "window",
@@ -5952,6 +5954,7 @@
       },
       "notes": "name 不在字典内返回 42201，不会静默返回空序列 —— 空序列与「指标拼错」必须能区分。histogram 的 value 是样本数、avg 是桶内均值。",
       "changelog": [
+        "0.56.0 页面接入 dimension 维度下钻：/console/stats 按 stats.catalog 的标签白名单校验「带齐全部标签」，从 stats.operations 排行反推完整可命中的 code=0,operation=... 串；缺标签 / 非法键 / 未知指标显式 422，合法但无采样的维度明说「该维度没有采样」而非伪装成站点无流量。契约旧的 operation=content.posts 示例因缺 code 标签命中不了真实采集，本版一并改正口径。",
         "0.26.0 初次发布"
       ],
       "doc": "docs/api/API-METRIC-002.md"
@@ -7822,5 +7825,5 @@
       "doc": "docs/api/API-COMMENT-009.md"
     }
   ],
-  "core_version": "0.55.0"
+  "core_version": "0.56.0"
 }

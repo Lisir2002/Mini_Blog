@@ -35,7 +35,7 @@
 | 参数 | 位置 | 必填 | 类型 | 说明 |
 | --- | --- | --- | --- | --- |
 | `name` | query | 是 | `string` | 指标名，可用值见 stats.catalog |
-| `dimension` | query | 否 | `string` | 维度过滤，形如 operation=content.posts 或 method=GET,status=200 |
+| `dimension` | query | 否 | `string` | 维度过滤，精确匹配：须带齐该指标在 stats.catalog 声明的全部标签（键按字母序），形如 code=0,operation=content.posts 或 method=get,status=200；只写 operation=content.posts 命中不到真实采样 |
 | `window` | query | 否 | `string` | 时间窗口，默认 24h，最长 30d |
 | `limit` | query | 否 | `int` | 最多返回点数，默认 500，上限 2000；超出时 truncated=true |
 
@@ -143,6 +143,7 @@ GET /api/v1/stats/series?name=api_calls&dimension=operation=content.posts&window
 
 ## 8. 变更记录
 
+- 0.56.0 页面接入 dimension 维度下钻：/console/stats 按 stats.catalog 的标签白名单校验「带齐全部标签」，从 stats.operations 排行反推完整可命中的 code=0,operation=... 串；缺标签 / 非法键 / 未知指标显式 422，合法但无采样的维度明说「该维度没有采样」而非伪装成站点无流量。契约旧的 operation=content.posts 示例因缺 code 标签命中不了真实采集，本版一并改正口径。
 - 0.26.0 初次发布
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；

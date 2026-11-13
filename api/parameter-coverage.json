@@ -1,5 +1,5 @@
 {
-  "_note": "参数级覆盖登记表 —— 消费矩阵只看 operation 名，看不见参数。v0.53 暴露的盲点：content.transition / content.update 一直显示已消费，但 publish_at / pinned / weight 没有任何页面能设置。本表只收「在其 operation 的消费方文件里找不到同名字符串」的参数，逐条给出结论；tools/parameters.php 双向核对：登记了有证据的参数是坏账，有零证据却没登记同样是坏账，未登记必须为零。三种 state：page = 入参由同目录协作者组装（职责预算拆分让扫描器看不见），须附 file + anchor 可核对证据；cli = 随 operation 列入 api/deliberate-zero.json 的装配期 / 升级动作，参数由命令行构造；gap = 契约预留但页面至今没有写入口，是待补的存量缺口，--zero 只列这一段。证据口径是启发式的：同名字符串分不清入参与出参、也分不清别的 operation 的同名参数，因此登记表是权威结论，工具只保证账本不撒谎。",
+  "_note": "参数级覆盖登记表 —— 消费矩阵只看 operation 名，看不见参数。v0.53 暴露的盲点：content.transition / content.update 一直显示已消费，但 publish_at / pinned / weight 没有任何页面能设置。本表只收「在其 operation 的消费方文件里找不到同名字符串」的参数，逐条给出结论；tools/parameters.php 双向核对：登记了有证据的参数是坏账，有零证据却没登记同样是坏账，未登记必须为零。三种 state：page = 入参由同目录协作者组装（职责预算拆分让扫描器看不见），须附 file + anchor 可核对证据；cli = 随 operation 列入 api/deliberate-zero.json 的装配期 / 升级动作，参数由命令行构造；gap = 契约预留但页面至今没有写入口，是待补的存量缺口，--zero 只列这一段。证据口径是启发式的：同名字符串分不清入参与出参、也分不清别的 operation 的同名参数，因此登记表是权威结论，工具只保证账本不撒谎。gap 桶不是永久名单：v0.55 把 content.trash.cursor 补成回收站深翻页后，扫描器立刻在消费方里找到证据，双向核对强制撤登——有证据却留着登记就是坏账。",
   "declared": {
     "member.xp.award.event_key": {
       "state": "page",
@@ -202,10 +202,6 @@
     "stats.series.dimension": {
       "state": "gap",
       "note": "统计看板固定取全站按小时的请求序列，不按 operation / method / status 维度下钻；维度过滤是契约预留能力，页面至今未接。"
-    },
-    "content.trash.cursor": {
-      "state": "gap",
-      "note": "回收站只取第一页 limit 条并在提示里标出已截断，没有把 next_cursor 回传到下一页 —— 深翻页是明确的存量缺口，登记表首次把它单独暴露出来。"
     }
   }
 }

@@ -53,9 +53,19 @@ final class ContentAdminPage implements PackageInterface
     {
         $view = (($request->query()['view'] ?? '') === 'trash') ? 'trash' : 'live';
         $focus = trim((string) ($request->query()['focus'] ?? ''));
+        // 游标只在回收站视图生效；活文章列表没有翻页入口，带 cursor 也不读。
+        $cursor = $view === 'trash' ? trim((string) ($request->query()['cursor'] ?? '')) : '';
         try {
             $query = new ContentAdminQuery($registry);
-            $data = $view === 'trash' ? $query->trash() : $query->live();
+            $data = $view === 'trash' ? $query->trash($cursor) : $query->live();
+        } catch (\InvalidArgumentException $e) {
+            // 非法游标是请求问题（422），不是站点故障（503）。静默当成第一页
+            // 会让站长以为翻页生效了，实际请求已被改写；这里显式报错并留脱困链接。
+            $this->emit($kernel, $request, $response, 422, $view,
+                ['items' => [], 'total' => 0, 'shown' => 0, 'truncated' => false],
+                ['phase' => 'invalid', 'title' => '回收站翻页参数不合法',
+                 'message' => $e->getMessage() . '；请回到回收站第一页重新翻。'], true);
+            return;
         } catch (\Throwable $e) {
             $this->emit($kernel, $request, $response, 503, $view,
                 ['items' => [], 'total' => 0, 'shown' => 0, 'truncated' => false],
@@ -79,19 +89,27 @@ final class ContentAdminPage implements PackageInterface
             // PRG：成功后回到操作前的视图。排期 / 推荐位必须带回 focus，
             // 否则刷新后设置面板消失，刚设的值看不到，用户会以为没生效。
             $to = self::PATH;
-            if ($op === 'restore') $to = self::PATH . '?view=trash';
-            elseif ($placement) $to = self::PATH . '?focus='
-                . rawurlencode(trim((string) ($body['slug'] ?? '')));
+            if ($op === 'restore' || $op === 'purge') {
+                // 与 focus 同理：刷新后要留在原来那一页，否则深翻到第 3 页
+                // 恢复一条就被弹回第 1 页，刚做的操作看不见。
+                $to = self::PATH . '?view=trash';
+                $cursor = trim((string) ($body['cursor'] ?? ''));
+                if ($cursor !== '') $to .= '&cursor=' . rawurlencode($cursor);
+            } elseif ($placement) {
+                $to = self::PATH . '?focus=' . rawurlencode(trim((string) ($body['slug'] ?? '')));
+            }
             $response->setStatus(303)->setHeader('Location', $to);
             return;
         }
 
-        $view = $op === 'restore' ? 'trash' : 'live';
+        // purge 失败也属于回收站视图：此前误落到 live，失败态里会凭空换一个页面。
+        $view = ($op === 'restore' || $op === 'purge') ? 'trash' : 'live';
         $focus = $placement ? trim((string) ($body['slug'] ?? '')) : '';
+        $cursor = $view === 'trash' ? trim((string) ($body['cursor'] ?? '')) : '';
         $data = ['items' => [], 'total' => 0, 'shown' => 0, 'truncated' => false];
         try {
             $query = new ContentAdminQuery($registry);
-            $data = $view === 'trash' ? $query->trash() : $query->live();
+            $data = $view === 'trash' ? $query->trash($cursor) : $query->live();
         } catch (\Throwable) {
             // 失败态里连列表都读不到：仍然渲染错误本身，不假装成功。
         }

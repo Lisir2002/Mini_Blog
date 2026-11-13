@@ -1,14 +1,14 @@
 {
   "slug": "content",
   "class": "Wx\\Pages\\ContentAdmin\\ContentAdminPage",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "priority": 40,
   "enabled": true,
   "layout": "admin",
   "routes": [
     "/console/content"
   ],
-  "_note": "内容管理：活文章 / 回收站两视图 + 生命周期写操作；v0.53 起选中一篇文章（?focus=slug）可设置发布排期（content.transition 的 publish_at）与推荐位（content.update 的 pinned / weight），两张独立表单各自现场问 content.publish / content.edit，票据只绑页面级 content.read。放在本页而非写作页：content.post 对未到点的定时文章返回 40403，写作页读不到自己刚排期的文章。",
+  "_note": "内容管理：活文章 / 回收站两视图 + 生命周期写操作；v0.53 起选中一篇文章（?focus=slug）可设置发布排期（content.transition 的 publish_at）与推荐位（content.update 的 pinned / weight），两张独立表单各自现场问 content.publish / content.edit，票据只绑页面级 content.read。放在本页而非写作页：content.post 对未到点的定时文章返回 40403，写作页读不到自己刚排期的文章。v0.55 起回收站接 cursor 深翻页：ContentAdminPager 产下一页 / 回到第一页链接，非法游标显式 422，恢复 / 彻底删除后 PRG 留在原页，行表单以 hidden 回传 cursor。",
   "access": {
     "auth": "user",
     "permission": "content.read",

@@ -38,7 +38,12 @@ final class ContentAdminBlocks
             ['label' => '统计看板', 'href' => '/console/stats'],
         ]];
 
-        if ($degraded) return $blocks;
+        if ($degraded) {
+            // 非法游标是读者输入问题，不能只留一句「列表读取失败」就断掉去路。
+            $escape = ContentAdminPager::escape($state);
+            if ($escape !== null) $blocks[] = $escape;
+            return $blocks;
+        }
 
         // 排期与推荐位放在本页而不是写作页：content.post 对「已发布但 publish_at
         // 未到点」的文章无条件 404，写作页读不到自己刚排期的文章；本页 status=any
@@ -49,9 +54,13 @@ final class ContentAdminBlocks
             }
         }
 
+        $cursor = (string) ($data['cursor'] ?? '');
         foreach ((array) ($data['items'] ?? []) as $item) {
-            if (is_array($item)) $blocks[] = self::row($view, $item, $ticket, $allowed);
+            if (is_array($item)) $blocks[] = self::row($view, $item, $ticket, $allowed, $cursor);
         }
+        // 翻页放在列表之后：先看本页内容，再决定要不要继续。
+        $pager = ContentAdminPager::build($view, $data);
+        if ($pager !== null) $blocks[] = $pager;
         return $blocks;
     }
 
@@ -60,13 +69,17 @@ final class ContentAdminBlocks
     private static function notice(string $view, array $data, ?array $state, bool $degraded): array
     {
         if ($degraded) {
-            return ['type' => 'notice', 'id' => 'content-notice', 'tone' => 'warn', 'state' => 'unavailable',
-                'title' => '内容列表读取失败',
+            $invalid = (string) ($state['phase'] ?? '') === 'invalid';
+            return ['type' => 'notice', 'id' => 'content-notice', 'tone' => 'warn',
+                'state' => $invalid ? 'invalid' : 'unavailable',
+                'title' => $invalid ? (string) ($state['title'] ?? '翻页参数不合法') : '内容列表读取失败',
                 'value' => (string) ($state['message'] ?? '当前不可用；这不是「还没有文章」。')];
         }
-        $total = (int) ($data['total'] ?? 0);
-        $shown = (int) ($data['shown'] ?? 0);
-        $where = $view === 'trash' ? '回收站' : '全部文章（含草稿与定时）';
+        $total  = (int) ($data['total'] ?? 0);
+        $shown  = (int) ($data['shown'] ?? 0);
+        $cursor = (string) ($data['cursor'] ?? '');
+        $next   = (string) ($data['next_cursor'] ?? '');
+        $where  = $view === 'trash' ? '回收站' : '全部文章（含草稿与定时）';
 
         if ($total === 0) {
             return ['type' => 'notice', 'id' => 'content-notice', 'tone' => 'info', 'state' => 'empty',
@@ -75,14 +88,23 @@ final class ContentAdminBlocks
                     ? '没有软删除的文章。这里空了，不代表列表也空。'
                     : '站内还没有任何文章。这里读取正常，只是数量为零。'];
         }
+        // total 不受游标影响，仍是全量；翻到后半段把本页清光时，
+        // 「共 N 篇 / 本页 0 篇」必须说清是这一页空了，而不是回收站空了。
+        if ($shown === 0 && $cursor !== '') {
+            return ['type' => 'notice', 'id' => 'content-notice', 'tone' => 'warn', 'state' => 'page-empty',
+                'title' => '这一页已经没有内容',
+                'value' => $where . '仍有 ' . $total . ' 篇，但本页游标之后为空（可能刚被恢复或彻底删除）；请用下方「回到第一页」重新进入。'];
+        }
         $value = $where . '：共 ' . $total . ' 篇';
-        if (!empty($data['truncated'])) $value .= '，本页只列前 ' . $shown . ' 篇（未列全）';
+        if ($next !== '') $value .= '，本页列 ' . $shown . ' 篇，可用下方「下一页」继续';
+        elseif (!empty($data['truncated'])) $value .= '，本页只列前 ' . $shown . ' 篇（未列全）';
         return ['type' => 'notice', 'id' => 'content-notice', 'tone' => 'ok', 'state' => 'ok',
             'title' => '按最近更新排序', 'value' => $value . '。'];
     }
 
     /** @param array<string, mixed> $item @param array<string, bool> $allowed */
-    private static function row(string $view, array $item, string $ticket, array $allowed): array
+    private static function row(string $view, array $item, string $ticket, array $allowed,
+        string $cursor = ''): array
     {
         $slug   = (string) ($item['slug'] ?? '');
         $status = (string) ($item['status'] ?? '');
@@ -101,10 +123,13 @@ final class ContentAdminBlocks
         return [
             'type' => 'form', 'title' => $meta, 'body' => 'slug：' . $slug,
             'action' => '/console/content', 'method' => 'post',
-            'hidden' => [
+            // 恢复 / 彻底删除后 PRG 要回到原来那一页，游标随表单一起回传；
+            // 首页没有游标就不塞空值，避免把「第 1 页」写成一个假游标。
+            'hidden' => array_merge([
                 ['name' => '_form_ticket', 'value' => $ticket],
                 ['name' => 'slug', 'value' => $slug],
-            ],
+            ], ($view === 'trash' && $cursor !== '')
+                ? [['name' => 'cursor', 'value' => $cursor]] : []),
             'href' => $view === 'trash' ? '' : '/post?slug=' . rawurlencode($slug),
             'href_label' => '查看文章',
             // 回收站里的文章不能编辑；列表页给出直达编辑器的入口，省掉手拼 URL。

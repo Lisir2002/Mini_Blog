@@ -727,7 +727,7 @@
         "message": "ok",
         "data": {
           "framework": "Mini Blog",
-          "core_version": "0.54.0",
+          "core_version": "0.55.0",
           "php": "8.3.6",
           "requires_php": ">=8.1",
           "api_version": "v1",
@@ -7120,6 +7120,7 @@
       },
       "notes": "回收站是唯一能读到已删除文章的地方；普通列表与详情一律看不到。status 字段保留删除前的值，恢复时据此回到原位。",
       "changelog": [
+        "0.55.0 页面接入 cursor 深翻页：/console/content?view=trash 透传游标、渲染下一页 / 回到第一页链接，恢复与彻底删除后 PRG 留在原页；非法游标由后端拒绝并翻成显式 422。此前接口早已支持 cursor / next_cursor（Pdo 与 Memory 两处 keyset 分页），页面却只取第一页并在提示里标「未列全」。",
         "0.28.0 初次发布"
       ],
       "doc": "docs/api/API-CONTENT-010.md"
@@ -7821,5 +7822,5 @@
       "doc": "docs/api/API-COMMENT-009.md"
     }
   ],
-  "core_version": "0.54.0"
+  "core_version": "0.55.0"
 }

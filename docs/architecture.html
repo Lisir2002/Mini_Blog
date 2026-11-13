@@ -77,7 +77,7 @@
 <div class="wrap">
 
 <header>
-  <div class="eyebrow">Architecture Overview · v0.54</div>
+  <div class="eyebrow">Architecture Overview · v0.55</div>
   <h1>Mini Blog</h1>
   <p class="lede">核心只做装配与调度；一切能力是系统层，一切呈现是承载包，一切交互是接口，一切单元的装卸由元层管辖。删光所有系统层与包，框架仍能启动——只是什么都不做，且一个字节的样式都不会输出。</p>
   <div class="principle">第一性原理：高度自定义，万象皆接口</div>
@@ -242,7 +242,7 @@ upgrade   备份当前 → staging → 替换
     <div class="card"><div class="tag ok">安全</div><h3>鉴权从声明变执行</h3><p>令牌落库只存 SHA-256 摘要、带过期与撤销；40101 / 40102 / 40301 / 40302；CSRF 落库一次性；CSP 可配置。</p></div>
     <div class="card"><div class="tag ok">接口</div><h3>幂等 · 限流 · 分页 · OpenAPI</h3><p><code>Idempotency-Key</code> 服务端去重、429 + Retry-After、游标分页、由清单导出标准 OpenAPI 3.1 文档。</p></div>
     <div class="card"><div class="tag ok">承载包</div><h3>后台与独立页</h3><p>可卸载控制台、工具页、只读安装向导、零 CSS 的 bare-html 主题；<strong>v0.6 起全部改由主题提供布局</strong>，独立页不再持有任何 CSS/JS。</p></div>
-    <div class="card"><div class="tag ok">定案</div><h3>命名 / 版本 / 冲突策略</h3><p>「Mini Blog」<code>Wx\</code>（保留的历史命名空间）、v0.54.0、PHP ≥ 8.1；保留显式 priority + fail-fast + 留痕；包签名验签（HMAC-SHA256）落地。</p></div>
+    <div class="card"><div class="tag ok">定案</div><h3>命名 / 版本 / 冲突策略</h3><p>「Mini Blog」<code>Wx\</code>（保留的历史命名空间）、v0.55.0、PHP ≥ 8.1；保留显式 priority + fail-fast + 留痕；包签名验签（HMAC-SHA256）落地。</p></div>
     <div class="card"><div class="tag ok">规矩 H</div><h3>单文件职责预算</h3><p>行数 / 责任主体 / 扇出 / 职权跨度四指标分层预算，<code>audit-responsibility.php</code> 静态审计。上帝类 563 行 → 188 行编排者 + 7 个协作者。</p></div>
     <div class="card"><div class="tag ok">规矩 I</div><h3>协作全方位验证</h3><p>8 类协作矩阵 C1–C8 + 存在性 / 一致性 / 运行时贯通 / 故障注入四维；C9 断言每一类都有实际跑过的守卫。</p></div>
     <div class="card"><div class="tag ok">规矩 J · v0.6</div><h3>呈现权完全归主题</h3><p>后台布局同样过主题系统。独立页只产数据 + 声明 <code>layout</code> 槽位，主题包持有 site / admin / tool / install 全部模板与 CSS/JS；主题缺某布局 → 该页退化为纯 JSON，框架绝不兜底。<code>standalone</code> 绕过主题的后门已拆除。</p></div>
@@ -307,7 +307,7 @@ upgrade   备份当前 → staging → 替换
 <section>
   <h2>验证结果</h2>
   <p class="passed">✓ php tests/run.php 全绿 · 职责审计 0 违规 / 0 孤儿协作 · 出厂主题复核 / 性能基准可重跑</p>
-  <p class="sub" style="margin-top:.6rem"><code>php -l</code> 全量 <strong>554</strong> 个 PHP 文件通过（<code>core/</code> 仅 24 个、0 个 CSS/JS）；最大单文件 217 行；18 个系统层自动装配、13 个契约（容器运行时绑定 27 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个、统计层 2 个内部注册项）、92 个接口对应 92 份文档、OpenAPI 3.1（84 路径 / 92 操作）。真实 MariaDB 10.11 上建立 29 张业务表（另 2 张运行时台账表）并验证文章 / 评论树写入读回、附件内容寻址与私有下载授权、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进；拔掉 DSN 自动回退。HTTP 端到端：<code>GET /</code> 纯 JSON 零 HTML，未捕获异常经 <code>kernel.exception</code> 渲染为失败态，无令牌访问受保护接口 HTTP 401 + <code>40101</code>，用 <code>admin/admin123</code> 换令牌后返回 <code>code=0</code>，<code>/console</code> / <code>/install</code> / <code>/toolbox</code> 无主题时返回纯 JSON，启用主题后由主题布局输出 HTML。所有结论均为<strong>可重跑的文本证据</strong>，未使用截图（规矩 A）。</p>
+  <p class="sub" style="margin-top:.6rem"><code>php -l</code> 全量 <strong>557</strong> 个 PHP 文件通过（<code>core/</code> 仅 24 个、0 个 CSS/JS）；最大单文件 217 行；18 个系统层自动装配、13 个契约（容器运行时绑定 27 个，含数据层 4 个、状态层 3 个、附件层 1 个、表情层 1 个、主题层 2 个、统计层 2 个内部注册项）、92 个接口对应 92 份文档、OpenAPI 3.1（84 路径 / 92 操作）。真实 MariaDB 10.11 上建立 29 张业务表（另 2 张运行时台账表）并验证文章 / 评论树写入读回、附件内容寻址与私有下载授权、凭据校验、令牌摘要落库、CSRF 一次性、游标分页、长任务 CAS 推进；拔掉 DSN 自动回退。HTTP 端到端：<code>GET /</code> 纯 JSON 零 HTML，未捕获异常经 <code>kernel.exception</code> 渲染为失败态，无令牌访问受保护接口 HTTP 401 + <code>40101</code>，用 <code>admin/admin123</code> 换令牌后返回 <code>code=0</code>，<code>/console</code> / <code>/install</code> / <code>/toolbox</code> 无主题时返回纯 JSON，启用主题后由主题布局输出 HTML。所有结论均为<strong>可重跑的文本证据</strong>，未使用截图（规矩 A）。</p>
   <div class="callout ok" style="margin-top:1.25rem">
     <strong>9 项决策已全部执行：</strong>内容系统、MySQL 全量实现、接口鉴权执行、写接口公网边界、可卸载后台、standalone 独立页、bare-html 主题、幂等/限流/分页/OpenAPI、包签名验签，以及 PHP 8.1+ / 「Mini Blog <code>Wx\</code>」/ 冲突策略定案。逐项兑现记录见 <code>docs/ARCHITECTURE.md</code> 第 16 节。
   </div>

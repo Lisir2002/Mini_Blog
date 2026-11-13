@@ -143,3 +143,12 @@ v0.54 把参数级覆盖变成账本：`api/parameter-coverage.json` 逐条登�
 但页面无入口：`content.posts.pinned` / `attachments.download.disposition` /
 `stats.series.dimension` / `content.trash.cursor`，`--zero` 只列这一段）。
 operation 级矩阵零变化，仍 10 刻意 / 0 未登记；`70` / `70b` 两组共 13 项守卫。
+
+v0.55 把其中一条 gap 变成页面入口：`content.trash.cursor`（回收站深翻页）。接口
+`content.trash` 从 0.28.0 起就带 `cursor` / `next_cursor`，Pdo 与 Memory 两处
+keyset 分页都齐备，页面却只取第一页 20 条并标「未列全」。本版让
+`/console/content?view=trash` 透传游标、渲染「下一页 / 回到第一页」、恢复与彻底
+删除后 PRG 留在原页，非法游标显式 422。参数账本随即从 43 条收窄为 42 条、gap
+从 4 条收窄为 3 条 —— 撤登由双向核对强制执行（把已收口的键放回去会被 `70` 组
+判成坏账），不是手工删一行。operation 级矩阵仍是 92 / 10 刻意 / 0 未登记；
+`71` / `71b` 两组共 18 项守卫。

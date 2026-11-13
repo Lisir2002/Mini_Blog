@@ -133,6 +133,7 @@ GET /api/v1/content/trash?limit=20  Authorization: Bearer <admin>
 
 ## 8. 变更记录
 
+- 0.55.0 页面接入 cursor 深翻页：/console/content?view=trash 透传游标、渲染下一页 / 回到第一页链接，恢复与彻底删除后 PRG 留在原页；非法游标由后端拒绝并翻成显式 422。此前接口早已支持 cursor / next_cursor（Pdo 与 Memory 两处 keyset 分页），页面却只取第一页并在提示里标「未列全」。
 - 0.28.0 初次发布
 
 > 破坏性变更（删字段、改类型、改鉴权、改副作用）必须升接口主版本并给出迁移说明与废弃期；

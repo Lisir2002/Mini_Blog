@@ -4,6 +4,10 @@ namespace Wx\Core\Http;
 
 final class Request
 {
+    private ?array $jsonCache = null;
+    private ?string $jsonError = null;
+    private bool $jsonParsed = false;
+
     public function __construct(
         private string $method = 'GET',
         private string $path = '/',
@@ -13,7 +17,15 @@ final class Request
         private string $rawBody = '',
         private ?string $clientIp = null,
         private array $files = []
-    ) {}
+    ) {
+        // HTTP 头名大小写不敏感：构造时一次性归一成小写键，header() 查找 O(1)。
+        // 核心不产出头，也不依赖原始大小写；小写键是合法的标准形态。
+        $norm = [];
+        foreach ($headers as $k => $v) {
+            $norm[strtolower((string) $k)] = $v;
+        }
+        $this->headers = $norm;
+    }
 
     public static function fromGlobals(): self
     {
@@ -73,19 +85,54 @@ final class Request
             || in_array($this->clientIp, ['127.0.0.1', '::1'], true);
     }
 
-    /** @return array<string, mixed> 解析 JSON 请求体；非法 JSON 返回空数组 */
+    /**
+     * 解析 JSON 请求体，并区分三类结果：
+     *  - 空 body → 空数组且 jsonError() 为 null（视为「无负载」，不是错误）；
+     *  - 合法 JSON 数组 → 解码结果；
+     *  - 非法 JSON 或顶层非数组（对象 / 标量）→ 空数组且 jsonError() 给出原因。
+     * 此前 json() 把「非法 JSON」与「合法 null」都返回 []，畸形 API 请求体被静默当成空对象，
+     * 调用方 array_merge 时错误被吞掉。现由 jsonError() / jsonValid() 显式暴露。
+     * @return array<string, mixed>
+     */
     public function json(): array
     {
-        if ($this->rawBody === '') return [];
+        if ($this->jsonParsed) {
+            return $this->jsonCache ?? [];
+        }
+        $this->jsonParsed = true;
+        if ($this->rawBody === '') {
+            $this->jsonCache = [];
+            return [];
+        }
         $decoded = json_decode($this->rawBody, true);
-        return is_array($decoded) ? $decoded : [];
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->jsonError = 'JSON 解析失败：' . json_last_error_msg();
+            $this->jsonCache = [];
+            return [];
+        }
+        if (!is_array($decoded)) {
+            $this->jsonError = 'JSON 顶层必须是对象或数组';
+            $this->jsonCache = [];
+            return [];
+        }
+        $this->jsonCache = $decoded;
+        return $decoded;
+    }
+
+    /** 最近一次 json() 的解析错误；无错（含空 body）返回 null。 */
+    public function jsonError(): ?string
+    {
+        return $this->jsonError;
+    }
+
+    /** json() 是否成功解析出合法数组（空 body 视为成功）。 */
+    public function jsonValid(): bool
+    {
+        return $this->jsonError === null;
     }
 
     public function header(string $key): ?string
     {
-        foreach ($this->headers as $name => $value) {
-            if (strcasecmp((string) $name, $key) === 0) return (string) $value;
-        }
-        return null;
+        return $this->headers[strtolower($key)] ?? null;
     }
 }

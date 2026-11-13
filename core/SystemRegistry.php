@@ -34,9 +34,24 @@ final class SystemRegistry
             if (($meta['enabled'] ?? true) === false || in_array($name, $disabled, true)) {
                 continue;
             }
+            // 同名冲突检测：两个包声明同一个 name 会静默后者覆盖前者（前者凭空消失）。
+            // name 是系统层的全局唯一标识，必须在发现期就拦下。
+            if (isset($this->manifests[$name])) {
+                throw new RuntimeException(
+                    "系统层重名冲突：{$name}（" . dirname($file) . '）与已发现的同名系统层重复；'
+                    . 'name 必须全局唯一'
+                );
+            }
             $this->manifests[$name] = $meta + [
                 'priority' => 10, 'requires' => [], 'class' => '', 'version' => '0.0.0',
             ];
+        }
+        // 发现期即校验 class 非空：原实现要等到 registerAll 才报「类不存在」，
+        // 错误信息模糊且已过装配点。空 class 视为配置残缺，提前失败。
+        foreach ($this->manifests as $name => $meta) {
+            if (($meta['class'] ?? '') === '') {
+                throw new RuntimeException("系统层 {$name} 的 system.json 缺少 class 字段，无法装配");
+            }
         }
         $this->order = $this->topologicalOrder();
         return $this->order;

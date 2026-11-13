@@ -16,6 +16,8 @@ final class Container
     /** @var array<string, array{factory: callable, owner: string, priority: int, singleton: bool}> */
     private array $bindings = [];
     private array $instances = [];
+    /** @var array<string, true> 解析进行中的契约，用于循环依赖检测 */
+    private array $resolving = [];
     /** @var list<array{contract: string, from: string, to: string, priority: int}> */
     private array $overrides = [];
 
@@ -69,6 +71,12 @@ final class Container
 
     public function resolve(string $contract): object
     {
+        // 循环依赖检测：工厂在构造期内又解析回自身（或形成环）会无限递归直到栈溢出，
+        // 且报错信息毫无指向。先在 resolving 集合里打标，遇重复即抛清晰错误。
+        if (isset($this->resolving[$contract])) {
+            $chain = implode(' -> ', array_keys($this->resolving)) . ' -> ' . $contract;
+            throw new RuntimeException('契约循环依赖：' . $chain);
+        }
         if (!isset($this->bindings[$contract])) {
             throw new RuntimeException(
                 '契约未实现：' . $contract . '。请接入提供该契约的系统层，或由主题 / 插件自行绑定。'
@@ -78,7 +86,12 @@ final class Container
         if ($b['singleton'] && isset($this->instances[$contract])) {
             return $this->instances[$contract];
         }
-        $object = ($b['factory'])();
+        $this->resolving[$contract] = true;
+        try {
+            $object = ($b['factory'])();
+        } finally {
+            unset($this->resolving[$contract]);
+        }
         if (!is_object($object)) {
             throw new RuntimeException($contract . ' 的工厂必须返回一个对象');
         }

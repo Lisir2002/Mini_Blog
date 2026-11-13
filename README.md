@@ -1,12 +1,12 @@
 # Mini Blog
 
-![version](https://img.shields.io/badge/version-0.56.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.57.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
 ![tests](https://img.shields.io/badge/tests-all%20passing-2ea44f)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
-一个零依赖的 PHP 博客框架：把博客拆成系统核心、系统层、承载包与主题四层，核心只做装配与调度，能力、呈现、接口全部可插拔。
+一个零依赖的 PHP 博客框架：把博客拆成系统核心（万象核心）、系统层、承载包与主题四层，核心只做装配与调度，能力、呈现、接口全部可插拔。
 
 > 设计信条：高度自定义，万象皆接口。
 > 仓库：<https://github.com/Lisir2002/Mini_Blog>（`main`，Public）
@@ -99,7 +99,7 @@ curl -s http://127.0.0.1:8080/api/v1/emojis
 
 | 层 | 内容 | 约束 |
 | --- | --- | --- |
-| L0 系统核心 | Kernel / Container / HookBus / Router / Config / 13 个契约 | 24 个 PHP，0 CSS/JS，0 SQL |
+| L0 系统核心（万象核心） | Kernel / Container / HookBus / Router / Config / 13 个契约 | 24 个 PHP，0 CSS/JS，0 SQL |
 | L1 系统层 | 18 层，按 `priority` 与 `requires` 装配 | 每层自带 `system.json` |
 | L2 承载包 | 主题包、插件包、独立页包 | 模板与静态资源只允许出现在这里 |
 | L3 数据与呈现 | MySQL 表、主题布局与资源 | 表归各系统层自持，呈现归主题 |

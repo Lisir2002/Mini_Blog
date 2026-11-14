@@ -70,6 +70,9 @@ final class LifecycleManager implements LifecycleManagerInterface
 
     public function units(): array { return $this->catalog->units(); }
 
+    /** 台账原始记录快照（含落位基线），供 BootIntegrity 在 register 期一次性读取。 */
+    public function integrityRecords(): array { return (array) ($this->state->all()['units'] ?? []); }
+
     public function stateOf(string $type, string $slug): string { return $this->current($this->catalog->key($type, $slug)); }
 
     public function install(string $type, string $source, array $options = []): array
@@ -96,6 +99,8 @@ final class LifecycleManager implements LifecycleManagerInterface
             throw $e;
         }
         $record = $this->catalog->record($type, $slug, $version, 'installed');
+        // F6：以「落位后的真实目录」登记基线（此时 on_install 钩子产物已就位）。
+        $record['integrity'] = Fs::baseline($target, (string) ($this->options['signature_secret'] ?? ''));
         $this->commit($key, $record, 'install', 'absent', 'installed');
         return $record;
     }

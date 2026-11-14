@@ -57,7 +57,14 @@ final class Site
             'database' => ['dsn' => $this->dsn, 'user' => $this->user,
                            'pass' => $this->pass, 'prefix' => $this->prefix],
             'api' => ['rate_limit' => ['enabled' => false]],
-            'lifecycle' => ['allow_core_update' => true],
+            // v0.64：隔离演练站点造的是无清单假包，显式降级；生产默认 fail-closed。
+            // remote-update.php 通过 $extra 再覆盖回「验签档」，正是覆盖层优先级的实跑证据。
+            'lifecycle' => [
+                'allow_core_update' => true,
+                'require_checksum'  => false,
+                'require_signature' => false,
+                'signature_secret'  => '',
+            ],
             'release' => ['allow_core_update' => true],
         ], $extra));
     }

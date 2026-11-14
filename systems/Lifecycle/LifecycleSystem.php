@@ -36,6 +36,18 @@ final class LifecycleSystem extends AbstractSystem
             10
         );
 
+        // F6 启动期完整性复验：在承载包实例化之前，对「有落位基线」的包重算摘要。
+        // 台账快照直接取自已 reconcile 的管理器，不新建第二个 StateStore、不重复读盘。
+        $options = (array) $kernel->config()->get('lifecycle', []);
+        $integrity = new BootIntegrity(
+            $kernel->root(), $kernel->hooks(), $options, $manager->integrityRecords()
+        );
+        $kernel->hooks()->filter('package.enabled', static function (
+            bool $enabled, string $slug, string $manifest, Kernel $k
+        ) use ($integrity): bool {
+            return $integrity->guard($enabled, $slug, $manifest);
+        }, 20);
+
         // 装载权的统一裁决点：停用（installed）的包不进入装配
         $kernel->hooks()->filter('package.enabled', static function (
             bool $enabled, string $slug, string $manifest, Kernel $k

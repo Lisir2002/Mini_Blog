@@ -45,7 +45,15 @@ function isolatedKernel(string $dir, string $prefix, array $extra = []): Kernel
             'rate_limit' => ['enabled' => false],
             'tokens' => ['test-admin-token' => ['role' => 'admin', 'username' => 'admin', 'user_id' => 1]],
         ],
-        'lifecycle' => ['allow_core_update' => true],
+        // v0.64：生产默认已改为 fail-closed（require_checksum / require_signature = true）。
+        // 本夹具用 fakeRelease 造的是「无清单无签名的站点副本」，走 release core 自升级，
+        // 故在此显式声明降级档位：演练链路不假装走签名信任根，覆盖层优先级由此被验证。
+        'lifecycle' => [
+            'allow_core_update' => true,
+            'require_checksum'  => false,
+            'require_signature' => false,
+            'signature_secret'  => '',
+        ],
         'release'   => ['allow_core_update' => true],
     ], $extra));
 }

@@ -52,6 +52,15 @@ final class PackageVerifier
                     throw new LifecycleException('完整性校验失败：' . $rel, 42201);
                 }
             }
+            // 清单外文件：只遍历 expected 会漏掉「往源包里塞一个清单没登记的 PHP 文件」。
+            // 源包此刻尚未执行 on_install 钩子，清单必须完整覆盖全部载荷文件，故严格拒绝。
+            // （落位后的 verify() 不做此检测：运行期新增文件是合法的，见 BootIntegrity 边界说明。）
+            $extra = array_values(array_diff(array_keys($actual), array_keys($expected)));
+            if ($extra !== []) {
+                throw new LifecycleException(
+                    '完整性校验失败：清单外文件 ' . implode(', ', $extra), 42201
+                );
+            }
         }
         $this->assertSignature($dir);
     }

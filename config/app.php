@@ -34,9 +34,14 @@ return [
         // 版本快照保留份数：按版本归档，超出只裁最旧的，当前版本永不裁
         'keep_releases'     => 5,
         'allow_core_update' => false,
-        'require_checksum'  => false,
-        'require_signature' => false,  // true 时源包必须带 signature.json（HMAC-SHA256 验签）
-        'signature_secret'  => '',     // 生产环境由环境注入；为空时仅支持校验哈希清单
+        // v0.64 默认档位 fail-closed：源包必须带完整性清单 + 签名。
+        // 开箱默认 signature_secret 为空 → 装包一律被拒（没有信任根就不接受外部包），
+        // 生产须经环境注入密钥后才放行；如需有意降级，在 config/local.php 显式改回 false。
+        // 启动期复验（boot_integrity）与此独立：它比对落位基线，出厂包无基线时如实放行。
+        'require_checksum'  => true,
+        'require_signature' => true,
+        'signature_secret'  => '',     // 生产环境由环境注入；为空时任何签名包都验不过（fail-closed）
+        'boot_integrity'    => true,   // 启动期对有落位基线的包复验摘要，篡改即拒装载
     ],
 
     // API 接口系统

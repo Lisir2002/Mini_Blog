@@ -73,4 +73,21 @@ final class Fs
     {
         return (string) json_encode(self::hashDir($dir), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
+
+    /**
+     * 落位基线：安装 / 升级 / 回滚成功后登记进台账，供启动期复验比对。
+     *
+     * 只记「载荷文件规范化摘要」，不记目录里自带的 manifest / signature
+     * （hashDir 已排除这两者）——那两份文件会随包一起被改写，不构成可信锚。
+     * $secret 非空时额外带 HMAC，防止「只改台账不改包」的绕过。
+     *
+     * @return array{algo: string, digest: string, files: int, mac?: string}
+     */
+    public static function baseline(string $dir, string $secret = ''): array
+    {
+        $digest = hash('sha256', self::canonical($dir));
+        $out = ['algo' => 'sha256', 'digest' => $digest, 'files' => count(self::hashDir($dir))];
+        if ($secret !== '') $out['mac'] = hash_hmac('sha256', $digest, $secret);
+        return $out;
+    }
 }

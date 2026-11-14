@@ -60,6 +60,8 @@ final class VersionSwitcher
         $updated = array_merge($record, ['type' => $type, 'slug' => $slug, 'version' => $newVersion,
             'state' => (string) ($record['state'] ?? 'installed'), 'backup' => $backup,
             'releases' => $this->archive->all($key), 'updated_at' => date(DATE_ATOM)]);
+        // F6：升级落位后基线必须与新目录逐字对应（含 on_upgrade 钩子产物）。
+        $updated['integrity'] = Fs::baseline($target, (string) ($this->options['signature_secret'] ?? ''));
         $this->commit($key, $updated, 'upgrade', $oldVersion, $newVersion, ['backup' => $backup]);
         return $updated;
     }
@@ -92,6 +94,8 @@ final class VersionSwitcher
         $restored = $snapshot['version'];
         $updated = array_merge($record, ['version' => $restored, 'backup' => null,
             'releases' => $this->archive->all($key), 'updated_at' => date(DATE_ATOM)]);
+        // F6：回滚也是一次合法落位，基线随快照恢复后的目录重新登记。
+        $updated['integrity'] = Fs::baseline($target, (string) ($this->options['signature_secret'] ?? ''));
         $this->commit($key, $updated, 'rollback', $current, $restored, ['snapshot' => $snapshot['path']]);
         return $updated;
     }

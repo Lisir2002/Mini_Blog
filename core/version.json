@@ -3,7 +3,7 @@
   "display_name": "万象核心",
   "product": "Mini Blog",
   "namespace": "Wx\\",
-  "version": "0.63.0",
+  "version": "0.64.0",
   "requires_php": ">=8.1",
   "channel": "stable",
   "_note": "站点程序(core)版本清单：version 遵循 SemVer；schema 是数据库结构代号；migrations_from 之前的迁移视为安装基线（只登记不重跑）",

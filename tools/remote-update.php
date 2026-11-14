@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * GitHub 发版源升级 / 回滚实跑验证 CLI —— v0.62。
+ * GitHub 发版源升级 / 回滚实跑验证 CLI —— v0.62（v0.63 包源迁入本仓库 Releases）。
  *
  *   php tools/remote-update.php
  *
@@ -23,7 +23,7 @@ declare(strict_types=1);
  *   - 退出码 0 = 全绿。
  *
  * 发版约定：签名密钥是演示值，生产环境由环境注入 config.lifecycle.signature_secret，
- * 包源仓库见 https://github.com/Lisir2002/miniblog-packages
+ * 包源即本仓库（Lisir2002/Mini_Blog）的 Releases 页，tag 用 package/ 前缀与代码版本区分
  */
 
 use Wx\Core\Kernel;
@@ -37,7 +37,8 @@ foreach (['Site', 'Probe', 'JourneyState', 'InstallStage'] as $class) {
     require_once __DIR__ . '/journey/' . $class . '.php';
 }
 
-const GH_REPO   = 'Lisir2002/miniblog-packages';
+const GH_REPO   = 'Lisir2002/Mini_Blog';
+const GH_TAG_PFX = 'package/demo-v'; // 包 tag 命名空间，与代码版本 tag 区分
 const GH_SECRET = 'gh-remote-update-verify-secret'; // 演示密钥；生产由环境注入
 const V1        = '1.0.0';
 const V2        = '1.1.0';
@@ -47,7 +48,7 @@ $fetchRelease = static function (string $version, string $updatesDir): string {
     if (!is_dir($updatesDir)) mkdir($updatesDir, 0775, true);
     $workDir = $updatesDir . '/v' . $version;
     $zip = $workDir . '.zip';
-    $url = 'https://github.com/' . GH_REPO . "/releases/download/v{$version}/demo-{$version}.zip";
+    $url = 'https://github.com/' . GH_REPO . "/releases/download/" . GH_TAG_PFX . "{$version}/demo-{$version}.zip";
     $done = false;
     for ($i = 0; $i < 4 && !$done; $i++) {
         exec('curl -fsSL ' . escapeshellarg($url) . ' -o ' . escapeshellarg($zip), $out, $code);

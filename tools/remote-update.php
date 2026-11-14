@@ -44,17 +44,21 @@ const GH_SECRET = 'gh-remote-update-verify-secret'; // 演示密钥；生产由�
 const V1        = '0.62.0';
 const V2        = '0.63.0';
 
-/** 带重试的 GitHub 资产下载（沙箱到 GitHub 的 TLS 链路偶发中断，进程内重试即可恢复）。 */
+/** 带重试的 GitHub 资产下载（沙箱到 GitHub 的 TLS 链路偶发中断，curl 自带重试 + 完整性校验兜底）。 */
 $fetchRelease = static function (string $version, string $updatesDir): string {
     if (!is_dir($updatesDir)) mkdir($updatesDir, 0775, true);
     $workDir = $updatesDir . '/v' . $version;
     $zip = $workDir . '.zip';
     $url = 'https://github.com/' . GH_REPO . "/releases/download/" . GH_TAG_PFX . "{$version}/Mini_Blog-{$version}.zip";
     $done = false;
-    for ($i = 0; $i < 4 && !$done; $i++) {
-        exec('curl -fsSL ' . escapeshellarg($url) . ' -o ' . escapeshellarg($zip), $out, $code);
-        $done = $code === 0 && is_file($zip);
-        if (!$done) sleep(2);
+    for ($i = 0; $i < 5 && !$done; $i++) {
+        exec('curl -fsSL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 '
+            . escapeshellarg($url) . ' -o ' . escapeshellarg($zip), $out, $code);
+        if ($code === 0 && is_file($zip) && filesize($zip) > 0) {
+            exec('unzip -tqq ' . escapeshellarg($zip), $tout, $tcode);
+            $done = $tcode === 0; // 半截文件不算下载成功，删掉重来
+        }
+        if (!$done) { @unlink($zip); sleep(2); }
     }
     if (!$done) throw new RuntimeException("GitHub 资产下载失败（exit {$code}）：{$url}");
     exec('unzip -q -o ' . escapeshellarg($zip) . ' -d ' . escapeshellarg($workDir), $out, $code);

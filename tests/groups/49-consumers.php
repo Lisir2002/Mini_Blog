@@ -234,7 +234,7 @@ check('v0.48：刻意零消费制度化 —— 登记表双向核对，未登记
         $all = (array) ($data['all'] ?? []);
         $ledger = (array) ($data['deliberate'] ?? []);
         $dz = (array) ($data['deliberate_zero'] ?? []);
-        truthy(count($ledger) === 10, '登记表应有 10 条，实际 ' . count($ledger));
+        truthy(count($ledger) === 6, '登记表应有 6 条，实际 ' . count($ledger));
         foreach ($ledger as $op => $reason) {
             truthy(is_string($reason) && strlen($reason) >= 24,
                 $op . ' 的登记理由缺失或太短：没有理由的登记无效');

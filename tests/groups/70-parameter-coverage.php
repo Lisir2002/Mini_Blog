@@ -15,7 +15,7 @@ require_once dirname(__DIR__, 2) . '/tools/audit/ParameterLedger.php';
  *
  * v0.56：gap 桶首次归零（置顶视图 / 图片预览 / 维度下钻三条存量缺口一次收完）。
  * 本组同时锁住反向：把任一已收口的键重新登记，必须被判成坏账；账本只剩
- * 39 条 page / cli 结论，--zero 输出「无」。
+ * 28 条 page / cli 结论（v0.62 起 lifecycle.install / activate / upgrade / rollback 的 11 条 cli 登记因 tools/remote-update.php 成为真实消费方而撤账），--zero 输出「无」。
  */
 echo "\n=== 70. 参数级覆盖账本 ===\n";
 
@@ -36,7 +36,7 @@ $with = static function (string $key, array $patch) use ($declared): array {
 };
 $chars = static fn(string $s): int => preg_match_all('/./us', $s) ?: 0;
 
-check('参数全集完整且唯一，零证据集合恰好 39 条',
+check('参数全集完整且唯一，零证据集合恰好 28 条',
     function () use ($registry, $scan, $matrix): void {
         truthy(count($scan['params']) === 187, '参数总数不是 187，实际 ' . count($scan['params']));
         truthy(count($scan['by_key']) === count($scan['params']), '出现了重复的 op.param 键');
@@ -46,7 +46,7 @@ check('参数全集完整且唯一，零证据集合恰好 39 条',
             truthy(isset($ops[$row['op']]), "{$key} 的 operation 不在契约里");
             truthy(str_starts_with((string) $key, $row['op'] . '.'), "{$key} 键拼错");
         }
-        truthy(count($scan['zero']) === 39, '零证据参数不是 39，实际 ' . count($scan['zero']));
+        truthy(count($scan['zero']) === 28, '零证据参数不是 28，实际 ' . count($scan['zero']));
         truthy($matrix['total'] === 92, 'operation 级矩阵被改动，实际 ' . (string) $matrix['total']);
     });
 
@@ -82,7 +82,7 @@ check('真实账本核对干净，登记表恰好覆盖零证据集合',
         truthy($missing === [], '未登记参数：' . implode(', ', $missing));
         $extra = array_values(array_diff(array_keys($declared), $scan['zero']));
         truthy($extra === [], '登记了已有证据的参数：' . implode(', ', $extra));
-        truthy(count($declared) === 39, '登记表不是 39 条，实际 ' . count($declared));
+        truthy(count($declared) === 28, '登记表不是 28 条，实际 ' . count($declared));
     });
 
 check('三类桶计数与 gap 明细逐条可核对',
@@ -92,7 +92,7 @@ check('三类桶计数与 gap 明细逐条可核对',
             $state = (string) (is_array($entry) ? ($entry['state'] ?? '') : '');
             if (isset($count[$state])) $count[$state]++;
         }
-        truthy($count === ['page' => 17, 'cli' => 22, 'gap' => 0],
+        truthy($count === ['page' => 17, 'cli' => 11, 'gap' => 0],
             '三类桶计数不符：' . json_encode($count, JSON_UNESCAPED_UNICODE));
         $gaps = array_values(array_filter(array_keys($declared),
             static fn(string $k): bool => (string) ($declared[$k]['state'] ?? '') === 'gap'));
@@ -160,7 +160,7 @@ check('理由长度、state 取值、cli / gap 与刻意零消费口径一致',
         $bad = $badOf($with('member.title.color', ['state' => 'cli']));
         truthy(str_contains($bad, 'state=cli 的 operation 必须列入刻意零消费'),
             '把页面协作者伪装成 cli 没被拦下：' . $bad);
-        $bad = $badOf($with('lifecycle.install.type', ['state' => 'gap']));
+        $bad = $badOf($with('lifecycle.deactivate.type', ['state' => 'gap']));
         truthy(str_contains($bad, '刻意零消费的 operation 不该登记为待补入口'),
             '把刻意零消费伪装成待补入口没被拦下：' . $bad);
     });

@@ -30,12 +30,12 @@ check('parameters.php --json 退出码 0，结构与计数全部可信',
         foreach (['total', 'covered', 'zero', 'declared', 'by_state', 'unregistered', 'bad_ledger', 'gap', 'zero_keys'] as $k) {
             truthy(array_key_exists($k, $d), "--json 缺字段 {$k}");
         }
-        truthy($d['total'] === 187 && $d['covered'] === 148 && $d['zero'] === 39,
+        truthy($d['total'] === 187 && $d['covered'] === 159 && $d['zero'] === 28,
             '参数计数漂移：' . json_encode([$d['total'], $d['covered'], $d['zero']]));
         truthy($d['unregistered'] === [] && $d['bad_ledger'] === [], 'CLI 报出未登记或坏账');
-        truthy(count($d['gap']) === 0 && count($d['zero_keys']) === 39,
+        truthy(count($d['gap']) === 0 && count($d['zero_keys']) === 28,
             'gap / 零证据明细条数不符');
-        truthy($d['by_state'] === ['page' => 17, 'cli' => 22, 'gap' => 0],
+        truthy($d['by_state'] === ['page' => 17, 'cli' => 11, 'gap' => 0],
             '三类桶计数漂移：' . json_encode($d['by_state'], JSON_UNESCAPED_UNICODE));
     });
 
@@ -64,7 +64,7 @@ check('operation 级消费矩阵不受参数级账本影响',
         truthy(is_array($d), 'consumers.php --json 不是合法 JSON');
         truthy($d['total'] === 92, 'operation 数变了，实际 ' . (string) $d['total']);
         truthy(count($d['zero']) === 0, '出现未登记的零消费 operation');
-        truthy(count($d['deliberate_zero']) === 10, '刻意零消费不是 10 个');
+        truthy(count($d['deliberate_zero']) === 6, '刻意零消费不是 6 个');
         foreach (['content.update', 'content.transition'] as $op) {
             truthy(((array) ($d['all'][$op]['consumers'] ?? [])) !== [], $op . ' 的消费方丢了');
         }
@@ -92,7 +92,7 @@ check('登记表 JSON 合法，键形如 op.param 且与契约逐一对得上',
             truthy(!isset($ledger['declared'][$key]),
                 $key . ' 已有页面证据，登记表不该还留着它');
         }
-        truthy(count((array) $ledger['declared']) === 39, '登记表的条数不是 39');
+        truthy(count((array) $ledger['declared']) === 28, '登记表的条数不是 28');
     });
 
 check('两张账本口径一致：gap 的 op 都有消费方，cli 的 op 都在刻意零消费里',

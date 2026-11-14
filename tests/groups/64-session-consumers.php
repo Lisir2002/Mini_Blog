@@ -75,8 +75,8 @@ check('消费矩阵：漏报修正 —— 五个接口离开零消费，零消�
             truthy(!in_array($op, $zero, true), $op . ' 已消费却还在零消费清单里');
         }
         truthy(count($zero) === 0, '未登记零消费应只剩 0，实际 ' . count($zero));
-        truthy(count((array) ($json['deliberate_zero'] ?? [])) === 10,
-            '刻意零消费登记应覆盖 10 个接口');
+        truthy(count((array) ($json['deliberate_zero'] ?? [])) === 6,
+            '刻意零消费登记应覆盖 6 个接口');
         foreach ($zero as $op) {
             truthy((bool) preg_match('/^(lifecycle\.|release\.|permission\.override\.grant|state\.task\.status)/',
                 (string) $op), '零消费清单里出现了业务接口：' . $op);

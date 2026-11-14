@@ -1,0 +1,7 @@
+Mini Blog {{TAG}} · 发版流水线自举
+
+由 `tools/release.php` 固化并跑通：构建签名包 → 打项目版本 tag → 建 Release → 平移演练版本线 → 实跑验证。
+
+- tag `{{TAG}}` 锚定版本定案 commit `{{SHA}}`
+- 资产 `{{ASSET}}`，顶层目录 `Mini_Blog/`，包内 `plugin.json` / `marker.txt` / `DemoPlugin::VERSION` 逐字 `{{VERSION}}`
+- 增量载荷 `{{PAYLOAD}}` 相对 `v{{PREV}}` 新增，供 `tools/remote-update.php` 演练 {{PREV}} → {{VERSION}} 的升级 / 回滚 / 篡改拒链路

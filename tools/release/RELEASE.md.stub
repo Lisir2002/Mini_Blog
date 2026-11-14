@@ -1,0 +1,6 @@
+# Mini Blog {{VERSION}} 增量载荷
+
+本文件是相对 {{PREV}} 的新增文件，供 `tools/remote-update.php` 验证
+「升级带来新文件 / 回滚移除新文件」。
+
+由 `tools/release.php` 生成，版本 {{VERSION}}。

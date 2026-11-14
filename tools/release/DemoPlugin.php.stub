@@ -1,0 +1,19 @@
+<?php
+declare(strict_types=1);
+namespace Wx\Plugins\demo;
+
+use Wx\Contracts\PackageInterface;
+use Wx\Core\Kernel;
+
+/** Mini Blog v{{VERSION}} 发版验证插件 —— 装配即登记，不做任何事。 */
+final class DemoPlugin implements PackageInterface
+{
+    public const VERSION = '{{VERSION}}';
+
+    public function slug(): string { return 'demo'; }
+
+    public function register(Kernel $kernel): void
+    {
+        // 验证用占位：升级 / 回滚流程只关心文件与状态切换，不订阅任何钩子。
+    }
+}

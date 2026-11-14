@@ -1,0 +1,4 @@
+# Mini Blog {{VERSION}}
+
+- 发版流水线由 `tools/release.php` 固化并自举发布。
+- 演练版本线：{{PREV}} → {{VERSION}}。

@@ -1,0 +1,8 @@
+{
+  "slug": "demo",
+  "class": "Wx\\Plugins\\demo\\DemoPlugin",
+  "version": "{{VERSION}}",
+  "priority": 10,
+  "enabled": true,
+  "description": "Mini Blog {{VERSION}} 发版验证包（tools/remote-update.php 消费）"
+}

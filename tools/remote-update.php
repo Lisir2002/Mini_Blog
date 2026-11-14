@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * GitHub 发版源升级 / 回滚实跑验证 CLI —— v0.63（版本线对齐项目版本 0.62.0 → 0.63.0）。
+ * GitHub 发版源升级 / 回滚实跑验证 CLI —— v0.64（版本线对齐项目版本 0.63.0 → 0.64.0）。
  *
  *   php tools/remote-update.php
  *
@@ -11,9 +11,9 @@ declare(strict_types=1);
  *   1. 从 GitHub Releases 匿名下载签名包资产，落到隔离站点 storage/updates/ 暂存区
  *      （站点根目录内，满足 PackageVerifier::assertSource 的路径边界）；
  *   2. lifecycle.install → activate：GitHub 包真实落位到 plugins/demo；
- *   3. lifecycle.upgrade：拉 v0.63.0 新 Release 升级，文件内容与版本记录同步切换；
- *   4. lifecycle.rollback：回滚到 0.62.0 快照，旧内容完整恢复（降级可用）；
- *   5. 回滚后再从 GitHub 重新下载 v0.63.0 升回（回滚不是单行道）；
+ *   3. lifecycle.upgrade：拉 v0.64.0 新 Release 升级，文件内容与版本记录同步切换；
+ *   4. lifecycle.rollback：回滚到 0.63.0 快照，旧内容完整恢复（降级可用）；
+ *   5. 回滚后再从 GitHub 重新下载 v0.64.0 升回（回滚不是单行道）；
  *   6. 篡改防护：改动包内文件后升级被完整性校验拒绝（42201，fail-closed）；
  *   7. lifecycle.verify / releases 只读探查复核全程留痕。
  *
@@ -39,10 +39,10 @@ foreach (['Site', 'Probe', 'JourneyState', 'InstallStage'] as $class) {
 }
 
 const GH_REPO   = 'Lisir2002/Mini_Blog';
-const GH_TAG_PFX = 'v';              // 项目版本 tag（v0.62.0 / v0.63.0），与代码 commit 一一对应
+const GH_TAG_PFX = 'v';              // 项目版本 tag（v0.63.0 / v0.64.0），与代码 commit 一一对应
 const GH_SECRET = 'gh-remote-update-verify-secret'; // 演示密钥；生产由环境注入
-const V1        = '0.62.0';
-const V2        = '0.63.0';
+const V1        = '0.63.0';
+const V2        = '0.64.0';
 
 /** 带重试的 GitHub 资产下载（沙箱到 GitHub 的 TLS 链路偶发中断，curl 自带重试 + 完整性校验兜底）。 */
 $fetchRelease = static function (string $version, string $updatesDir): string {
@@ -108,7 +108,7 @@ try {
     $H = ['Authorization' => 'Bearer ' . $bearer];
 
     // 1. GitHub 发版源可达：两个 Release 资产匿名可下载
-    $p->step('GitHub 发版源可达：v0.62.0 / v0.63.0 资产匿名下载', static function () use ($p, $site, $fetchRelease): void {
+    $p->step('GitHub 发版源可达：v0.63.0 / v0.64.0 资产匿名下载', static function () use ($p, $site, $fetchRelease): void {
         $updates = $site->dir() . '/storage/updates';
         foreach ([V1, V2] as $v) {
             $src = $fetchRelease($v, $updates);
@@ -120,8 +120,8 @@ try {
         $p->note('匿名 curl 下载 + 解压即得站点根内包源（storage/updates/v<ver>/Mini_Blog）');
     });
 
-    // 2. 安装 v0.62.0：GitHub 包 → 验签安装
-    $p->step('lifecycle.install：GitHub v0.62.0 验签安装并落位 plugins/demo', static function () use ($p, $site, $updateKernel, $fetchRelease, $H): void {
+    // 2. 安装 v0.63.0：GitHub 包 → 验签安装
+    $p->step('lifecycle.install：GitHub v0.63.0 验签安装并落位 plugins/demo', static function () use ($p, $site, $updateKernel, $fetchRelease, $H): void {
         $src = $fetchRelease(V1, $site->dir() . '/storage/updates');
         $r = $p->post($updateKernel(), '/api/v1/lifecycle/install',
             ['type' => 'plugin', 'source' => $src], [], $H);
@@ -146,8 +146,8 @@ try {
         $p->note('demo 已 active · PackageLoader 实例化 Wx\Plugins\demo\DemoPlugin 成功');
     });
 
-    // 4. 升级：拉新 Release v0.63.0 → lifecycle.upgrade
-    $p->step('lifecycle.upgrade：GitHub v0.63.0 升级，文件与版本记录同步切换', static function () use ($p, $site, $updateKernel, $fetchRelease, $H): void {
+    // 4. 升级：拉新 Release v0.64.0 → lifecycle.upgrade
+    $p->step('lifecycle.upgrade：GitHub v0.64.0 升级，文件与版本记录同步切换', static function () use ($p, $site, $updateKernel, $fetchRelease, $H): void {
         $src = $fetchRelease(V2, $site->dir() . '/storage/updates');
         $r = $p->post($updateKernel(), '/api/v1/lifecycle/upgrade',
             ['type' => 'plugin', 'slug' => 'demo', 'source' => $src], [], $H);
@@ -156,24 +156,24 @@ try {
         $p->ok(($d['state'] ?? '') === 'active', '升级不应改变 active 状态');
         $marker = (string) file_get_contents($site->dir() . '/plugins/demo/marker.txt');
         $p->ok(str_contains($marker, 'v' . V2), '升级后文件内容仍是旧版：' . $marker);
-        $p->ok(is_file($site->dir() . '/plugins/demo/CHANGELOG.md'), 'v0.63.0 新增文件未随升级落位');
-        $p->note('version 0.62.0 → 0.63.0 · active 保持 · CHANGELOG.md 新文件随包落位');
+        $p->ok(is_file($site->dir() . '/plugins/demo/SECURITY.md'), 'v0.64.0 新增文件未随升级落位');
+        $p->note('version 0.63.0 → 0.64.0 · active 保持 · SECURITY.md 新文件随包落位');
     });
 
-    // 5. 回滚：快照恢复到 0.62.0（降级可用）
-    $p->step('lifecycle.rollback：回滚到 0.62.0 快照，旧内容完整恢复', static function () use ($p, $site, $updateKernel, $H): void {
+    // 5. 回滚：快照恢复到 0.63.0（降级可用）
+    $p->step('lifecycle.rollback：回滚到 0.63.0 快照，旧内容完整恢复', static function () use ($p, $site, $updateKernel, $H): void {
         $r = $p->post($updateKernel(), '/api/v1/lifecycle/rollback',
             ['type' => 'plugin', 'slug' => 'demo'], [], $H);
         $d = $p->data($r, 'lifecycle.rollback');
         $p->ok(($d['version'] ?? '') === V1, '回滚后版本应为 ' . V1 . '：' . json_encode($d));
         $marker = (string) file_get_contents($site->dir() . '/plugins/demo/marker.txt');
         $p->ok(str_contains($marker, 'v' . V1), '回滚后文件内容不是 v' . V1);
-        $p->ok(!is_file($site->dir() . '/plugins/demo/CHANGELOG.md'), '回滚未移除 v0.63.0 新增文件');
-        $p->note('version 0.63.0 → 0.62.0 · CHANGELOG.md 已随旧快照移除');
+        $p->ok(!is_file($site->dir() . '/plugins/demo/SECURITY.md'), '回滚未移除 v0.64.0 新增文件');
+        $p->note('version 0.64.0 → 0.63.0 · SECURITY.md 已随旧快照移除');
     });
 
-    // 6. 篡改防护：当前 0.62.0，用被篡改的 v0.63.0 包升级——版本门槛放行后由完整性校验拦截
-    $p->step('篡改防护：改写 v0.63.0 包内文件后升级被完整性校验拒绝（42201）', static function () use ($p, $site, $updateKernel, $fetchRelease, $H): void {
+    // 6. 篡改防护：当前 0.63.0，用被篡改的 v0.64.0 包升级——版本门槛放行后由完整性校验拦截
+    $p->step('篡改防护：改写 v0.64.0 包内文件后升级被完整性校验拒绝（42201）', static function () use ($p, $site, $updateKernel, $fetchRelease, $H): void {
         $src = $fetchRelease(V2, $site->dir() . '/storage/updates');
         file_put_contents($src . '/marker.txt', 'tampered!');
         $r = $p->post($updateKernel(), '/api/v1/lifecycle/upgrade',
@@ -182,11 +182,11 @@ try {
             '篡改包未被拒绝，实际：' . substr($r['body'], 0, 200));
         $cur = (string) file_get_contents($site->dir() . '/plugins/demo/marker.txt');
         $p->ok(str_contains($cur, 'v' . V1), '被拒的升级污染了当前版本文件');
-        $p->note('当前 0.62.0 · 篡改包版本 0.63.0 通过版本门槛后，完整性校验先行拦截（42201）· 现场未被污染');
+        $p->note('当前 0.63.0 · 篡改包版本 0.64.0 通过版本门槛后，完整性校验先行拦截（42201）· 现场未被污染');
     });
 
-    // 7. 回滚后再升级：重新从 GitHub 拉 v0.63.0（回滚不是单行道）
-    $p->step('回滚后再升级：重新匿名下载 GitHub v0.63.0 升回成功', static function () use ($p, $site, $updateKernel, $fetchRelease, $H): void {
+    // 7. 回滚后再升级：重新从 GitHub 拉 v0.64.0（回滚不是单行道）
+    $p->step('回滚后再升级：重新匿名下载 GitHub v0.64.0 升回成功', static function () use ($p, $site, $updateKernel, $fetchRelease, $H): void {
         // 清空暂存区再下载，证明升级源确实来自 GitHub 而非本地残留
         exec('rm -rf ' . escapeshellarg($site->dir() . '/storage/updates'));
         $src = $fetchRelease(V2, $site->dir() . '/storage/updates');
@@ -194,7 +194,7 @@ try {
             ['type' => 'plugin', 'slug' => 'demo', 'source' => $src], [], $H);
         $d = $p->data($r, 'lifecycle.upgrade(again)');
         $p->ok(($d['version'] ?? '') === V2, '再次升级后版本应为 ' . V2);
-        $p->note('暂存区已清空重建 · v0.63.0 资产重新自 GitHub 下载 · 升回成功');
+        $p->note('暂存区已清空重建 · v0.64.0 资产重新自 GitHub 下载 · 升回成功');
     });
 
     // 8. 只读探查：verify + releases 全程留痕

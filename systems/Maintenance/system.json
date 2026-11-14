@@ -1,0 +1,9 @@
+{
+  "name": "maintenance",
+  "class": "Wx\\Systems\\Maintenance\\MaintenanceSystem",
+  "version": "0.1.0",
+  "requires": ["log"],
+  "priority": 90,
+  "enabled": true,
+  "_note": "第 19 系统层：周期维护统一入口。任务由各层经 maintenance.tasks 过滤器自报，本层只管「何时跑 / 跑了没 / 失败怎么办」，不认识任何业务表。默认不搭车、不自动写，清理须显式 CLI 调用。"
+}

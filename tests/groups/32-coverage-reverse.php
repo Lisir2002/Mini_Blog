@@ -44,15 +44,15 @@ check('当前状态：候选非空，且与快照零差', function () use ($root
 check('实测：新写入的未纳管数字被捕获，已锚定的不误报', function () use ($root): void {
     $probe = $root . '/docs/zz-coverage-check.md';
     try {
-        file_put_contents($probe, "# 探针\n\n本仓库共 18 个系统层。\n");
+        file_put_contents($probe, "# 探针\n\n本仓库共 19 个系统层。\n");
         $keys = array_column(Coverage::scan($root, Reconciler::anchors()), 'key');
-        truthy(in_array('docs/zz-coverage-check.md|18|系统层', $keys, true),
+        truthy(in_array('docs/zz-coverage-check.md|19|系统层', $keys, true),
             '新文档里的未纳管数字没有被扫到');
 
         // 同一句给出锚点后必须不再报：证明「覆盖」判定真的查表，而不是一律放行。
         $anchored = ['docs/zz-coverage-check.md' => ['/本仓库共 (\d+) 个系统层/' => ['system_layers']]];
         $again = array_column(Coverage::scan($root, $anchored), 'key');
-        truthy(!in_array('docs/zz-coverage-check.md|18|系统层', $again, true),
+        truthy(!in_array('docs/zz-coverage-check.md|19|系统层', $again, true),
             '已锚定的数字仍被当成未纳管');
     } finally {
         @unlink($probe);

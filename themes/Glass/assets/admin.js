@@ -30,7 +30,8 @@
     comment:    { label: '评论',   group: '业务',     probe: '/comments', query: '?post_slug=first-post' },
     page:       { label: '页面',   group: '承载',     probe: '/system/layers' },
     attachment: { label: '附件',   group: '业务',     probe: '/attachments', query: '?post_slug=first-post' },
-    emoji:      { label: '表情',   group: '业务',     probe: '/emojis' }
+    emoji:      { label: '表情',   group: '业务',     probe: '/emojis' },
+    maintenance: { label: '维护', group: '基础设施', probe: '/system/info' }
   };
   var FALLBACK = { label: '系统层', group: '其它', probe: '/system/info' };
 

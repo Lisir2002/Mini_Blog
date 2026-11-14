@@ -149,6 +149,17 @@ return [
         'strict_checksum'   => true,
     ],
 
+    // 周期维护（第 19 系统层）：任务清单 + 台账 + 双模式触发。
+    // 默认只提供能力，绝不悄悄改变既有写入行为：piggyback 关闭，清理必须显式
+    // php tools/maintenance.php run（可配每日定时任务）。开启搭车后也只跑 light 任务，
+    // 扫表删行这类重活永远只由 CLI 触发。台账是 storage/maintenance/state.json，不用库。
+    'maintenance' => [
+        'enabled'             => true,
+        'piggyback'           => false,
+        'log_retention_days'  => 30,
+        'tmp_retention_hours' => 24,
+    ],
+
     // MySQL：连接失败且 auto_fallback=true 时，各系统层自动回退到内存 / 会话适配器，
     // 保证「删光数据库也能启动」；核心始终不认识 MySQL。
     'database' => [

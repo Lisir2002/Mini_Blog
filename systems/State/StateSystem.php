@@ -9,6 +9,7 @@ use Wx\Core\Http\Request;
 use Wx\Core\Http\Response;
 use Wx\Core\Kernel;
 use Wx\Systems\Data\Db;
+use Wx\Systems\Maintenance\MaintenanceTask;
 
 /**
  * 第 15 系统层 —— 状态与反馈。
@@ -58,8 +59,18 @@ final class StateSystem extends AbstractSystem
     public function boot(Kernel $kernel): void
     {
         if (!$kernel->container()->has(StateStoreInterface::class)) return;
-        $kernel->container()->resolve(StateStoreInterface::class)->ensureSchema();
+        /** @var StateStoreInterface $store */
+        $store = $kernel->container()->resolve(StateStoreInterface::class);
+        $store->ensureSchema();
         $kernel->hooks()->filter('kernel.exception', self::handleException(...), 10);
+
+        // 长任务状态的过期清理归本层所有：内存 / PDO 两种实现都有 sweep，语义一致。
+        $kernel->hooks()->filter('maintenance.tasks', static function (array $tasks) use ($store): array {
+            $tasks[] = new MaintenanceTask('state.sweep', 3600, static function () use ($store): array {
+                return ['removed' => $store->sweep(time()), 'note' => '清理过期长任务状态'];
+            }, '清理过期的长任务状态', false);
+            return $tasks;
+        }, 10);
 
         if (!$kernel->container()->has(ApiRegistryInterface::class)) return;
         /** @var StateTasks $tasks */

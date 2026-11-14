@@ -8,6 +8,7 @@ use Wx\Contracts\UserProviderInterface;
 use Wx\Core\AbstractSystem;
 use Wx\Core\Kernel;
 use Wx\Systems\Api\ApiOperationException;
+use Wx\Systems\Data\DataSessionInterface;
 use Wx\Systems\Data\Db;
 
 /**
@@ -115,8 +116,12 @@ final class UserSystem extends AbstractSystem
 
         // 自助操作与管理操作分两个协作者：权限级别不同，混在一起容易把
         // 「改自己」的宽松规则漏到「改别人」上。
+        // A2：管理端跨表写（状态/口令 + 令牌吊销）经事务会话；data 层缺席时为 null，
+        // AdminOperations 退回原语义，且 requireStore 会先抛 50101，不会走到写路径。
+        $session = $kernel->container()->has(DataSessionInterface::class)
+            ? $kernel->container()->resolve(DataSessionInterface::class) : null;
         (new AccountOperations($store, $revocation, $policy, $auth, $kernel))->register($registry);
-        (new AdminOperations($store, $revocation, $policy, $kernel))->register($registry);
+        (new AdminOperations($store, $revocation, $policy, $session, $kernel))->register($registry);
 
         // 当前身份：由分发器把鉴权结果注入 _identity，业务执行者无需自己解析请求头。
         // user.profile.enrich 是公开扩展点（v0.10 起成员系统在此追加经验 / 等级 / 头衔），

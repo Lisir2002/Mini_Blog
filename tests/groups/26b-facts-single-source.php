@@ -22,7 +22,7 @@ check('事实集由物理状态算出：结构量与真实清单 / 文件系统�
     truthy($f['operations'] === count($reg['endpoints'] ?? []), '接口数不是从清单算的');
     truthy($f['api_paths'] === count(array_unique(array_column($reg['endpoints'] ?? [], 'path'))), '去重路径算错');
     truthy($f['contracts_files'] === count(glob($root . '/core/Contracts/*.php') ?: []), '契约文件数算错');
-    truthy($f['core_files'] === 24 && $f['system_layers'] === 18, '核心 / 系统层结构量异常');
+    truthy($f['core_files'] === 24 && $f['system_layers'] === 19, '核心 / 系统层结构量异常');
     truthy($f['themes'] === 4 && $f['meta_themes'] === 2, '主题 / 元主题数量异常');
     truthy($f['version'] === json_decode((string) file_get_contents($root . '/core/version.json'), true)['version'],
         '版本号不是从 core/version.json 读的');

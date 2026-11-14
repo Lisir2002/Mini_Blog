@@ -728,12 +728,12 @@
         "message": "ok",
         "data": {
           "framework": "Mini Blog",
-          "core_version": "0.65.0",
+          "core_version": "0.66.0",
           "php": "8.3.6",
           "requires_php": ">=8.1",
           "api_version": "v1",
-          "systems": 18,
-          "contracts": 30,
+          "systems": 19,
+          "contracts": 31,
           "api_operations": 92,
           "database": "mysql",
           "theme_active": null,
@@ -7832,5 +7832,5 @@
       "doc": "docs/api/API-COMMENT-009.md"
     }
   ],
-  "core_version": "0.65.0"
+  "core_version": "0.66.0"
 }

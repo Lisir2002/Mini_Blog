@@ -5,6 +5,7 @@ namespace Wx\Systems\User;
 use Wx\Contracts\ApiRegistryInterface;
 use Wx\Core\Kernel;
 use Wx\Systems\Api\ApiOperationException;
+use Wx\Systems\Data\DataSessionInterface;
 
 /**
  * 管理端账号操作 —— 列表、详情、禁用 / 启用 / 重置口令 / 改角色。
@@ -20,6 +21,7 @@ final class AdminOperations
         private ?UserAccountStore $store,
         private ?AccountRevocation $revocation,
         private CredentialPolicy $policy,
+        private ?DataSessionInterface $session,
         private Kernel $kernel
     ) {}
 
@@ -87,10 +89,15 @@ final class AdminOperations
             throw new ApiOperationException('不能禁用当前登录的账号', 40906);
         }
         $this->guardLastAdmin($target, '禁用');
-        $this->store?->setStatus($id, UserAccountStore::STATUS_DISABLED);
-        // 禁用必须立刻断链：否则旧令牌还能用，禁用只是「登录被拒」的假动作。
-        $revoked = $this->revocation?->all($id) ?? 0;
-        return ['user' => $this->store?->find($id) ?? $target, 'revoked_tokens' => $revoked];
+        // A2：账号状态（user_accounts）与令牌吊销（user_tokens）是两张表的写，必须原子。
+        // 若吊销中途抛错而状态已改，账号会「登录被拒但旧令牌照样能调接口」—— 最坏的一种安静地错。
+        // 无库 / 无数据层时 session 为 null，退回原语义（此时 requireStore 早已抛 50101）。
+        $apply = function () use ($id, $target): array {
+            $this->store?->setStatus($id, UserAccountStore::STATUS_DISABLED);
+            $revoked = $this->revocation?->all($id) ?? 0;
+            return ['user' => $this->store?->find($id) ?? $target, 'revoked_tokens' => $revoked];
+        };
+        return $this->session !== null ? $this->session->transaction($apply) : $apply();
     }
 
     /** @param array<string, mixed> $target @return array<string, mixed> */
@@ -125,10 +132,13 @@ final class AdminOperations
             throw new ApiOperationException($error, 42201);
         }
         $id = (int) $target['id'];
-        $this->store?->changePassword($id, $password);
-        // 管理员重置口令意味着「原主可能已失去控制」，全部令牌一并作废。
-        $revoked = $this->revocation?->all($id) ?? 0;
-        return ['user' => $this->store?->find($id) ?? $target, 'revoked_tokens' => $revoked];
+        // A2：改口令与吊销全部令牌同样跨两张表，必须一起成功或一起回滚。
+        $apply = function () use ($id, $password, $target): array {
+            $this->store?->changePassword($id, $password);
+            $revoked = $this->revocation?->all($id) ?? 0;
+            return ['user' => $this->store?->find($id) ?? $target, 'revoked_tokens' => $revoked];
+        };
+        return $this->session !== null ? $this->session->transaction($apply) : $apply();
     }
 
     /** @param array<string, mixed> $target */

@@ -1,6 +1,6 @@
 # Mini Blog
 
-![version](https://img.shields.io/badge/version-0.65.0-1f6f54)
+![version](https://img.shields.io/badge/version-0.66.0-1f6f54)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL%208.0%2B%20%2F%20MariaDB%2010.6%2B-4479A1?logo=mysql&logoColor=white)
 ![tests](https://img.shields.io/badge/tests-all%20passing-2ea44f)
@@ -13,7 +13,7 @@
 
 ## 简介
 
-Mini Blog 用原生 PHP 8.1+ 写成，没有 Composer、vendor、模板引擎与 ORM。18 个系统层各自声明 `system.json` 并由内核按依赖装配；主题包是 HTML/CSS/JS 的唯一合法住所；92 个接口由 `api/registry.json` 单向生成文档与 OpenAPI。新增系统层或接口均无需改动 `core/`——它固定 24 个 PHP 文件，不写一条 SQL，也不输出任何标签或样式。
+Mini Blog 用原生 PHP 8.1+ 写成，没有 Composer、vendor、模板引擎与 ORM。19 个系统层各自声明 `system.json` 并由内核按依赖装配；主题包是 HTML/CSS/JS 的唯一合法住所；92 个接口由 `api/registry.json` 单向生成文档与 OpenAPI。新增系统层或接口均无需改动 `core/`——它固定 24 个 PHP 文件，不写一条 SQL，也不输出任何标签或样式。
 
 默认状态是 Headless 数据服务（`theme.active = null`），接入主题后成为站点。当前为可运行的内核原型，部署配置见 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)。
 
@@ -22,7 +22,7 @@ Mini Blog 用原生 PHP 8.1+ 写成，没有 Composer、vendor、模板引擎与
 | 特性 | 说明 |
 | --- | --- |
 | 四层模型 | 系统核心 / 系统层 / 承载包 / 数据与呈现，层间只通过契约、事件、装配清单与数据接口通信 |
-| 可插拔系统层 | 18 层覆盖日志、数据、安全、权限、内容、评论、附件、表情、状态、版本、统计等，各带 `system.json` |
+| 可插拔系统层 | 19 层覆盖日志、数据、安全、权限、内容、评论、附件、表情、状态、版本、统计等，各带 `system.json` |
 | 呈现归主题 | 无主题或主题缺布局时一律退化为纯 JSON，框架不兜底 HTML/CSS/JS |
 | 接口清单驱动 | 92 个接口 = 92 份文档 = 92 个 operation，全部由 `api/registry.json` 生成 |
 | 内容与交互 | 文章、评论树、SHA-256 内容寻址附件、表情 token、五态状态反馈 |
@@ -100,7 +100,7 @@ curl -s http://127.0.0.1:8080/api/v1/emojis
 | 层 | 内容 | 约束 |
 | --- | --- | --- |
 | L0 系统核心（万象核心） | Kernel / Container / HookBus / Router / Config / 13 个契约 | 24 个 PHP，0 CSS/JS，0 SQL |
-| L1 系统层 | 18 层，按 `priority` 与 `requires` 装配 | 每层自带 `system.json` |
+| L1 系统层 | 19 层，按 `priority` 与 `requires` 装配 | 每层自带 `system.json` |
 | L2 承载包 | 主题包、插件包、独立页包 | 模板与静态资源只允许出现在这里 |
 | L3 数据与呈现 | MySQL 表、主题布局与资源 | 表归各系统层自持，呈现归主题 |
 
@@ -112,7 +112,7 @@ curl -s http://127.0.0.1:8080/api/v1/emojis
 Mini_Blog/
 ├── public/index.php          唯一入口
 ├── core/                     24 个 PHP：装配与调度
-├── systems/                  18 个系统层，各带 system.json / migrations
+├── systems/                  19 个系统层，各带 system.json / migrations
 ├── themes/                   Bare · BareHtml · Glass · GlassFront（磨砂玻璃元主题）
 ├── plugins/                  Hello · Performance（默认关闭）
 ├── pages/                    Home · Links · Post · Console · Toolbox · Install
@@ -142,7 +142,7 @@ php tools/gen-api-docs.php           # 重新生成 92 份接口文档
 php tools/export-openapi.php         # 导出 OpenAPI 3.1
 ```
 
-当前基线：php tests/run.php 全绿、0 职责违规 / 0 孤儿协作、18 系统层、92 接口、29 张业务表、`core/` 24 文件。均为可重跑的文本证据，不依赖截图。
+当前基线：php tests/run.php 全绿、0 职责违规 / 0 孤儿协作、19 系统层、92 接口、29 张业务表、`core/` 24 文件。均为可重跑的文本证据，不依赖截图。
 
 ## 文档
 

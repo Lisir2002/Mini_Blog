@@ -6,6 +6,7 @@ use Wx\Contracts\ApiRegistryInterface;
 use Wx\Core\AbstractSystem;
 use Wx\Core\Kernel;
 use Wx\Systems\Data\Db;
+use Wx\Systems\Maintenance\MaintenanceTask;
 
 /**
  * 统计系统 —— 第 18 个系统层：让「现在发生了什么」变成可查询的事实。
@@ -56,6 +57,16 @@ final class MetricSystem extends AbstractSystem
         );
 
         (new MetricInstrumentation($recorder, $kernel))->attach();
+
+        // 指标裁剪的保留策略归本层所有，交给周期维护统一调度；本层不认识调度器的台账。
+        $kernel->hooks()->filter('maintenance.tasks', static function (array $tasks) use ($store, $kernel): array {
+            $tasks[] = new MaintenanceTask('metric.prune', 86400, static function () use ($store, $kernel): array {
+                $days = max(1, (int) $kernel->config()->get('metric.retention_days', 30));
+                $removed = $store->prune(date('Y-m-d H:i:s', time() - $days * 86400));
+                return ['removed' => $removed, 'note' => "保留 {$days} 天"];
+            }, '裁剪过期的小时聚合指标', false);
+            return $tasks;
+        }, 10);
 
         if (!$kernel->container()->has(ApiRegistryInterface::class)) return;
         /** @var ApiRegistryInterface $registry */

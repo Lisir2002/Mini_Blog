@@ -39,7 +39,7 @@ check('统一信封：GET /api/v1/system/info', function (): void {
     truthy(isset($body['request_id']) && isset($body['meta']['api']), '信封缺少 request_id / meta');
     truthy(($body['meta']['api'] ?? null) === 'API-CORE-001', 'meta.api 不正确');
     truthy(($body['data']['headless'] ?? null) === true, '无主题时应为 headless');
-    truthy(($body['data']['systems'] ?? 0) === 18, '系统层数量不正确');
+    truthy(($body['data']['systems'] ?? 0) === 19, '系统层数量不正确');
     truthy(($body['data']['api_operations'] ?? 0) === 92, '接口登记数不正确');
 });
 

@@ -53,7 +53,7 @@ final class ApiDispatcher
     /** @return array{status: int, body: array<string, mixed>, headers: array<string, string>} */
     private function dispatchOnce(Request $request): array
     {
-        $requestId = $request->header('X-Request-Id') ?? bin2hex(random_bytes(8));
+        $requestId = $request->id();
         $endpoint  = $this->registry->match($request->method(), $request->path());
         if ($endpoint === null) {
             $code = $this->registry->pathExists($request->path()) ? 40501 : 40401;

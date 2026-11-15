@@ -64,7 +64,8 @@ check('结构指纹：内容没变时，冷连接再启动不再重放建表语�
     // 用独立前缀与两条全新连接验证闸门本身：不依赖前面哪个组先碰过哪张表，
     // 否则「指纹失效」与「测试顺序变化」会长成同一个失败。
     $prefix = 'dfp_' . bin2hex(random_bytes(3)) . '_';
-    $cfg = require dirname(__DIR__, 2) . '/config/app.php';
+    // 凭据经 Config 的 env 注入通道读取：app.php 只留空占位。
+    $cfg = (new \Wx\Core\Config(dirname(__DIR__, 2)))->all();
     $dir = dirname(__DIR__, 2) . '/systems/Comment/migrations';
     try {
         $first = new \Wx\Systems\Data\QueryProfiler();

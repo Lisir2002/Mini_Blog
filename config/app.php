@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 /**
  * 全局装配配置。核心不解释这些键的含义，含义由对应系统层自己定义。
- * 生产环境请把数据库口令、令牌密钥改为环境注入，不要提交明文到版本库。
+ * 凭据一律经环境注入（WX_ 前缀，见 .env.example）：本文件是入库模板，
+ * 不得出现任何明文口令 / 密钥；本机覆盖写 config/local.php，删掉即回默认。
  */
 return [
     'site' => [
@@ -74,6 +75,18 @@ return [
     // 安全系统：CSP 默认关闭（示例主题使用内联样式，启用时需允许 style-src 'unsafe-inline'）
     'security' => [
         'csp' => '',
+        // B2 HTTP 默认安全头档：集中声明，kernel.response 阶段「只补未设置项」写入响应。
+        // 出厂只带三条恒安全基线；CSP 仍由上方的 csp 单独控制（默认空，见 09 组守卫）；
+        // Cache-Control 刻意不进默认档：协商缓存由 plugins/Performance 按需注入（见 22b）；
+        // HSTS 仅 HTTPS 部署适用、Permissions-Policy 取决于站点用到的浏览器能力，
+        // 二者由站点主确认部署形态后自行加入本表，框架不默认强制：
+        // 'Strict-Transport-Security' => 'max-age=31536000; includeSubDomains',
+        // 'Permissions-Policy'        => 'geolocation=(), microphone=(), camera=()',
+        'headers' => [
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Frame-Options'        => 'SAMEORIGIN',
+            'Referrer-Policy'        => 'strict-origin-when-cross-origin',
+        ],
         // 页面会话（HttpOnly Cookie 载体）有效期，秒；与 API 令牌共用令牌表、各自可撤销
         'session' => ['ttl' => 7200],
     ],
@@ -165,7 +178,7 @@ return [
     'database' => [
         'dsn'           => 'mysql:host=127.0.0.1;dbname=wx_blog;charset=utf8mb4',
         'user'          => 'wx',
-        'pass'          => 'wx_pass_2026',
+        'pass'          => '',     // 由 WX_DATABASE__PASS 环境注入，见 .env.example；留空即不连库（auto_fallback 生效）
         'prefix'        => 'wx_',
         'auto_fallback' => true,
         // 连接超时（秒）：库不可达时不让 worker 无限等；0 = 沿用驱动 / 系统默认（旧行为）。

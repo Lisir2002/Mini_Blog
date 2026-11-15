@@ -38,13 +38,12 @@ final class SecuritySystem extends AbstractSystem
             10
         );
 
+        // B2：默认档集中在 config/app.php 的 security.headers，这里只做「只补未设置项」，
+        // 尊重附件 sandbox CSP / 协商缓存 Cache-Control 等路径自己的声明。
         $kernel->hooks()->on('kernel.response', static function ($request, Response $response, Kernel $k): void {
-            $response
-                ->setHeader('X-Content-Type-Options', 'nosniff')
-                ->setHeader('X-Frame-Options', 'SAMEORIGIN')
-                ->setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+            $response->fillHeaders((array) $k->config()->get('security.headers', []));
             $csp = (string) $k->config()->get('security.csp', '');
-            if ($csp !== '') $response->setHeader('Content-Security-Policy', $csp);
+            if ($csp !== '') $response->fillHeaders(['Content-Security-Policy' => $csp]);
         }, 10);
 
         // 页面会话的凭据载体：只把令牌变成 HttpOnly Cookie，不参与任何业务判断

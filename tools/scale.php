@@ -27,8 +27,8 @@ require_once __DIR__ . '/scale/Seeder.php';
 require_once __DIR__ . '/scale/Probe.php';
 
 $command = (string) ($argv[1] ?? 'run');
-$config  = require $root . '/config/app.php';
-$dbCfg   = (array) ($config['database'] ?? []);
+// 凭据经 Config 的 env 注入通道读取，app.php 只留空占位。
+$dbCfg   = (array) (new \Wx\Core\Config($root))->get('database', []);
 $prefix  = (string) ($dbCfg['prefix'] ?? 'wx_') . 'scale_';
 
 $opts = ['posts' => 10000, 'comments' => 50000, 'hot' => 20000];

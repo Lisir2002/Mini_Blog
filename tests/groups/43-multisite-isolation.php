@@ -71,8 +71,8 @@ $fails = array_merge(
 /** @return list<string> 指定前缀下的物理表名 */
 $tables = static function (string $prefix): array {
     global $root;
-    $cfg = require $root . '/config/app.php';
-    $db = (array) ($cfg['database'] ?? []);
+    // 凭据经 Config 的 env 注入通道读取，app.php 只留空占位。
+    $db = (array) (new \Wx\Core\Config($root))->get('database', []);
     $pdo = new PDO((string) $db['dsn'], (string) $db['user'], (string) $db['pass']);
     $out = [];
     foreach ($pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $t) {

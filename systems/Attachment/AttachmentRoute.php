@@ -38,7 +38,7 @@ final class AttachmentRoute
         $container = $this->kernel->container();
         $registry = $container->has(ApiRegistryInterface::class)
             ? $container->resolve(ApiRegistryInterface::class) : null;
-        $requestId = $request->header('X-Request-Id') ?? bin2hex(random_bytes(8));
+        $requestId = $request->id();
         $endpoint = $registry?->match($request->method(), $path);
         if ($registry === null || $endpoint === null) {
             $this->fail($response, 40501, $requestId);

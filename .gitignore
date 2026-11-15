@@ -33,5 +33,8 @@ storage/install.token
 storage/install.lock
 config/local.php
 
+# 环境注入凭据：含明文 DB 口令 / 签名密钥，绝不入库（模板见 .env.example）
+config/.env
+
 # 审计报告含 generated_at，每次跑测试都会变；由 tools/audit-responsibility.php 本地生成
 docs/responsibility-report.json

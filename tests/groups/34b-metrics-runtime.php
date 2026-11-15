@@ -78,7 +78,8 @@ check('未认证不可读统计：40101，而不是返回空数据', function ()
 });
 
 check('持久化与保留：写入 / 读回 / 只裁旧数据，durable 如实上报', function (): void {
-    $cfg = require dirname(__DIR__, 2) . '/config/app.php';
+    // 凭据经 Config 的 env 注入通道读取：app.php 只留空占位。
+    $cfg = (new \Wx\Core\Config(dirname(__DIR__, 2)))->all();
     if ((string) ($cfg['database']['dsn'] ?? '') === '') return;
     $prefix = 'mt_' . bin2hex(random_bytes(3)) . '_';
     try {

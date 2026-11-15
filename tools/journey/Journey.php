@@ -21,8 +21,8 @@ final class Journey
 
         try {
             $p->step('环境：数据库可达（旅程要求真实 MariaDB）', function () use ($p, $site): void {
-                $cfg = require $site->root() . '/config/app.php';
-                $db = (array) ($cfg['database'] ?? []);
+                // 凭据经 Config 的 env 注入通道读取：app.php 只留空占位。
+                $db = (array) (new \Wx\Core\Config($site->root()))->get('database', []);
                 $dsn = (string) ($db['dsn'] ?? '');
                 $p->ok($dsn !== '', '主配置未登记 DSN');
                 try {

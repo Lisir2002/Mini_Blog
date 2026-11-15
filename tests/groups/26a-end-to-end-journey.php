@@ -68,8 +68,8 @@ check('跑完现场：工作区无 local.php、无旅程表前缀、默认 Headl
     $app = (string) file_get_contents($root . '/config/app.php');
     preg_match("#'theme'\s*=>\s*\[\s*'active'\s*=>\s*([^,]+),#", $app, $m);
     truthy(isset($m[1]) && trim($m[1]) === 'null', '默认 Headless 被改动');
-    $cfg = require $root . '/config/app.php';
-    $db = (array) ($cfg['database'] ?? []);
+    // 凭据经 Config 的 env 注入通道读取，app.php 只留空占位。
+    $db = (array) (new \Wx\Core\Config($root))->get('database', []);
     if ((string) ($db['dsn'] ?? '') !== '') {
         try {
             $pdo = new PDO((string) $db['dsn'], (string) ($db['user'] ?? ''), (string) ($db['pass'] ?? ''));

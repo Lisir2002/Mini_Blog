@@ -21,6 +21,7 @@ final class Kernel
     private SystemRegistry $systems;
     private Router $router;
     private bool $booted = false;
+    private string $reqId = '';
 
     /** @param array<string, mixed> $configOverride 运行期配置覆盖（多站点 / 嵌入 / 测试） */
     public function __construct(private string $root, array $configOverride = [])
@@ -63,17 +64,16 @@ final class Kernel
     public function handle(Request $request): Response
     {
         $started = microtime(true);
+        $this->reqId = $request->id();
         $this->boot();
         $response = $this->router->resolve($request, $this);
         $this->hooks->emit('kernel.response', $request, $response, $this);
         $response = $this->hooks->apply('kernel.response.filter', $response, $request, $this);
-        $response = $this->renderStage($response, $request);
+        // X-Request-Id 放在渲染与 filter 之后：filter 允许换出新的 Response 对象。
+        $response = $this->renderStage($response, $request)->setHeader('X-Request-Id', $this->reqId);
         // 时长为「进入 handle 到渲染完成」：不用 REQUEST_TIME_FLOAT，CLI / 测试里那是进程启动时间，
         // 会把「脚本跑了 3 秒」记成「这次请求慢了 3 秒」——统计宁可标注口径，也不能给出假数字。
-        $this->hooks->emit(
-            'kernel.shutdown', $request, $response, $this,
-            round((microtime(true) - $started) * 1000, 3)
-        );
+        $this->hooks->emit('kernel.shutdown', $request, $response, $this, round((microtime(true) - $started) * 1000, 3));
         return $response;
     }
 
@@ -87,15 +87,11 @@ final class Kernel
     {
         // 布局槽位是「意图」不是「样式」：页面声明想要 site/admin/tool/...，
         // 由主题包决定有没有、长什么样。核心只搬运字符串，不解释、不兜底、不产出标签。
-        $response->setLayout((string) $this->hooks->apply(
-            'render.layout', $response->layout(), $response, $request, $this
-        ));
+        $response->setLayout((string) $this->hooks->apply('render.layout', $response->layout(), $response, $request, $this));
 
         // 「是否套用主题渲染」同样是可编程裁决点：插件可声明自包含响应。
         // 注意：这里只允许「不渲染」，绝不允许「绕开主题另写一套样式」。
-        $shouldRender = (bool) $this->hooks->apply(
-            'render.should_render', true, $response, $request, $this
-        );
+        $shouldRender = (bool) $this->hooks->apply('render.should_render', true, $response, $request, $this);
         // 3xx 没有实体：重定向只需要状态行与 Location，不应被主题包成一张页面。
         $isRedirect = $response->status() >= 300 && $response->status() < 400;
         if ($shouldRender && !$isRedirect && $this->container->has(RendererInterface::class)) {
@@ -129,6 +125,7 @@ final class Kernel
     public function run(): void
     {
         $request = Request::fromGlobals();
+        $this->reqId = $request->id();
         try {
             $this->handle($request)->send();
         } catch (\Throwable $e) {
@@ -165,6 +162,8 @@ final class Kernel
     /** 内核自身的可观测性出口，交由日志系统订阅；核心不写日志文件。 */
     public function trace(string $message, array $context = []): void
     {
+        // 日志系统把 context 整体写进行：注入后响应头 / 信封 / 日志三处 ID 逐字一致。
+        if ($this->reqId !== '') $context += ['request_id' => $this->reqId];
         $this->hooks->emit('kernel.trace', $message, $context);
     }
 }

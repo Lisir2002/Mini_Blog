@@ -9,10 +9,8 @@ return [
     'on_install'   => static function (array $ctx): void {},
     'on_upgrade'   => static function (array $ctx): void {},
     'on_uninstall' => static function (array $ctx): void {
-        $configFile = dirname(__DIR__, 2) . '/config/app.php';
-        if (!is_file($configFile)) return;
-        $config = require $configFile;
-        $db = is_array($config) ? (array) ($config['database'] ?? []) : [];
+        // 凭据经 Config 的 env 注入通道读取：app.php 只留空占位，卸载清理仍连得上库。
+        $db = (array) (new \Wx\Core\Config(dirname(__DIR__, 2)))->get('database', []);
         if (($db['dsn'] ?? '') === '') return;
         try {
             $pdo = new \PDO((string) $db['dsn'], (string) ($db['user'] ?? ''), (string) ($db['pass'] ?? ''),

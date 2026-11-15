@@ -29,8 +29,8 @@ final class FaultJourney
 
         try {
             $p->step('环境：数据库可达（故障旅程同样要求真实 MariaDB）', function () use ($p, $site): void {
-                $cfg = require $site->root() . '/config/app.php';
-                $db = (array) ($cfg['database'] ?? []);
+                // 凭据经 Config 的 env 注入通道读取：app.php 只留空占位。
+                $db = (array) (new \Wx\Core\Config($site->root()))->get('database', []);
                 try {
                     $pdo = new \PDO((string) ($db['dsn'] ?? ''), (string) ($db['user'] ?? ''), (string) ($db['pass'] ?? ''));
                     $pdo->query('SELECT 1');

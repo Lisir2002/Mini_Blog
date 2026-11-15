@@ -11,11 +11,8 @@ return [
         // 迁移由 MigrationRunner 按台账执行，钩子里不做重复动作
     },
     'on_uninstall' => static function (array $ctx): void {
-        $configFile = dirname(__DIR__, 2) . '/config/app.php';
-        if (!is_file($configFile)) return;
-        $config = require $configFile;
-        if (!is_array($config)) return;
-        $db = (array) ($config['database'] ?? []);
+        // 凭据经 Config 的 env 注入通道读取：app.php 只留空占位，卸载清理仍连得上库。
+        $db = (array) (new \Wx\Core\Config(dirname(__DIR__, 2)))->get('database', []);
         if (($db['dsn'] ?? '') === '') return;
         try {
             $pdo = new \PDO(

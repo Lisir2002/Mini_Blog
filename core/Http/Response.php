@@ -20,6 +20,18 @@ final class Response
 
     public function setStatus(int $status): static { $this->status = $status; return $this; }
     public function setHeader(string $key, string $value): static { $this->headers[$key] = $value; return $this; }
+
+    /** 只补未设置项（头名大小写不敏感）：默认档不得覆盖附件 / 协商缓存等路径已声明的头。 */
+    public function fillHeaders(array $defaults): static
+    {
+        $set = array_map('strtolower', array_keys($this->headers));
+        foreach ($defaults as $key => $value) {
+            $name = (string) $key;
+            if (!in_array(strtolower($name), $set, true)) $this->headers[$name] = (string) $value;
+        }
+        return $this;
+    }
+
     public function setBody(string $body): static { $this->body = $body; return $this; }
     public function setPayload(mixed $payload): static { $this->payload = $payload; return $this; }
     public function setLayout(string $layout): static { $this->layout = $layout; return $this; }

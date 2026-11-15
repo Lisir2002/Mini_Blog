@@ -24,8 +24,8 @@ final class Site
 
     public function __construct(private string $root)
     {
-        $cfg = require $root . '/config/app.php';
-        $db = (array) ($cfg['database'] ?? []);
+        // 凭据经 Config 的 env 注入通道读取，app.php 只留空占位。
+        $db = (array) (new \Wx\Core\Config($root))->get('database', []);
         $this->dsn = (string) ($db['dsn'] ?? '');
         $this->user = (string) ($db['user'] ?? '');
         $this->pass = (string) ($db['pass'] ?? '');

@@ -6,6 +6,7 @@ final class Request
 {
     private ?array $jsonCache = null;
     private ?string $jsonError = null;
+    private ?string $idCache = null;
     private bool $jsonParsed = false;
 
     public function __construct(
@@ -134,5 +135,20 @@ final class Request
     public function header(string $key): ?string
     {
         return $this->headers[strtolower($key)] ?? null;
+    }
+
+    /**
+     * 全链路请求 ID：同一 Request 恒定，优先复用外部传入的 X-Request-Id。
+     * 只接受 [A-Za-z0-9._-] 且 <=64 字符：脏串会污染日志行与响应头，一律不采纳。
+     * 这是 C1 的唯一真源，Kernel / 信封 / 日志 / 响应头都取这里。
+     */
+    public function id(): string
+    {
+        if ($this->idCache !== null) return $this->idCache;
+        $given = $this->header('X-Request-Id');
+        if ($given !== null && preg_match('/^[A-Za-z0-9._-]{1,64}\z/', $given) === 1) {
+            return $this->idCache = $given;
+        }
+        return $this->idCache = bin2hex(random_bytes(8));
     }
 }

@@ -33,8 +33,8 @@ function tempSite(string $tag): string
 function isolatedKernel(string $dir, string $prefix, array $extra = []): Kernel
 {
     global $root;
-    $cfg = require $root . '/config/app.php';
-    $db = (array) ($cfg['database'] ?? []);
+    // 凭据一律经 Config 的 env 注入通道读取：app.php 只留空占位，明文在 config/.env。
+    $db = (array) (new \Wx\Core\Config($root))->get('database', []);
     return new Kernel($dir, array_replace_recursive([
         'theme' => ['active' => null],
         'database' => [
@@ -62,8 +62,8 @@ function isolatedKernel(string $dir, string $prefix, array $extra = []): Kernel
 function dropTables(string $prefix): void
 {
     global $root;
-    $cfg = require $root . '/config/app.php';
-    $db = (array) ($cfg['database'] ?? []);
+    // 凭据一律经 Config 的 env 注入通道读取：app.php 只留空占位，明文在 config/.env。
+    $db = (array) (new \Wx\Core\Config($root))->get('database', []);
     if ((string) ($db['dsn'] ?? '') === '') return;
     $pdo = new PDO((string) $db['dsn'], (string) $db['user'], (string) $db['pass']);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -145,8 +145,8 @@ function instDone(array $page): array
 function instDatabase(): array
 {
     global $root;
-    $cfg = require $root . '/config/app.php';
-    $db = (array) ($cfg['database'] ?? []);
+    // 凭据一律经 Config 的 env 注入通道读取：app.php 只留空占位，明文在 config/.env。
+    $db = (array) (new \Wx\Core\Config($root))->get('database', []);
     $dsn = (string) ($db['dsn'] ?? '');
     $out = ['host' => '127.0.0.1', 'port' => 3306, 'database' => '', 'user' => (string) ($db['user'] ?? ''), 'pass' => (string) ($db['pass'] ?? '')];
     foreach (explode(';', substr($dsn, (int) strpos($dsn, ':') + 1)) as $part) {

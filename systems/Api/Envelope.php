@@ -12,6 +12,11 @@ namespace Wx\Systems\Api;
 final class Envelope
 {
     public const OK = 0;
+    /** 稳定键前缀：客户端按 error.<code> 分支，与任何语言的文案措辞无关。 */
+    private const KEY_PREFIX = 'error.';
+
+    /** 稳定键的唯一真源：只由 code 决定，永不随文案 / 语言变化。 */
+    public static function detailKey(int $code): string { return self::KEY_PREFIX . $code; }
 
     /** @var array<int, array{0: int, 1: string}> code => [HTTP 状态, 简要说明] */
     public const TABLE = [
@@ -73,6 +78,8 @@ final class Envelope
     /** @param list<array<string, mixed>> $errors */
     public static function error(int $code, string $requestId, array $errors = [], ?string $detail = null, array $meta = []): array
     {
+        // 稳定键：客户端按 error.<code> 分支，不依赖中文文案措辞；与语言无关、恒定可查。
+        $meta['detail_key'] = self::detailKey($code);
         $body = [
             'code'       => $code,
             'message'    => self::TABLE[$code][1] ?? '未知错误',

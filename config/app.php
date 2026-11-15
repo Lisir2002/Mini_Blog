@@ -49,6 +49,9 @@ return [
     'api' => [
         'prefix'        => '/api/v1',
         'version'       => 'v1',
+        // 错误文案默认语言；请求可用 Accept-Language 协商为 en-US，未知标签一律回落此值。
+        // 中文说明恒取自 Envelope::TABLE（唯一事实源），本项只决定「当请求要求其它语言时」的落点。
+        'locale'        => 'zh-CN',
         'expose_errors' => false,
         // 写接口公网边界：false 时仅本机来源可调用写接口，公网默认拒绝（40302）
         'expose_write'  => false,

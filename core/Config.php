@@ -13,12 +13,25 @@ namespace Wx\Core;
  *
  * v0.68 C3：凭据只经环境注入，主配置不留明文。env 一律按字符串注入、不猜类型
  * （"123456" 不能被转成整数）；布尔 / 数值型配置仍走 local.php 或 override。
+ *
+ * v0.69 完整性收口：白名单由入库主配置 app.php 的声明动态展开（单一事实源，零手写清单），
+ * env 键必须精确命中声明的标量叶子——拼错键与「字符串覆盖数组槽位」一律显式拒绝并留痕，
+ * 不再让 put() 静默造出一条配置分支。构造期只拒绝、不抛异常（删光配置仍可启动），
+ * 需严格校验的调用方显式调 assertIntegrity()；诊断接口绝不返回任何值。
  */
 final class Config
 {
+    /** 框架骨架必需键：缺一即说明主配置被改坏，不能静默拿默认值顶上。 */
+    private const REQUIRED = ['site.name', 'api.prefix', 'api.version', 'database.dsn', 'database.user',
+        'security.session.ttl', 'lifecycle.require_checksum', 'lifecycle.require_signature'];
+
     private array $data;
     /** @var list<string> 本次由 env 注入的点路径；值本身不留在内存清单里 */
     private array $envApplied = [];
+    /** @var array<string, string> 被拒注入：点路径 => unknown|structure；只记路径与原因，不记值 */
+    private array $rejected = [];
+    /** @var array<string, string> app.php 声明的点路径 => leaf|branch */
+    private array $declared = [];
     private bool  $dotenvLoaded = false;
 
     /** @param array<string, mixed> $override 运行期覆盖，用于多站点 / 嵌入 / 测试 */
@@ -27,24 +40,38 @@ final class Config
         $file = $root . '/config/app.php';
         $loaded = is_file($file) ? require $file : [];
         $this->data = is_array($loaded) ? $loaded : [];
+        $this->declared = self::paths($this->data);
 
-        // 安装器 / 运维只写 config/local.php：不覆盖带注释的主配置，删掉即回到默认。
+        // 安装器 / 运维只写 config/local.php：本机显式覆盖层，允许新增键，不受 env 白名单约束。
         $local = $root . '/config/local.php';
         if (is_file($local)) {
             $localData = require $local;
-            if (is_array($localData)) {
-                $this->data = array_replace_recursive($this->data, $localData);
-            }
+            if (is_array($localData)) $this->data = array_replace_recursive($this->data, $localData);
         }
 
         foreach ($this->envPairs() as $path => $value) {
+            $kind = $this->declared[$path] ?? null;
+            if ($kind !== 'leaf') {
+                $this->rejected[$path] = $kind === 'branch' ? 'structure' : 'unknown';
+                continue;
+            }
             $this->put($path, $value);
             $this->envApplied[] = $path;
         }
 
-        if ($override !== []) {
-            $this->data = array_replace_recursive($this->data, $override);
+        if ($override !== []) $this->data = array_replace_recursive($this->data, $override);
+    }
+
+    /** 展开声明：标量记 leaf（可注入），数组记 branch（字符串不得覆盖）。 */
+    private static function paths(array $node, string $prefix = ''): array
+    {
+        $out = [];
+        foreach ($node as $k => $v) {
+            $p = $prefix === '' ? (string) $k : $prefix . '.' . $k;
+            $out[$p] = is_array($v) ? 'branch' : 'leaf';
+            if (is_array($v)) $out = array_replace($out, self::paths($v, $p));
         }
+        return $out;
     }
 
     /** @return array<string, string> 点路径 => 值；进程环境变量优先于 config/.env 同名键 */
@@ -99,11 +126,32 @@ final class Config
         return $cur;
     }
 
-    /** 只读诊断：注入是否生效、验签信任根是否就绪；绝不返回任何值，避免凭据进日志。 */
+    /** @return list<string> 只读诊断：缺失的必需骨架键 + 被拒的注入键；不含任何值。 */
+    public function issues(): array
+    {
+        $out = [];
+        foreach (self::REQUIRED as $key) if ($this->get($key) === null) $out[] = "缺少必需键 {$key}";
+        foreach ($this->rejected as $path => $why) {
+            $out[] = "注入键 {$path} " . ($why === 'structure' ? '指向数组槽位' : '未在 app.php 声明');
+        }
+        return $out;
+    }
+
+    /** 严格校验：问题非空即显式抛出，不再静默降级；供运维 / 守卫 / 启动自检调用。 */
+    public function assertIntegrity(): void
+    {
+        $problems = $this->issues();
+        if ($problems !== []) throw new \RuntimeException('配置完整性校验失败：' . implode('; ', $problems));
+    }
+
+    /** 只读诊断：注入是否生效、声明规模、信任根是否就绪；绝不返回任何值，避免凭据进日志。 */
     public function envReport(): array
     {
         return [
             'applied'      => $this->envApplied,
+            'rejected'     => $this->rejected,
+            'declared'     => count($this->declared),
+            'integrity_ok' => $this->issues() === [],
             'dotenv'       => $this->dotenvLoaded,
             'signature_ok' => (string) $this->get('lifecycle.signature_secret', '') !== '',
         ];

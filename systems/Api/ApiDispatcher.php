@@ -39,6 +39,13 @@ final class ApiDispatcher
     {
         $started = microtime(true);
         $result  = $this->dispatchOnce($request);
+        // 统一在出口协商语言：一处覆盖 404 / 405 / 限流 / 鉴权 / 校验 / 业务异常 / 幂等 / 成功全分支。
+        // 默认 zh-CN 时 localize 只保留 Envelope 已写入的稳定键，不改任何字段（语义等价）。
+        $locale = MessageCatalog::negotiate(
+            $request->header('Accept-Language'),
+            (string) $this->kernel->config()->get('api.locale', MessageCatalog::DEFAULT_LOCALE)
+        );
+        $result['body'] = MessageCatalog::localize($result['body'], $locale);
         $endpoint = $this->registry->match($request->method(), $request->path());
         $this->kernel->hooks()->emit(
             'api.executed',

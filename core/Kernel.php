@@ -27,6 +27,13 @@ final class Kernel
     {
         $this->config    = new Config($root, $configOverride);
         $this->hooks     = new HookBus();
+        // A1：内核级裁决点声明返回值契约；声明后任一 filter 违约立即失败，不把坏值沿链传下去。
+        $this->hooks->expect('contract.override', 'bool');
+        $this->hooks->expect('package.enabled', 'bool');
+        $this->hooks->expect('render.should_render', 'bool');
+        $this->hooks->expect('kernel.response.filter', Response::class);
+        // route.resolve 是路由控制流而非通知广播：监听者抛错必须冒泡到异常边界。
+        $this->hooks->strictTag('route.resolve');
         $this->container = new Container(
             fn(string $contract, string $from, string $to, int $priority): bool =>
                 (bool) $this->hooks->apply('contract.override', true, $contract, $from, $to, $priority, $this)

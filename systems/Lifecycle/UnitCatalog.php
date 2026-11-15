@@ -74,18 +74,29 @@ final class UnitCatalog
         return ltrim(str_replace('\\', '/', str_replace($this->root, '', $dir)), '/');
     }
 
-    /** @return list<array{identity: string, requires: array, dir: string}> */
+    /**
+     * v0.67 A3：除身份 / 依赖外，一并给出磁盘版本与台账状态。
+     * 「目录里有清单」不等于「已登记」——依赖图据此堵住丢假清单的 fail-open 面。
+     * @return list<array{identity: string, requires: array, dir: string, version: string, state: string}>
+     */
     public function allManifests(): array
     {
+        $states = [];
+        foreach ((array) ($this->state->all()['units'] ?? []) as $record) {
+            $states[(string) ($record['slug'] ?? '')] = (string) ($record['state'] ?? 'absent');
+        }
         $out = [];
         foreach (['systems', 'themes', 'plugins', 'pages'] as $dir) {
             foreach (glob($this->root . '/' . $dir . '/*/*.json') ?: [] as $file) {
                 $meta = json_decode((string) file_get_contents($file), true);
                 if (!is_array($meta)) continue;
+                $identity = (string) ($meta['slug'] ?? $meta['name'] ?? basename(dirname($file)));
                 $out[] = [
-                    'identity' => (string) ($meta['slug'] ?? $meta['name'] ?? basename(dirname($file))),
+                    'identity' => $identity,
                     'requires' => (array) ($meta['requires'] ?? []),
                     'dir'      => basename(dirname($file)),
+                    'version'  => $this->versionOf($meta),
+                    'state'    => $states[$identity] ?? 'absent',
                 ];
             }
         }

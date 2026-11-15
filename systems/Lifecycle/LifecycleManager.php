@@ -87,7 +87,8 @@ final class LifecycleManager implements LifecycleManagerInterface
         $this->machine->assertTransition($this->current($key), 'install', $key);
         $target = $this->catalog->unitDir($type, $slug);
         if ($this->tx->exists($target)) throw new LifecycleException('目标单元已存在：' . $key, 40901);
-        $this->graph->assertSatisfied($manifest);
+        // A3：把待装包身份一并交给依赖图，用于「并入全图后是否成环」的判定。
+        $this->graph->assertSatisfied($manifest, $this->catalog->identityOf($manifest, $src));
         $this->verifier->assertIntegrity($src);
         $this->runner->before('install', $type, $slug, $manifest);
         $version = $this->catalog->versionOf($manifest);

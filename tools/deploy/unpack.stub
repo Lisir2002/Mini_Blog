@@ -15,7 +15,8 @@ for keep in config/local.php config/.env storage/install.lock storage/install.to
 done
 
 mkdir -p "$ROOT"
-tar xzf "$ARCHIVE" -C "$ROOT" --strip-components=1
+# git archive 产出的是扁平结构（顶层直接是 public/ core/ 等），不可再剥层
+tar xzf "$ARCHIVE" -C "$ROOT"
 
 for keep in config/local.php config/.env storage/install.lock storage/install.token; do
   if [ -e "$BACKUP/$keep" ]; then

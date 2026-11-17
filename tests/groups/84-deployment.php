@@ -71,9 +71,12 @@ check('D4 · 脚本纪律：文档根指向 public/、拒绝敏感目录、幂�
     truthy(str_contains($serve, '${ROOT}/public') && str_contains($serve, "ROOT='{{ROOT}}'"), '文档根未指向 public/');
     truthy(str_contains($serve, 'fastcgi_pass'), 'PHP 未交 php-fpm');
     truthy(str_contains($serve, 'sites-enabled/default'), '未移除默认站点');
+    preg_match('/location ~ \^\/\([^)]+\)\/ \{ deny all; \}/', $serve, $dm);
+    truthy($dm !== [] && !str_contains($dm[1] ?? '', 'api'), 'api 目录不应被 nginx 拒绝（接口须对外，鉴权归框架）');
     truthy(str_contains($env, 'CREATE DATABASE IF NOT EXISTS') && str_contains($env, 'CREATE USER IF NOT EXISTS'),
         '建库建用户不幂等');
     truthy(str_contains($unp, 'config/local.php') && str_contains($unp, 'install.lock'), '解包未保留本机私有状态');
+    truthy(!str_contains($unp, '--strip-components'), 'git archive 为扁平结构，解包不可再剥层');
     truthy(str_contains($ins, '127.0.0.1') && str_contains($ins, '$BASE/install')
         && str_contains($ins, 'install.lock'), '安装未走本机向导 / 未幂等');
 });

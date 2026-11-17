@@ -17,7 +17,8 @@ server {
 
     # 安全基线：敏感目录与隐藏文件一律拒绝
     location ~ /\.(?!well-known) { deny all; }
-    location ~ ^/(config|core|systems|storage|tests|tools|docs|pages|api|plugins|themes)/ { deny all; }
+    # api/ 不在此列：接口需对外提供，鉴权由框架自身负责
+    location ~ ^/(config|core|systems|storage|tests|tools|docs|pages|plugins|themes)/ { deny all; }
 
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;

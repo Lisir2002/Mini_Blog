@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# 远程只读验收：全部检查以 "CHK " 前缀输出，由 deploy.php 汇总。不写任何文件。
+# 占位符：{{ROOT}} {{DB}} {{DBUSER}} {{DBPASS}} {{VERSION}} {{THEME}}
+set -u
+ROOT='{{ROOT}}'
+BASE="http://127.0.0.1"
+FAIL=0
+chk() { # chk <标签> <条件结果 0/1>
+  if [ "$2" -eq 0 ]; then echo "CHK [PASS] $1"; else echo "CHK [FAIL] $1"; FAIL=$((FAIL+1)); fi
+}
+
+# 1) 版本回读逐字一致
+RV="$(php -r '$v=json_decode(file_get_contents("{{ROOT}}/core/version.json"),true); echo $v["version"]??"";')"
+[ "$RV" = "{{VERSION}}" ]; chk "版本回读 {{VERSION}}" $?
+
+# 2) install.lock 存在
+[ -e "$ROOT/storage/install.lock" ]; chk "安装锁已生成" $?
+
+# 3) 首页 200 且含主题 HTML（非纯 JSON）
+HOME_CODE="$(curl -s -o /tmp/dp-home.html -w '%{http_code}' "$BASE/")"
+[ "$HOME_CODE" = "200" ]; chk "首页 HTTP 200" $?
+grep -q '<' /tmp/dp-home.html; chk "首页为主题 HTML（非 Headless JSON）" $?
+rm -f /tmp/dp-home.html
+
+# 4) 系统信息接口：数据库 mysql、主题激活、版本一致
+INFO="$(curl -fsS "$BASE/api/v1/system/info")"
+DB_OK="$(printf '%s' "$INFO" | php -r '$j=json_decode(stream_get_contents(STDIN),true); $d=$j["data"]??[]; echo (($d["database"]??"")==="mysql")?"1":"0";')"
+[ "$DB_OK" = "1" ]; chk "数据库走真实 MySQL" $?
+THEME_OK="$(printf '%s' "$INFO" | php -r '$j=json_decode(stream_get_contents(STDIN),true); $d=$j["data"]??[]; echo (($d["theme_active"]??null)==="{{THEME}}")?"1":"0";')"
+[ "$THEME_OK" = "1" ]; chk "主题 {{THEME}} 已生效" $?
+
+# 5) 真实连库：表数量 > 0 且前缀正确
+TABLES="$(mysql -u'{{DBUSER}}' -p'{{DBPASS}}' -h127.0.0.1 -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{{DB}}' AND table_name LIKE 'wx\_%';" 2>/dev/null)"
+[ "${TABLES:-0}" -gt 0 ] 2>/dev/null; chk "wx_ 前缀建表 ${TABLES:-0} 张" $?
+
+# 6) 关键 PHP 语法
+php -l "$ROOT/public/index.php" >/dev/null 2>&1; chk "入口 PHP 语法" $?
+
+if [ "$FAIL" -eq 0 ]; then echo "[verify] 全部验收通过"; exit 0; else echo "[verify] $FAIL 项未通过"; exit 1; fi

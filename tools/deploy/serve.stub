@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# 写 nginx 站点：文档根指向 public/，PHP 交 php-fpm，前控制器回退 index.php。幂等覆盖。
+set -euo pipefail
+ROOT='{{ROOT}}'
+DOMAIN='{{DOMAIN}}'
+FPM_SOCK="$(ls /run/php/php*-fpm.sock 2>/dev/null | head -1)"
+[ -n "$FPM_SOCK" ] || { echo "[serve] 未找到 php-fpm sock"; exit 1; }
+
+CONF="/etc/nginx/sites-available/miniblog"
+cat > "$CONF" <<NGINX
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name ${DOMAIN} _;
+    root ${ROOT}/public;
+    index index.php;
+
+    # 安全基线：敏感目录与隐藏文件一律拒绝
+    location ~ /\.(?!well-known) { deny all; }
+    location ~ ^/(config|core|systems|storage|tests|tools|docs|pages|api|plugins|themes)/ { deny all; }
+
+    location / {
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+
+    location ~ \.php\$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:${FPM_SOCK};
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+    }
+}
+NGINX
+
+ln -sf "$CONF" /etc/nginx/sites-enabled/miniblog
+rm -f /etc/nginx/sites-enabled/default
+nginx -t >/dev/null 2>&1 || { echo "[serve] nginx 配置校验失败"; nginx -t; exit 1; }
+systemctl reload nginx >/dev/null 2>&1 || service nginx reload >/dev/null 2>&1 || systemctl restart nginx >/dev/null 2>&1
+echo "[serve] 站点已启用：域名 ${DOMAIN}，文档根 ${ROOT}/public，fpm ${FPM_SOCK}"

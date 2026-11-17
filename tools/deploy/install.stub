@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# 五步安装向导（本机来源）+ 主题激活。幂等：已安装则只校准主题。
+# 占位符：{{ROOT}} {{DB}} {{DBUSER}} {{DBPASS}} {{ADMIN}} {{ADMINPASS}} {{THEME}}
+set -euo pipefail
+BASE="http://127.0.0.1"
+ROOT='{{ROOT}}'
+
+# 已安装：跳过向导，仅校准主题（下面 theme 段会处理）
+if [ -e "$ROOT/storage/install.lock" ]; then
+  echo "[install] 检测到 install.lock，跳过向导，进入主题校准"
+else
+  # 1) 取一次性令牌（本机返回）
+  PAGE="$(curl -fsS "$BASE/install")"
+  TOKEN="$(printf '%s' "$PAGE" | php -r '
+    $j=json_decode(stream_get_contents(STDIN),true);
+    foreach(($j["blocks"]??[]) as $b){ if(($b["id"]??"")==="install-token"){ echo $b["value"]??""; break; } }
+  ')"
+  [ -n "$TOKEN" ] || { echo "[install] 未取到安装令牌"; exit 1; }
+
+  post() {
+    curl -fsS -X POST "$BASE/install" -H 'Content-Type: application/json' \
+      -d "$1" | php -r '$j=json_decode(stream_get_contents(STDIN),true); echo ($j["ok"]??false)?"ok":"FAIL:".($j["message"]??"?");'
+  }
+
+  echo "[install] step=database：$(post "{\"step\":\"database\",\"token\":\"${TOKEN}\",\"host\":\"127.0.0.1\",\"port\":3306,\"database\":\"{{DB}}\",\"user\":\"{{DBUSER}}\",\"pass\":\"{{DBPASS}}\",\"prefix\":\"wx_\"}")"
+  echo "[install] step=admin：$(post "{\"step\":\"admin\",\"token\":\"${TOKEN}\",\"username\":\"{{ADMIN}}\",\"password\":\"{{ADMINPASS}}\"}")"
+  echo "[install] step=migrate：$(post "{\"step\":\"migrate\",\"token\":\"${TOKEN}\"}")"
+  echo "[install] step=finish：$(post "{\"step\":\"finish\",\"token\":\"${TOKEN}\"}")"
+fi
+
+# 2) 主题激活：经 API 签发管理员令牌 → theme.activate（幂等，重复为 changed=false）
+#    需要系统层装配真实可用；用 fresh 请求走完整 HTTP 管线。
+TOKEN_JSON="$(curl -fsS -X POST "$BASE/api/v1/auth/token" -H 'Content-Type: application/json' \
+  -d "{\"username\":\"{{ADMIN}}\",\"password\":\"{{ADMINPASS}}\"}")"
+BEARER="$(printf '%s' "$TOKEN_JSON" | php -r '$j=json_decode(stream_get_contents(STDIN),true); echo $j["data"]["token"]??"";')"
+if [ -n "$BEARER" ]; then
+  ACT="$(curl -fsS -X POST "$BASE/api/v1/themes/active" -H 'Content-Type: application/json' \
+    -H "Authorization: Bearer ${BEARER}" -d "{\"slug\":\"{{THEME}}\"}")"
+  echo "[install] 主题激活：$(printf '%s' "$ACT" | php -r '$j=json_decode(stream_get_contents(STDIN),true); echo ($j["code"]??-1)===0?"{{THEME}} 生效":"FAIL";')"
+else
+  echo "[install] 管理员令牌签发失败，主题未切换（站点仍可用 Headless）"
+fi
+echo "[install] 安装与主题配置完成"

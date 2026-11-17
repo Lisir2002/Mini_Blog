@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# 远程解包：把上传的 tar.gz 覆盖到部署根，保留本机已有的 config/local.php 与 storage 运行时。
+set -euo pipefail
+ARCHIVE='{{ARCHIVE}}'
+ROOT='{{ROOT}}'
+[ -s "$ARCHIVE" ] || { echo "[unpack] 归档为空或不存在：$ARCHIVE"; exit 1; }
+
+# 备份本机私有配置与运行时产物，解包后还原，避免覆盖生产数据 / 口令
+BACKUP="$(mktemp -d)"
+for keep in config/local.php config/.env storage/install.lock storage/install.token; do
+  if [ -e "$ROOT/$keep" ]; then
+    mkdir -p "$BACKUP/$(dirname "$keep")"
+    cp -a "$ROOT/$keep" "$BACKUP/$keep"
+  fi
+done
+
+mkdir -p "$ROOT"
+tar xzf "$ARCHIVE" -C "$ROOT" --strip-components=1
+
+for keep in config/local.php config/.env storage/install.lock storage/install.token; do
+  if [ -e "$BACKUP/$keep" ]; then
+    mkdir -p "$ROOT/$(dirname "$keep")"
+    cp -a "$BACKUP/$keep" "$ROOT/$keep"
+  fi
+done
+rm -rf "$BACKUP" "$ARCHIVE"
+
+# 运行时目录可写（安装器 / 缓存 / 会话都要写 storage）
+mkdir -p "$ROOT/storage" "$ROOT/config"
+chown -R www-data:www-data "$ROOT" 2>/dev/null || true
+chmod 0755 "$ROOT/public"
+echo "[unpack] 已解包到 $ROOT，本机配置与运行时保留"

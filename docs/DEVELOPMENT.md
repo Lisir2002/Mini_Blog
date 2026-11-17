@@ -162,3 +162,43 @@ git push origin main
 
 > 仓库是公开的：`admin/admin123` 一类只出现在文档与测试夹具里，**部署前务必改掉默认账号**；真实站点配置写在 `config/local.php`，该文件已被忽略。
 
+
+---
+
+## 六、一键部署工具（v0.70）
+
+`tools/deploy.php` 把「装环境 → 传代码 → 配库 → 装主题 → 起站点 → 验收」固化为可重跑命令，面向 Ubuntu / Debian + nginx + php-fpm + MariaDB 的**裸机**。它是纯运维编排：不引导运行时内核、不写死版本（版本只由 `core/version.json` 注入）、不保存任何明文口令。
+
+```bash
+php tools/deploy.php plan                    # 只读预演：目标 / 版本 / 步骤 / 口令就绪（不回显值）
+php tools/deploy.php env                     # 装 nginx + php-fpm + MariaDB，建库建用户（幂等）
+php tools/deploy.php push                    # git archive 本地打 tar → scp → 远程解包到部署根
+php tools/deploy.php serve                   # 写 nginx 站点，文档根指向 public/，拒绝敏感目录
+php tools/deploy.php install                 # 本机五步向导装库 / 管理员 / 迁移基线 / 主题 / 加锁（幂等）
+php tools/deploy.php verify                  # 远程只读验收，CHK 前缀逐条汇总
+php tools/deploy.php run --yes               # 串行 env→push→serve→install→verify
+```
+
+### 6.1 凭据注入（绝不入库）
+
+三处口令只从环境变量读，命令行 `--*-pass` 仅用于临时排障（会进 shell 历史，不推荐）：
+
+| 环境变量 | 含义 | 缺省 |
+| --- | --- | --- |
+| `DP_SSH_PASS` | 目标机 SSH 口令 | 必填（非 plan 命令） |
+| `DP_DB_PASS` | 站点数据库口令 | 必填 |
+| `DP_ADMIN_PASS` | 站点管理员口令 | 必填 |
+| `DP_HOST` / `DP_USER` / `DP_PORT` | 目标机 | `127.0.0.1` / `root` / `22` |
+| `DP_ROOT` / `DP_DOMAIN` | 部署根 / 站点域名 | `/var/www/miniblog` / 同 HOST |
+| `DP_DB` / `DP_DB_USER` / `DP_ADMIN` / `DP_THEME` | 库名 / 库用户 / 管理员 / 主题 | `wx_blog` / `wx` / `admin` / `glass-front` |
+
+SSH 口令经 `SSHPASS` 环境变量交给 `sshpass -e`（不进命令行参数）；数据库 / 管理员口令注入外置脚本模板后经 stdin 送远程 `bash`，本地临时文件 `0600` 且用完即删。`plan` 与所有日志只显示「已提供 / 缺失」，**永不回显任何口令值**。
+
+### 6.2 幂等与可重跑
+
+- 装包由 apt 负责（已装即跳过）；建库建用户用 `CREATE ... IF NOT EXISTS` + `ALTER USER` 重设口令；
+- `push` 解包前备份 `config/local.php` / `config/.env` / `storage/install.*`，解包后还原，覆盖升级不丢生产配置与数据；
+- `install` 见 `storage/install.lock` 即跳过向导、只校准主题，重复运行安全；主题激活走 `theme.activate`（重复为 `changed=false`）；
+- `verify` 只读：版本逐字回读、安装锁、首页 200 且为主题 HTML、接口报告 `database=mysql` 与主题激活、真实连库表数、入口语法。
+
+> 现场部署记录（目标机 / 版本 / 验收结果）见版本表与发版配套说明；本工具只固化流程，不替代「先按 5.1 改默认账号」的安全要求——`DP_ADMIN_PASS` 应使用强口令。
